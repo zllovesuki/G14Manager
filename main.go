@@ -1,18 +1,22 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os/exec"
 	"unsafe" // what is type safety anyway ¯\_(ツ)_/¯
 
+	"github.com/zllovesuki/ROGManager/system/thermal"
+
 	"github.com/lxn/win"
 	"golang.org/x/sys/windows"
+	"gopkg.in/toast.v1"
 )
 
 const (
 	lpString   = "ACPI Notification through ATKHotkey from BIOS"
-	className  = "ROGKeyRebind"
-	windowName = "ROGKeyRebind"
+	className  = "ROGManager"
+	windowName = "ROGManager"
 )
 
 var (
@@ -24,7 +28,11 @@ var (
 // If you just want it to launch whatever program, change this
 var commandWithArgs = []string{"Taskmgr.exe"}
 
-func handleSystemControlInterface(wParam uintptr) {
+type controller struct {
+	thermal *thermal.Thermal
+}
+
+func (c *controller) handleSystemControlInterface(wParam uintptr) {
 	// received all the control key presses (e.g. volume up, down, etc)
 	// we are only interested in "56", which is the ROG key
 	switch wParam {
@@ -35,13 +43,28 @@ func handleSystemControlInterface(wParam uintptr) {
 		if err := cmd.Run(); err != nil {
 			log.Println(err)
 		}
+	case 174:
+		log.Println("Fn + F5 Pressed")
+		next, err := c.thermal.NextProfile()
+		notification := toast.Notification{
+			AppID:    className,
+			Title:    "Toggle Thermal Plan",
+			Message:  fmt.Sprintf("Thermal plan changed to %s", next),
+			Duration: toast.Short,
+			Audio:    "silent",
+		}
+		if err != nil {
+			notification.Message = err.Error()
+		}
+		err = notification.Push()
+		if err != nil {
+			log.Println(err)
+		}
 	/*
 		case 107:
 			// Fn + F10: disable/enable trackpad
 		case 124:
 			// microphone mute/unmute
-		case 174:
-			// Fn + F5: change profile
 		case 196:
 			// brightness up
 		case 197:
@@ -52,20 +75,17 @@ func handleSystemControlInterface(wParam uintptr) {
 	}
 }
 
-// Below is uninteresting even to developers
-
-func wndProc(hwnd win.HWND, msg uint32, wParam, lParam uintptr) uintptr {
+func (c *controller) wndProc(hwnd win.HWND, msg uint32, wParam, lParam uintptr) uintptr {
 	switch msg {
 	case win.WM_DESTROY:
 		win.PostQuitMessage(0)
 	case pAPCI:
-		handleSystemControlInterface(wParam)
+		c.handleSystemControlInterface(wParam)
 	}
 	return win.DefWindowProc(hwnd, msg, wParam, lParam)
 }
 
-func main() {
-
+func (c *controller) Run() {
 	wc := win.WNDCLASSEX{}
 
 	hInst := win.GetModuleHandle(nil)
@@ -73,7 +93,7 @@ func main() {
 		log.Fatal("cannot acquire instance")
 	}
 
-	wc.LpfnWndProc = windows.NewCallback(wndProc)
+	wc.LpfnWndProc = windows.NewCallback(c.wndProc)
 	wc.HInstance = hInst
 	wc.LpszClassName = pClassName
 	wc.CbSize = uint32(unsafe.Sizeof(wc))
@@ -110,4 +130,18 @@ func main() {
 		win.TranslateMessage(&msg)
 		win.DispatchMessage(&msg)
 	}
+}
+
+func main() {
+	profile, err := thermal.NewThermal()
+	if err != nil {
+		log.Fatalln(err)
+	}
+	profile.Default()
+
+	control := &controller{
+		thermal: profile,
+	}
+
+	control.Run()
 }

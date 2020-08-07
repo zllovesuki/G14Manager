@@ -4,6 +4,7 @@ package thermal
 
 import (
 	"log"
+	"strings"
 
 	"github.com/zllovesuki/ROGManager/system/atkacpi"
 )
@@ -46,7 +47,7 @@ type thermalProfile struct {
 
 type Thermal struct {
 	controlInterface *atkacpi.ATKControl
-	powercfg         *powercfg
+	powercfg         *Powercfg
 	profiles         []thermalProfile
 	currentProfile   int
 }
@@ -56,7 +57,7 @@ func NewThermal() (*Thermal, error) {
 	if err != nil {
 		return nil, err
 	}
-	power, err := NewPowerCfg(nil)
+	power, err := NewPowerCfg()
 	if err != nil {
 		return nil, err
 	}
@@ -107,7 +108,7 @@ func (t *Thermal) Default() {
 		profile := thermalProfile{
 			name:             d.name,
 			throttlePlan:     d.throttlePlan,
-			windowsPowerPlan: d.windowsPowerPlan,
+			windowsPowerPlan: strings.ToLower(d.windowsPowerPlan),
 		}
 		if d.cpuFanCurve != "" {
 			cpuTable, err = NewFanTable(d.cpuFanCurve)
@@ -117,7 +118,7 @@ func (t *Thermal) Default() {
 			profile.cpuFanCurve = cpuTable
 		}
 		if d.gpuFanCurve != "" {
-			gpuTable, err = NewFanTable(d.cpuFanCurve)
+			gpuTable, err = NewFanTable(d.gpuFanCurve)
 			if err != nil {
 				panic(err)
 			}
@@ -125,7 +126,6 @@ func (t *Thermal) Default() {
 		}
 		t.profiles = append(t.profiles, profile)
 	}
-	t.powercfg.Default()
 }
 
 func (t *Thermal) NextProfile() (string, error) {
@@ -163,18 +163,22 @@ func (t *Thermal) setPowerPlan(profile thermalProfile) error {
 }
 
 func (t *Thermal) setFanCurve(profile thermalProfile) error {
-	if err := t.setFan(cpuFanCurveDevice, profile.cpuFanCurve.Bytes()); err != nil {
-		return err
+	if profile.cpuFanCurve != nil {
+		if err := t.setFan(cpuFanCurveDevice, profile.cpuFanCurve.Bytes()); err != nil {
+			return err
+		}
 	}
-	if err := t.setFan(gpuFanCurveDevice, profile.gpuFanCurve.Bytes()); err != nil {
-		return err
+	if profile.gpuFanCurve != nil {
+		if err := t.setFan(gpuFanCurveDevice, profile.gpuFanCurve.Bytes()); err != nil {
+			return err
+		}
 	}
 	return nil
 }
 
 func (t *Thermal) setFan(device byte, curve []byte) error {
 	if len(curve) != 16 {
-		log.Println("No curve found, skipping")
+		log.Println("invalid found, skipping")
 		return nil
 	}
 

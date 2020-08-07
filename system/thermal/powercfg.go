@@ -14,22 +14,21 @@ var (
 )
 
 type plan struct {
-	GUID     string
-	Name     string
-	IsActive bool
+	GUID         string
+	OriginalName string
+	Name         string
+	IsActive     bool
 }
 
-type powercfg struct {
+type Powercfg struct {
 	plansMap   map[string]plan
-	toggleMap  map[string]string
 	activePlan plan
 }
 
-// NewPowerCfg will return an implementation of Powercfg to toggle power plan
-func NewPowerCfg(toggleMap map[string]string) (*powercfg, error) {
-	cfg := &powercfg{
-		plansMap:  make(map[string]plan, 0),
-		toggleMap: toggleMap,
+// NewPowerCfg will return an implementation of Powercfg to change power plan
+func NewPowerCfg() (*Powercfg, error) {
+	cfg := &Powercfg{
+		plansMap: make(map[string]plan, 0),
 	}
 	err := cfg.listPowerPlans()
 	if err != nil {
@@ -38,14 +37,7 @@ func NewPowerCfg(toggleMap map[string]string) (*powercfg, error) {
 	return cfg, nil
 }
 
-func (p *powercfg) Default() {
-	p.toggleMap = map[string]string{
-		"Power saver":      "High performance",
-		"High performance": "Power saver",
-	}
-}
-
-func (p *powercfg) listPowerPlans() error {
+func (p *Powercfg) listPowerPlans() error {
 	powerCfgOut, err := run("powercfg", "/l")
 	if err != nil {
 		log.Printf("cannot list power plans: %s\n", err)
@@ -58,11 +50,12 @@ func (p *powercfg) listPowerPlans() error {
 			continue
 		}
 		currentPlan := plan{
-			GUID:     match[1],
-			Name:     match[3],
-			IsActive: match[4] == "*",
+			GUID:         match[1],
+			OriginalName: match[3],
+			Name:         strings.ToLower(match[3]),
+			IsActive:     match[4] == "*",
 		}
-		p.plansMap[match[3]] = currentPlan
+		p.plansMap[currentPlan.Name] = currentPlan
 		if currentPlan.IsActive {
 			p.activePlan = currentPlan
 		}
@@ -70,7 +63,7 @@ func (p *powercfg) listPowerPlans() error {
 	return nil
 }
 
-func (p *powercfg) setPowerPlan(active plan) error {
+func (p *Powercfg) setPowerPlan(active plan) error {
 	_, err := run("powercfg", "/S", active.GUID)
 	if err != nil {
 		log.Printf("cannot set active power plan: %s\n", err)
@@ -80,7 +73,7 @@ func (p *powercfg) setPowerPlan(active plan) error {
 	return nil
 }
 
-func (p *powercfg) Set(planName string) (nextPlan string, err error) {
+func (p *Powercfg) Set(planName string) (nextPlan string, err error) {
 	propose, ok := p.plansMap[planName]
 	if !ok {
 		err = errors.New("Cannot find target power plan")
@@ -92,29 +85,7 @@ func (p *powercfg) Set(planName string) (nextPlan string, err error) {
 		return
 	}
 
-	nextPlan = propose.Name
-
-	return
-}
-
-func (p *powercfg) Toggle() (nextPlan string, err error) {
-	next, ok := p.toggleMap[p.activePlan.Name]
-	if !ok {
-		err = errors.New("Toggle not found")
-		return
-	}
-	propose, ok := p.plansMap[next]
-	if !ok {
-		err = errors.New("Cannot find target power plan")
-		return
-	}
-	err = p.setPowerPlan(propose)
-	if err != nil {
-		err = errors.New("Cannot set power plan")
-		return
-	}
-
-	nextPlan = propose.Name
+	nextPlan = propose.OriginalName
 
 	return
 }

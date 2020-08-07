@@ -61,8 +61,12 @@ func (c *controller) handleSystemControlInterface(wParam uintptr) {
 			log.Println(err)
 		}
 	/*
+		case 87:
+			// Not sure what this is
 		case 107:
 			// Fn + F10: disable/enable trackpad
+		case 123:
+			// Power input change (unplug/plug in)
 		case 124:
 			// microphone mute/unmute
 		case 196:
@@ -139,9 +143,11 @@ func main() {
 	}
 	profile.Default()
 
+	// TODO: consider persistent states to Registry
 	control := &controller{
 		thermal: profile,
 	}
 
+	// TODO: consider adding signal handling for safe shutdown
 	control.Run()
 }

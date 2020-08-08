@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"os"
 	"os/exec"
 	"unsafe" // what is type safety anyway ¯\_(ツ)_/¯
 
@@ -29,6 +30,7 @@ var (
 var commandWithArgs = []string{"Taskmgr.exe"}
 
 type controller struct {
+	hWnd    win.HWND
 	thermal *thermal.Thermal
 }
 
@@ -89,7 +91,7 @@ func (c *controller) wndProc(hwnd win.HWND, msg uint32, wParam, lParam uintptr) 
 	return win.DefWindowProc(hwnd, msg, wParam, lParam)
 }
 
-func (c *controller) Run() {
+func (c *controller) initialize() {
 	wc := win.WNDCLASSEX{}
 
 	hInst := win.GetModuleHandle(nil)
@@ -106,7 +108,7 @@ func (c *controller) Run() {
 		log.Fatal("cannot register class")
 	}
 
-	hwnd := win.CreateWindowEx(
+	c.hWnd = win.CreateWindowEx(
 		0,
 		wc.LpszClassName,
 		pWindowName,
@@ -117,23 +119,23 @@ func (c *controller) Run() {
 		hInst,
 		nil,
 	)
-	if hwnd == 0 {
+	if c.hWnd == 0 {
 		log.Fatal("cannot create window", win.GetLastError())
 	}
 
 	win.ChangeWindowMessageFilterEx(
-		hwnd,
+		c.hWnd,
 		pAPCI,
 		win.MSGFLT_ALLOW,
 		nil,
 	)
 
-	win.ShowWindow(hwnd, win.SW_HIDE)
-	msg := win.MSG{}
-	for win.GetMessage(&msg, 0, 0, 0) != 0 {
-		win.TranslateMessage(&msg)
-		win.DispatchMessage(&msg)
-	}
+	win.ShowWindow(c.hWnd, win.SW_HIDE)
+}
+
+func (c *controller) Run() int {
+	c.initialize()
+	return c.eventLoop()
 }
 
 func main() {
@@ -149,5 +151,5 @@ func main() {
 	}
 
 	// TODO: consider adding signal handling for safe shutdown
-	control.Run()
+	os.Exit(control.Run())
 }

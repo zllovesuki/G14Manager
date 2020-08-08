@@ -1,4 +1,4 @@
-package main
+package battery
 
 import (
 	"errors"
@@ -36,14 +36,4 @@ func (c *ChargeLimit) Set(pct int) error {
 	}
 	c.currentLimit = pct
 	return nil
-}
-
-func main() {
-	limit, err := NewChargeLimit()
-	if err != nil {
-		panic(err)
-	}
-	if err := limit.Set(60); err != nil {
-		panic(err)
-	}
 }

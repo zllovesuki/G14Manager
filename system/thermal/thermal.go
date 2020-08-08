@@ -37,7 +37,7 @@ type Thermal struct {
 }
 
 func NewThermal() (*Thermal, error) {
-	ctrl, err := atkacpi.NewAtkControl()
+	ctrl, err := atkacpi.NewAtkControl(atkacpi.WriteControlCode)
 	if err != nil {
 		return nil, err
 	}
@@ -139,7 +139,7 @@ func (t *Thermal) NextProfile() (string, error) {
 }
 
 func (t *Thermal) setPowerPlan(profile thermalProfile) error {
-	inputBuf := make([]byte, 16)
+	inputBuf := make([]byte, atkacpi.ThrottlePlanInputBufferLength)
 	copy(inputBuf, atkacpi.ThrottlePlanControlBuffer)
 
 	inputBuf[atkacpi.ThrottlePlanControlByteIndex] = profile.throttlePlan
@@ -172,11 +172,11 @@ func (t *Thermal) setFan(device byte, curve []byte) error {
 		return nil
 	}
 
-	inputBuf := make([]byte, 28)
+	inputBuf := make([]byte, atkacpi.FanCurveInputBufferLength)
 	copy(inputBuf, atkacpi.FanCurveControlBuffer)
 
-	inputBuf[atkacpi.FanCurveControlByteIndex] = device
-	copy(inputBuf[12:], curve)
+	inputBuf[atkacpi.FanCurveDeviceControlByteIndex] = device
+	copy(inputBuf[atkacpi.FanCurveControlByteStartIndex:], curve)
 
 	_, err := t.controlInterface.Write(inputBuf)
 	if err != nil {

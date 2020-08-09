@@ -19,7 +19,7 @@ jobs:
         uses: actions/checkout@v2
       - name: Build Artifacts
         shell: cmd
-        run: call .\github\build.ps1
+        run: call .\.github\build.ps1
       - name: Create Release
         id: create_release
         uses: actions/create-release@latest

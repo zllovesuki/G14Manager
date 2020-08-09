@@ -6,17 +6,14 @@
 
 // +build windows,!use_cgo
 
-package main
+package controller
 
 import (
-	"unsafe"
-
 	"github.com/lxn/win"
 )
 
 func (c *controller) eventLoop() int {
-	msg := (*win.MSG)(unsafe.Pointer(win.GlobalAlloc(0, unsafe.Sizeof(win.MSG{}))))
-	defer win.GlobalFree(win.HGLOBAL(unsafe.Pointer(msg)))
+	msg := &win.MSG{}
 	for c.hWnd != 0 {
 		switch win.GetMessage(msg, 0, 0, 0) {
 		case 0:

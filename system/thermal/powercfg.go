@@ -1,12 +1,20 @@
 package thermal
 
 import (
+	"bytes"
+	"encoding/gob"
 	"errors"
 	"log"
 	"os/exec"
 	"regexp"
 	"strings"
 	"syscall"
+
+	"github.com/zllovesuki/ROGManager/system/persist"
+)
+
+const (
+	powerPersistKey = "PowerCfg"
 )
 
 var (
@@ -17,27 +25,27 @@ type plan struct {
 	GUID         string
 	OriginalName string
 	Name         string
-	IsActive     bool
 }
 
-type Powercfg struct {
+// PowerCfg ...
+type PowerCfg struct {
 	plansMap   map[string]plan
 	activePlan plan
 }
 
-// NewPowerCfg will return an implementation of Powercfg to change power plan
-func NewPowerCfg() (*Powercfg, error) {
-	cfg := &Powercfg{
+// NewPowerCfg will return a PowerCfg allowing you to modify the Windows Power Option
+func NewPowerCfg() (*PowerCfg, error) {
+	cfg := &PowerCfg{
 		plansMap: make(map[string]plan, 0),
 	}
-	err := cfg.listPowerPlans()
+	err := cfg.loadPowerPlans()
 	if err != nil {
 		return nil, err
 	}
 	return cfg, nil
 }
 
-func (p *Powercfg) listPowerPlans() error {
+func (p *PowerCfg) loadPowerPlans() error {
 	powerCfgOut, err := run("powercfg", "/l")
 	if err != nil {
 		log.Printf("cannot list power plans: %s\n", err)
@@ -53,17 +61,13 @@ func (p *Powercfg) listPowerPlans() error {
 			GUID:         match[1],
 			OriginalName: match[3],
 			Name:         strings.ToLower(match[3]),
-			IsActive:     match[4] == "*",
 		}
 		p.plansMap[currentPlan.Name] = currentPlan
-		if currentPlan.IsActive {
-			p.activePlan = currentPlan
-		}
 	}
 	return nil
 }
 
-func (p *Powercfg) setPowerPlan(active plan) error {
+func (p *PowerCfg) setPowerPlan(active plan) error {
 	_, err := run("powercfg", "/S", active.GUID)
 	if err != nil {
 		log.Printf("cannot set active power plan: %s\n", err)
@@ -73,12 +77,19 @@ func (p *Powercfg) setPowerPlan(active plan) error {
 	return nil
 }
 
-func (p *Powercfg) Set(planName string) (nextPlan string, err error) {
+// Set will change the Windows Power Option to the given power plan name
+func (p *PowerCfg) Set(planName string) (nextPlan string, err error) {
 	propose, ok := p.plansMap[planName]
 	if !ok {
 		err = errors.New("Cannot find target power plan")
 		return
 	}
+
+	if p.activePlan.GUID == propose.GUID {
+		// don't apply unnecessary changes
+		return p.activePlan.Name, nil
+	}
+
 	err = p.setPowerPlan(propose)
 	if err != nil {
 		err = errors.New("Cannot set power plan")
@@ -87,9 +98,58 @@ func (p *Powercfg) Set(planName string) (nextPlan string, err error) {
 
 	nextPlan = propose.OriginalName
 
+	log.Printf("windows power plan set to: %s\n", nextPlan)
+
 	return
 }
 
+var _ persist.Registry = &PowerCfg{}
+
+// Name satisfies persist.Registry
+func (p *PowerCfg) Name() string {
+	return powerPersistKey
+}
+
+// Value satisfies persist.Registry
+func (p *PowerCfg) Value() []byte {
+	var buf bytes.Buffer
+	enc := gob.NewEncoder(&buf)
+	if err := enc.Encode(p.activePlan); err != nil {
+		return nil
+	}
+	return buf.Bytes()
+}
+
+// Load satisfies persist.Registry
+func (p *PowerCfg) Load(v []byte) error {
+	if len(v) == 0 {
+		return nil
+	}
+	activePlan := plan{}
+	buf := bytes.NewBuffer(v)
+	dec := gob.NewDecoder(buf)
+	if err := dec.Decode(&activePlan); err != nil {
+		return err
+	}
+	p.activePlan = activePlan
+	return nil
+}
+
+// Apply satisfies persist.Registry
+func (p *PowerCfg) Apply() error {
+	if p.activePlan.Name == "" {
+		return nil
+	}
+	_, err := p.Set(p.activePlan.Name)
+	return err
+}
+
+// Close satisfied persist.Registry
+func (p *PowerCfg) Close() error {
+	return nil
+}
+
+// run will attempt to execute in command line without showing the console window
 func run(command string, args ...string) ([]byte, error) {
 	cmd := exec.Command(command, args...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: 0x08000000}

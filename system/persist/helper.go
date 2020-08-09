@@ -7,17 +7,24 @@ import (
 	"golang.org/x/sys/windows/registry"
 )
 
-const registryPath = `SOFTWARE\ROGManeger`
+const (
+	registryKey  = registry.LOCAL_MACHINE
+	registryPath = `SOFTWARE\ROGManeger`
+)
 
 // RegistryHelper contains a list of configurations to be loaded, saved, and applied
 type RegistryHelper struct {
 	configs map[string]Registry
+	key     registry.Key
+	path    string
 }
 
 // NewRegistryHelper returns a helper to persist config to the Registry
 func NewRegistryHelper() (*RegistryHelper, error) {
 	return &RegistryHelper{
 		configs: make(map[string]Registry),
+		key:     registryKey,
+		path:    registryPath,
 	}, nil
 }
 
@@ -29,8 +36,8 @@ func (h *RegistryHelper) Register(config Registry) {
 // Load will retrive and populate configs from Registry
 func (h *RegistryHelper) Load() error {
 	key, exists, err := registry.CreateKey(
-		registry.LOCAL_MACHINE,
-		registryPath,
+		h.key,
+		h.path,
 		registry.ALL_ACCESS,
 	)
 	if err != nil {
@@ -59,8 +66,8 @@ func (h *RegistryHelper) Load() error {
 // Save will persist all the configs to Registry as binary values
 func (h *RegistryHelper) Save() error {
 	key, _, err := registry.CreateKey(
-		registry.LOCAL_MACHINE,
-		registryPath,
+		h.key,
+		h.path,
 		registry.ALL_ACCESS,
 	)
 	if err != nil {

@@ -3,11 +3,18 @@ package thermal
 // This is inspired by the atrofac utility (https://github.com/cronosun/atrofac)
 
 import (
+	"bytes"
+	"encoding/gob"
+	"errors"
 	"log"
-	"strings"
 	"time"
 
 	"github.com/zllovesuki/ROGManager/system/atkacpi"
+	"github.com/zllovesuki/ROGManager/system/persist"
+)
+
+const (
+	thermalPersistKey = "ThermalProfile"
 )
 
 const (
@@ -21,145 +28,97 @@ const (
 	gpuFanCurveDevice = byte(0x25)
 )
 
-type thermalProfile struct {
-	name             string
-	windowsPowerPlan string
-	throttlePlan     byte
-	cpuFanCurve      *FanTable
-	gpuFanCurve      *FanTable
+// Profile contain each thermal profile definition
+// TODO: Revisit this
+type Profile struct {
+	Name             string
+	WindowsPowerPlan string
+	ThrottlePlan     byte
+	CPUFanCurve      *fanTable
+	GPUFanCurve      *fanTable
 }
 
+// Thermal defines contains the Windows Power Option and list of thermal profiles
 type Thermal struct {
-	controlInterface *atkacpi.ATKControl
-	powercfg         *Powercfg
-	profiles         []thermalProfile
-	currentProfile   int
+	controlInterface    *atkacpi.ATKControl
+	currentProfileIndex int
+	Config
 }
 
-func NewThermal() (*Thermal, error) {
+// Config defines the entry point for Windows Power Option and a list of thermal profiles
+type Config struct {
+	PowerCfg *PowerCfg
+	Profiles []Profile
+}
+
+// NewThermal allows you to cycle to the next thermal profile
+func NewThermal(conf Config) (*Thermal, error) {
+	if conf.PowerCfg == nil {
+		return nil, errors.New("nil PowerCfg is invalid")
+	}
+	if len(conf.Profiles) == 0 {
+		return nil, errors.New("empty Profiles is invalid")
+	}
+
 	ctrl, err := atkacpi.NewAtkControl(atkacpi.WriteControlCode)
 	if err != nil {
 		return nil, err
 	}
-	power, err := NewPowerCfg()
-	if err != nil {
-		return nil, err
-	}
 	return &Thermal{
-		controlInterface: ctrl,
-		powercfg:         power,
-		profiles:         make([]thermalProfile, 0),
-		currentProfile:   -1,
+		controlInterface:    ctrl,
+		currentProfileIndex: 0,
+		Config:              conf,
 	}, nil
 }
 
-func (t *Thermal) Default() {
-	defaults := []struct {
-		name             string
-		windowsPowerPlan string
-		throttlePlan     byte
-		cpuFanCurve      string
-		gpuFanCurve      string
-	}{
-		{
-			name:             "Fanless",
-			windowsPowerPlan: "Power saver",
-			throttlePlan:     throttlePlanSilent,
-			cpuFanCurve:      "39c:0%,49c:0%,59c:0%,69c:0%,79c:31%,89c:49%,99c:56%,109c:56%",
-			gpuFanCurve:      "39c:0%,49c:0%,59c:0%,69c:0%,79c:34%,89c:51%,99c:61%,109c:61%",
-		},
-		{
-			name:             "Quiet",
-			windowsPowerPlan: "Power saver",
-			throttlePlan:     throttlePlanSilent,
-			cpuFanCurve:      "39c:10%,49c:10%,59c:10%,69c:10%,79c:31%,89c:49%,99c:56%,109c:56%",
-			gpuFanCurve:      "39c:0%,49c:0%,59c:0%,69c:0%,79c:34%,89c:51%,99c:61%,109c:61%",
-		},
-		{
-			name:             "Silent",
-			windowsPowerPlan: "Power saver",
-			throttlePlan:     throttlePlanSilent,
-		},
-		{
-			name:             "Performance",
-			windowsPowerPlan: "High performance",
-			throttlePlan:     throttlePlanPerformance,
-		},
-		/*{
-			name:             "Turbo",
-			windowsPowerPlan: "High performance",
-			throttlePlan:     throttlePlanTurbo,
-		},*/
-	}
-	for _, d := range defaults {
-		var cpuTable, gpuTable *FanTable
-		var err error
-		profile := thermalProfile{
-			name:             d.name,
-			throttlePlan:     d.throttlePlan,
-			windowsPowerPlan: strings.ToLower(d.windowsPowerPlan),
-		}
-		if d.cpuFanCurve != "" {
-			cpuTable, err = NewFanTable(d.cpuFanCurve)
-			if err != nil {
-				panic(err)
-			}
-			profile.cpuFanCurve = cpuTable
-		}
-		if d.gpuFanCurve != "" {
-			gpuTable, err = NewFanTable(d.gpuFanCurve)
-			if err != nil {
-				panic(err)
-			}
-			profile.gpuFanCurve = gpuTable
-		}
-		t.profiles = append(t.profiles, profile)
-	}
-}
-
+// NextProfile will cycle to the next profile
 func (t *Thermal) NextProfile() (string, error) {
-	next := (t.currentProfile + 1) % len(t.profiles)
-	profile := t.profiles[next]
+	nextIndex := (t.currentProfileIndex + 1) % len(t.Config.Profiles)
+	nextProfile := t.Config.Profiles[nextIndex]
+
 	// note: always set thermal throttle plan first
-	if err := t.setPowerPlan(profile); err != nil {
+	if err := t.setPowerPlan(nextProfile); err != nil {
 		return "", err
 	}
-	log.Println("thermal throttle plan set")
 	time.Sleep(time.Millisecond * 25)
-	if err := t.setFanCurve(profile); err != nil {
+
+	if err := t.setFanCurve(nextProfile); err != nil {
 		return "", err
 	}
-	log.Println("fan profile set")
-	if _, err := t.powercfg.Set(profile.windowsPowerPlan); err != nil {
+
+	if _, err := t.Config.PowerCfg.Set(nextProfile.WindowsPowerPlan); err != nil {
 		return "", err
 	}
-	log.Println("windows power plan set")
-	t.currentProfile = next
-	return profile.name, nil
+
+	t.currentProfileIndex = nextIndex
+
+	return nextProfile.Name, nil
 }
 
-func (t *Thermal) setPowerPlan(profile thermalProfile) error {
+func (t *Thermal) setPowerPlan(profile Profile) error {
 	inputBuf := make([]byte, atkacpi.ThrottlePlanInputBufferLength)
 	copy(inputBuf, atkacpi.ThrottlePlanControlBuffer)
 
-	inputBuf[atkacpi.ThrottlePlanControlByteIndex] = profile.throttlePlan
+	inputBuf[atkacpi.ThrottlePlanControlByteIndex] = profile.ThrottlePlan
 
 	_, err := t.controlInterface.Write(inputBuf)
 	if err != nil {
 		return err
 	}
 
+	log.Printf("thermal throttle plan set: 0x%x\n", profile.ThrottlePlan)
+
 	return nil
 }
 
-func (t *Thermal) setFanCurve(profile thermalProfile) error {
-	if profile.cpuFanCurve != nil {
-		if err := t.setFan(cpuFanCurveDevice, profile.cpuFanCurve.Bytes()); err != nil {
+func (t *Thermal) setFanCurve(profile Profile) error {
+	if profile.CPUFanCurve != nil {
+		if err := t.setFan(cpuFanCurveDevice, profile.CPUFanCurve.Bytes()); err != nil {
 			return err
 		}
 	}
-	if profile.gpuFanCurve != nil {
-		if err := t.setFan(gpuFanCurveDevice, profile.gpuFanCurve.Bytes()); err != nil {
+	if profile.GPUFanCurve != nil {
+		if err := t.setFan(gpuFanCurveDevice, profile.GPUFanCurve.Bytes()); err != nil {
 			return err
 		}
 	}
@@ -183,6 +142,8 @@ func (t *Thermal) setFan(device byte, curve []byte) error {
 		return err
 	}
 
+	log.Printf("device 0x%x curve set to %+v\n", device, curve)
+
 	return nil
 }
 
@@ -192,4 +153,59 @@ func (t *Thermal) setCPUFan(curve []byte) error {
 
 func (t *Thermal) setGPUFan(curve []byte) error {
 	return t.setFan(gpuFanCurveDevice, curve)
+}
+
+var _ persist.Registry = &Thermal{}
+
+type persistThermal struct {
+	Index    int
+	Profiles []Profile
+}
+
+// Name satisfies persist.Registry
+func (t *Thermal) Name() string {
+	return thermalPersistKey
+}
+
+// Value satisfies persist.Registry
+func (t *Thermal) Value() []byte {
+	s := persistThermal{
+		Index:    t.currentProfileIndex,
+		Profiles: t.Config.Profiles,
+	}
+	var buf bytes.Buffer
+	enc := gob.NewEncoder(&buf)
+	if err := enc.Encode(s); err != nil {
+		return nil
+	}
+	return buf.Bytes()
+}
+
+// Load staisfies persist.Registry
+func (t *Thermal) Load(v []byte) error {
+	if len(v) == 0 {
+		return nil
+	}
+	s := persistThermal{}
+	buf := bytes.NewBuffer(v)
+	dec := gob.NewDecoder(buf)
+	if err := dec.Decode(&s); err != nil {
+		return err
+	}
+	t.currentProfileIndex = s.Index
+	// TODO: remove this once we allow user to specify their curve
+	t.Config.Profiles = s.Profiles
+	return nil
+}
+
+// Apply satisfies persist.Registry
+func (t *Thermal) Apply() error {
+	t.currentProfileIndex-- // drcrement the index so we reapply the current one
+	_, err := t.NextProfile()
+	return err
+}
+
+// Close satisfied persist.Registry
+func (t *Thermal) Close() error {
+	return t.controlInterface.Close()
 }

@@ -27,7 +27,7 @@ const (
 	KeyPressControlBufferLength         = 16
 	BatteryChargeLimitInputBufferLength = 16
 	ThrottlePlanInputBufferLength       = 16
-	FanCurveInputBufferLength           = 24
+	FanCurveInputBufferLength           = 28
 )
 
 // Defines the buffer size when reading from ATKACPI
@@ -82,7 +82,7 @@ func (a *ATKControl) Write(buf []byte) (result *device.DeviceOutput, err error) 
 	if err != nil {
 		return
 	}
-	log.Printf("device %s write result: %+v\n", devicePath, result)
+	log.Printf("device %s write result length: %d\n", devicePath, result.Written)
 	return
 }
 

@@ -4,6 +4,16 @@
 
 Your warranty is now void. Proceed at your own risk.
 
+## Help Wanted
+
+Asus wrote the `atkwmiacpi64.sys` with a very old version of Windows Driver Kit. If you are into reverse engineering and have knowledge of inner working of the ACPI programming, please help rewrite their driver to be more modern. Any decompiler/dissassembler (retdec and IDA Pro) should give you a good start.
+
+Reference design:
+
+Linux: [https://github.com/torvalds/linux/blob/master/drivers/platform/x86/asus-wmi.c](https://github.com/torvalds/linux/blob/master/drivers/platform/x86/asus-wmi.c)
+
+macOS: [https://github.com/hieplpvip/AsusSMC](https://github.com/hieplpvip/AsusSMC)
+
 ## Requirements
 
 ROGManager requires "Asus Optimization" to be running as a Service, since "Asus Optimization" loads the `atkwmiacpi64.sys` driver and interpret ACPI events as key presses, and exposes a `\\.\ATKACPI` device to be used. "Asus Optimization" also notifies other processes via Messages (which ROGManager will receive). You do not need any other softwares from Asus to use ROGManager.
@@ -36,6 +46,8 @@ Mode                 LastWriteTime         Length Name
 ------         7/28/2020     02:53         204184 VideoEnhance_v406_20180511_x64.dll
 ```
 
+Recommend running ROGManager.exe on startup in Task Scheduler.
+
 ## Remapping the ROG Key
 
 By default, it will launch Task Manager when you press the ROG Key. You can compile your `.ahk` to `.exe` and run your macros.
@@ -50,35 +62,20 @@ To specify which program to launch, pass your path to the desired program as arg
 
 For the initial release, you have to change fan curve in `system\thermal\default.go`. In a future release ROGManager will allow you to specify the fan curve without rebuilding the binary. However, the default fan curve should be sufficient for most users.
 
-Use the `Fn + F5` key combo to cycle through all the profiles. Fanless -> Quiet -> Slient -> High Performance
+Use the `Fn + F5` key combo to cycle through all the profiles. Fanless -> Quiet -> Slient -> Performance
 
 ## How to Build
 
 1. Install golang 1.14+ if you don't have it already
+2. Install mingw x86_64 for `gcc.exe`
 2. Install `rsrc`: `go get github.com/akavel/rsrc`
-3. Generate `syso` file: `\path\to\rsrc.exe -manifest ROGKeyRebind.exe.manifest -ico go.ico -o ROGKeyRebind.exe.syso`
-4. Build the binary: `go build -ldflags -H=windowsgui github.com/zllovesuki/ROGKeyRebind`
-
-Recommend running ROGKeyRebind.exe on startup in Task Scheduler.
+3. Generate `syso` file: `\path\to\rsrc.exe -arch amd64 -manifest ROGManager.exe.manifest -ico go.ico -o ROGManager.exe.syso`
+4. Build the binary: `.\build.ps1`
 
 ## Developing
 
-Remove the `-ldflags -H=windowsgui` when you run or build, then you will see the console.
+Use `.\run.ps1` as it does not compile using CGo.
 
 ## CGo Optimizations
 
-The usual default message loop includes calls to win32 API functions, which incurs a decent amount of runtime overhead coming from Go. As an alternative to this, you may compile ROGManager using an optional C implementation of the main message loop, by passing the `use_cgo` build tag. Note that the example build command requires WSL2:
-
-```bash
-GOOS=windows GOARCH=amd64 CGO_ENABLED=1 CC_FOR_TARGET=x86_64-w64-mingw32-gcc go build -ldflags="-H=windowsgui -s -w" github.com/zllovesuki/ROGManager
-```
-
-## Help Wanted
-
-Asus wrote the `atkwmiacpi64.sys` with a very old version of Windows Driver Kit. If you are into reverse engineering and have knowledge of inner working of the ACPI programming, please help rewrite their driver to be more modern. Any decompiler/dissassembler (retdec and IDA Pro) should give you a good start.
-
-Reference design:
-
-Linux: [https://github.com/torvalds/linux/blob/master/drivers/platform/x86/asus-wmi.c](https://github.com/torvalds/linux/blob/master/drivers/platform/x86/asus-wmi.c)
-
-macOS: [https://github.com/hieplpvip/AsusSMC](https://github.com/hieplpvip/AsusSMC)
+The usual default message loop includes calls to win32 API functions, which incurs a decent amount of runtime overhead coming from Go. As an alternative to this, you may compile ROGManager using an optional C implementation of the main message loop, by passing the `use_cgo` build tag.

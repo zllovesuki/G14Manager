@@ -4,6 +4,7 @@ go 1.14
 
 require (
 	github.com/akavel/rsrc v0.9.0 // indirect
+	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 	github.com/lxn/win v0.0.0-20191128105842-2da648fda5b4
 	github.com/nu7hatch/gouuid v0.0.0-20131221200532-179d4d0c4d8d // indirect
 	github.com/stretchr/testify v1.6.1

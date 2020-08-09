@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"log"
 	"os"
 	"os/signal"
@@ -10,12 +11,22 @@ import (
 	"github.com/zllovesuki/ROGManager/system/battery"
 	"github.com/zllovesuki/ROGManager/system/persist"
 	"github.com/zllovesuki/ROGManager/system/thermal"
+
+	"github.com/google/shlex"
 )
 
-// If you just want it to launch whatever program, change this
-var commandWithArgs = []string{"Taskmgr.exe"}
+var defaultCommandWithArgs = "Taskmgr.exe"
 
 func main() {
+
+	rogRemap := flag.String("rog", defaultCommandWithArgs, "which program to launch when the ROG Key is pressed")
+
+	flag.Parse()
+
+	commandWithArgs, err := shlex.Split(*rogRemap)
+	if err != nil {
+		log.Fatalln(err)
+	}
 
 	config, _ := persist.NewRegistryHelper()
 

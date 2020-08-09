@@ -1,18 +1,22 @@
 #include <windows.h>
+#include <stdio.h>
 
 static int event_loop(uintptr_t handle_ptr)
 {
+    printf("Using C event_loop\n");
     HWND *hwnd = (HWND *)handle_ptr;
     MSG m;
     int r;
 
-    while (*hwnd) {
+    while (*hwnd)
+    {
         r = GetMessage(&m, NULL, 0, 0);
         if (!r)
             return m.wParam;
         else if (r < 0)
             return -1;
-        if (!IsDialogMessage(*hwnd, &m)) {
+        if (!IsDialogMessage(*hwnd, &m))
+        {
             TranslateMessage(&m);
             DispatchMessage(&m);
         }

@@ -9,10 +9,13 @@
 package controller
 
 import (
+	"fmt"
+
 	"github.com/lxn/win"
 )
 
 func (c *controller) eventLoop() int {
+	fmt.Println("Using go event_loop")
 	msg := &win.MSG{}
 	for c.hWnd != 0 {
 		switch win.GetMessage(msg, 0, 0, 0) {

@@ -1,5 +1,7 @@
 # ROGManager: A Replacement For Armoury Crate (mostly)
 
+![Test and Build](https://github.com/zllovesuki/ROGManager/workflows/Test%20and%20Build/badge.svg) ![Build Release](https://github.com/zllovesuki/ROGManager/workflows/Build%20Release/badge.svg)
+
 ## Disclaimer
 
 Your warranty is now void. Proceed at your own risk.

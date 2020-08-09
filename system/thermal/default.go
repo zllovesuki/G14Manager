@@ -37,9 +37,9 @@ func GetDefaultThermalProfiles() []Profile {
 			throttlePlan:     throttlePlanPerformance,
 		},
 		/*{
-			name:             "Turbo",
-			windowsPowerPlan: "High performance",
-			throttlePlan:     throttlePlanTurbo,
+		    name:             "Turbo",
+		    windowsPowerPlan: "High performance",
+		    throttlePlan:     throttlePlanTurbo,
 		},*/
 	}
 	for _, d := range defaults {

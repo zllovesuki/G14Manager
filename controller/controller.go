@@ -106,18 +106,18 @@ func (c *controller) handleSystemControlInterface(wParam uintptr) {
 			message: message,
 		}
 	/*
-		case 87:
-			// Not sure what this is
-		case 107:
-			// Fn + F10: disable/enable trackpad
-		case 123:
-			// Power input change (unplug/plug in)
-		case 124:
-			// microphone mute/unmute
-		case 196:
-			// brightness up
-		case 197:
-			// brightness down
+	   case 87:
+	       // Not sure what this is
+	   case 107:
+	       // Fn + F10: disable/enable trackpad
+	   case 123:
+	       // Power input change (unplug/plug in)
+	   case 124:
+	       // microphone mute/unmute
+	   case 196:
+	       // brightness up
+	   case 197:
+	       // brightness down
 	*/
 	default:
 		log.Printf("Unknown keypress: %d\n", wParam)

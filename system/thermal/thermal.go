@@ -71,6 +71,11 @@ func NewThermal(conf Config) (*Thermal, error) {
 	}, nil
 }
 
+// CurrentProfile will return the currently active Profile
+func (t *Thermal) CurrentProfile() Profile {
+	return t.Config.Profiles[t.currentProfileIndex]
+}
+
 // NextProfile will cycle to the next profile
 func (t *Thermal) NextProfile() (string, error) {
 	nextIndex := (t.currentProfileIndex + 1) % len(t.Config.Profiles)

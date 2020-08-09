@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"time"
 	"unsafe"
 
 	"github.com/lxn/win"
@@ -174,11 +175,8 @@ func (c *controller) initialize() {
 	)
 
 	win.ShowWindow(c.hWnd, win.SW_HIDE)
-}
 
-func (c *controller) Run() int {
-	c.initialize()
-
+	// only now we can send toast notifications
 	go func() {
 		for {
 			select {
@@ -190,16 +188,29 @@ func (c *controller) Run() int {
 			}
 		}
 	}()
+}
 
+func (c *controller) Run() int {
+
+	// TODO: revisit this
 	c.notifyQueue <- notification{
-		title:   "Settings Loaded",
-		message: "Configurations were reloaded from Registry",
+		title:   "Settings Loaded from Registry",
+		message: fmt.Sprintf("Current Thermal Plan: %s", c.Config.Thermal.CurrentProfile().Name),
 	}
+
+	c.initialize()
 
 	return c.eventLoop()
 }
 
 func (c *controller) Shutdown() {
+	// TODO: revisit this
+	c.notifyQueue <- notification{
+		title:   "Saving Settings to Registry",
+		message: fmt.Sprintf("Thermal Plan: %s", c.Config.Thermal.CurrentProfile().Name),
+	}
+	time.Sleep(time.Millisecond * 50)
+
 	if err := c.Config.Registry.Save(); err != nil {
 		log.Fatalln(err)
 	}

@@ -7,7 +7,6 @@ import (
 	"encoding/gob"
 	"errors"
 	"log"
-	"time"
 
 	"github.com/zllovesuki/ROGManager/system/atkacpi"
 	"github.com/zllovesuki/ROGManager/system/persist"
@@ -40,7 +39,6 @@ type Profile struct {
 
 // Thermal defines contains the Windows Power Option and list of thermal profiles
 type Thermal struct {
-	controlInterface    *atkacpi.ATKControl
 	currentProfileIndex int
 	Config
 }
@@ -60,12 +58,7 @@ func NewThermal(conf Config) (*Thermal, error) {
 		return nil, errors.New("empty Profiles is invalid")
 	}
 
-	ctrl, err := atkacpi.NewAtkControl(atkacpi.WriteControlCode)
-	if err != nil {
-		return nil, err
-	}
 	return &Thermal{
-		controlInterface:    ctrl,
 		currentProfileIndex: 0,
 		Config:              conf,
 	}, nil
@@ -81,13 +74,18 @@ func (t *Thermal) NextProfile(howMany int) (string, error) {
 	nextIndex := (t.currentProfileIndex + howMany) % len(t.Config.Profiles)
 	nextProfile := t.Config.Profiles[nextIndex]
 
-	// note: always set thermal throttle plan first
-	if err := t.setPowerPlan(nextProfile); err != nil {
+	ctrl, err := atkacpi.NewAtkControl(atkacpi.WriteControlCode)
+	if err != nil {
 		return "", err
 	}
-	time.Sleep(time.Millisecond * 25)
+	defer ctrl.Close()
 
-	if err := t.setFanCurve(nextProfile); err != nil {
+	// note: always set thermal throttle plan first
+	if err := t.setPowerPlan(ctrl, nextProfile); err != nil {
+		return "", err
+	}
+
+	if err := t.setFanCurve(ctrl, nextProfile); err != nil {
 		return "", err
 	}
 
@@ -100,13 +98,13 @@ func (t *Thermal) NextProfile(howMany int) (string, error) {
 	return nextProfile.Name, nil
 }
 
-func (t *Thermal) setPowerPlan(profile Profile) error {
+func (t *Thermal) setPowerPlan(ctrl *atkacpi.ATKControl, profile Profile) error {
 	inputBuf := make([]byte, atkacpi.ThrottlePlanInputBufferLength)
 	copy(inputBuf, atkacpi.ThrottlePlanControlBuffer)
 
 	inputBuf[atkacpi.ThrottlePlanControlByteIndex] = profile.ThrottlePlan
 
-	_, err := t.controlInterface.Write(inputBuf)
+	_, err := ctrl.Write(inputBuf)
 	if err != nil {
 		return err
 	}
@@ -116,21 +114,21 @@ func (t *Thermal) setPowerPlan(profile Profile) error {
 	return nil
 }
 
-func (t *Thermal) setFanCurve(profile Profile) error {
+func (t *Thermal) setFanCurve(ctrl *atkacpi.ATKControl, profile Profile) error {
 	if profile.CPUFanCurve != nil {
-		if err := t.setFan(cpuFanCurveDevice, profile.CPUFanCurve.Bytes()); err != nil {
+		if err := t.setFan(ctrl, cpuFanCurveDevice, profile.CPUFanCurve.Bytes()); err != nil {
 			return err
 		}
 	}
 	if profile.GPUFanCurve != nil {
-		if err := t.setFan(gpuFanCurveDevice, profile.GPUFanCurve.Bytes()); err != nil {
+		if err := t.setFan(ctrl, gpuFanCurveDevice, profile.GPUFanCurve.Bytes()); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (t *Thermal) setFan(device byte, curve []byte) error {
+func (t *Thermal) setFan(ctrl *atkacpi.ATKControl, device byte, curve []byte) error {
 	if len(curve) != 16 {
 		log.Println("invalid found, skipping")
 		return nil
@@ -142,7 +140,7 @@ func (t *Thermal) setFan(device byte, curve []byte) error {
 	inputBuf[atkacpi.FanCurveDeviceControlByteIndex] = device
 	copy(inputBuf[atkacpi.FanCurveControlByteStartIndex:], curve)
 
-	_, err := t.controlInterface.Write(inputBuf)
+	_, err := ctrl.Write(inputBuf)
 	if err != nil {
 		return err
 	}
@@ -152,12 +150,12 @@ func (t *Thermal) setFan(device byte, curve []byte) error {
 	return nil
 }
 
-func (t *Thermal) setCPUFan(curve []byte) error {
-	return t.setFan(cpuFanCurveDevice, curve)
+func (t *Thermal) setCPUFan(ctrl *atkacpi.ATKControl, curve []byte) error {
+	return t.setFan(ctrl, cpuFanCurveDevice, curve)
 }
 
-func (t *Thermal) setGPUFan(curve []byte) error {
-	return t.setFan(gpuFanCurveDevice, curve)
+func (t *Thermal) setGPUFan(ctrl *atkacpi.ATKControl, curve []byte) error {
+	return t.setFan(ctrl, gpuFanCurveDevice, curve)
 }
 
 var _ persist.Registry = &Thermal{}
@@ -212,5 +210,5 @@ func (t *Thermal) Apply() error {
 
 // Close satisfied persist.Registry
 func (t *Thermal) Close() error {
-	return t.controlInterface.Close()
+	return nil
 }

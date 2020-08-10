@@ -14,19 +14,13 @@ const (
 
 // ChargeLimit allows you to limit the full charge percentage on your laptop
 type ChargeLimit struct {
-	controlInterface *atkacpi.ATKControl
-	currentLimit     uint8
+	currentLimit uint8
 }
 
 // NewChargeLimit initializes the control interface and returns an instance of ChargeLimit
 func NewChargeLimit() (*ChargeLimit, error) {
-	ctrl, err := atkacpi.NewAtkControl(atkacpi.WriteControlCode)
-	if err != nil {
-		return nil, err
-	}
 	return &ChargeLimit{
-		controlInterface: ctrl,
-		currentLimit:     80,
+		currentLimit: 80,
 	}, nil
 }
 
@@ -35,11 +29,17 @@ func (c *ChargeLimit) Set(pct uint8) error {
 	if pct <= 40 || pct >= 100 {
 		return errors.New("charge limit percentage must be between 40 and 100, inclusive")
 	}
+	ctrl, err := atkacpi.NewAtkControl(atkacpi.WriteControlCode)
+	if err != nil {
+		return err
+	}
+	defer ctrl.Close()
+
 	inputBuf := make([]byte, atkacpi.BatteryChargeLimitInputBufferLength)
 	copy(inputBuf, atkacpi.BatteryChargeLimitControlBuffer)
 	inputBuf[atkacpi.BatteryChargeLimitControlByteIndex] = byte(pct)
 
-	_, err := c.controlInterface.Write(inputBuf)
+	_, err = ctrl.Write(inputBuf)
 	if err != nil {
 		return err
 	}
@@ -77,5 +77,5 @@ func (c *ChargeLimit) Apply() error {
 
 // Close satisfied persist.Registry
 func (c *ChargeLimit) Close() error {
-	return c.controlInterface.Close()
+	return nil
 }

@@ -77,8 +77,8 @@ func (t *Thermal) CurrentProfile() Profile {
 }
 
 // NextProfile will cycle to the next profile
-func (t *Thermal) NextProfile() (string, error) {
-	nextIndex := (t.currentProfileIndex + 1) % len(t.Config.Profiles)
+func (t *Thermal) NextProfile(howMany int) (string, error) {
+	nextIndex := (t.currentProfileIndex + howMany) % len(t.Config.Profiles)
 	nextProfile := t.Config.Profiles[nextIndex]
 
 	// note: always set thermal throttle plan first
@@ -206,7 +206,7 @@ func (t *Thermal) Load(v []byte) error {
 // Apply satisfies persist.Registry
 func (t *Thermal) Apply() error {
 	t.currentProfileIndex-- // drcrement the index so we reapply the current one
-	_, err := t.NextProfile()
+	_, err := t.NextProfile(1)
 	return err
 }
 

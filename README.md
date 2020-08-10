@@ -16,9 +16,11 @@ Linux: [https://github.com/torvalds/linux/blob/master/drivers/platform/x86/asus-
 
 macOS: [https://github.com/hieplpvip/AsusSMC](https://github.com/hieplpvip/AsusSMC)
 
+It seems like both "Armoury Crate Control Interface" and "Asus Optimization" talk to "Microsoft Windows Management Interface for ACPI" with device path `ACPI\PNP0C14\ATK`.
+
 ## Requirements
 
-ROGManager requires "Asus Optimization" to be running as a Service, since "Asus Optimization" loads the `atkwmiacpi64.sys` driver and interpret ACPI events as key presses, and exposes a `\\.\ATKACPI` device to be used. "Asus Optimization" also notifies other processes via Messages (which ROGManager will receive). You do not need any other softwares from Asus to use ROGManager.
+ROGManager requires "Armoury Crate Control Interface" and "Asus Optimization" to be running as a Service, since "Asus Optimization" loads the `atkwmiacpi64.sys` driver and interpret ACPI events as key presses, and exposes a `\\.\ATKACPI` device to be used. "Asus Optimization" also notifies other processes via Messages (which ROGManager will receive). You do not need any other softwares from Asus running to use ROGManager; you can safely uninstall them from your system. However, some softwares are installed as Windows driver, and you should disable them in Services:
 
 ![Running Services](images/services.png)
 

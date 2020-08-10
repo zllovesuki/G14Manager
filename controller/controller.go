@@ -9,9 +9,11 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/lxn/win"
 	"github.com/zllovesuki/ROGManager/system/persist"
 	"github.com/zllovesuki/ROGManager/system/thermal"
+	"github.com/zllovesuki/ROGManager/util"
+
+	"github.com/lxn/win"
 	"golang.org/x/sys/windows"
 	"gopkg.in/toast.v1"
 )
@@ -41,10 +43,16 @@ type Config struct {
 	ROGKey   []string // TODO: make this an interface for key remapping
 }
 
+type keyedDebounce struct {
+	noisy chan interface{}
+	clean chan util.DebounceEvent
+}
+
 type controller struct {
 	Config
 	hWnd        win.HWND
 	notifyQueue chan notification
+	debounce    map[int]keyedDebounce
 }
 
 func NewController(conf Config) (Controller, error) {
@@ -60,6 +68,7 @@ func NewController(conf Config) (Controller, error) {
 	return &controller{
 		Config:      conf,
 		notifyQueue: make(chan notification, 10),
+		debounce:    make(map[int]keyedDebounce),
 	}, nil
 }
 
@@ -84,28 +93,13 @@ func (c *controller) notify(n notification) error {
 
 func (c *controller) handleSystemControlInterface(wParam uintptr) {
 	// received all the control key presses (e.g. volume up, down, etc)
-	// we are only interested in "56", which is the ROG key
 	switch wParam {
 	case 56:
-		// ROG Key pressed
-		log.Println("ROG Key Pressed")
-		cmd := exec.Command(c.Config.ROGKey[0], c.Config.ROGKey[1:]...)
-		if err := cmd.Run(); err != nil {
-			log.Println(err)
-		}
+		log.Println("ROG Key Pressed (debounced)")
+		c.debounce[58].noisy <- struct{}{}
 	case 174:
-		log.Println("Fn + F5 Pressed")
-
-		next, err := c.Config.Thermal.NextProfile()
-		message := fmt.Sprintf("Thermal plan changed to %s", next)
-		if err != nil {
-			log.Println(err)
-			message = err.Error()
-		}
-		c.notifyQueue <- notification{
-			title:   "Toggle Thermal Plan",
-			message: message,
-		}
+		log.Println("Fn + F5 Pressed (debounced)")
+		c.debounce[174].noisy <- struct{}{}
 	/*
 	   case 87:
 	       // Not sure what this is
@@ -190,6 +184,49 @@ func (c *controller) initialize() {
 	}()
 }
 
+func (c *controller) setupDebounce() {
+	// TODO: revisit this
+	keys := []int{
+		58,  // ROG Key
+		174, // Fn + F5
+	}
+	for _, key := range keys {
+		// TODO: make debounce interval configurable, maybe
+		in, out := util.Debounce(time.Millisecond * 500)
+		c.debounce[key] = keyedDebounce{
+			noisy: in,
+			clean: out,
+		}
+	}
+	go c.handleDebounce()
+}
+
+func (c *controller) handleDebounce() {
+	for {
+		select {
+		case ev := <-c.debounce[58].clean:
+			log.Printf("ROG Key pressed %d times\n", ev.Counter)
+			// TODO: customize behavior when pressed different times
+			cmd := exec.Command(c.Config.ROGKey[0], c.Config.ROGKey[1:]...)
+			if err := cmd.Run(); err != nil {
+				log.Println(err)
+			}
+		case ev := <-c.debounce[174].clean:
+			log.Printf("Fn + F5 pressed %d times\n", ev.Counter)
+			next, err := c.Config.Thermal.NextProfile(int(ev.Counter))
+			message := fmt.Sprintf("Thermal plan changed to %s", next)
+			if err != nil {
+				log.Println(err)
+				message = err.Error()
+			}
+			c.notifyQueue <- notification{
+				title:   "Toggle Thermal Plan",
+				message: message,
+			}
+		}
+	}
+}
+
 func (c *controller) Run() int {
 
 	// TODO: revisit this
@@ -199,6 +236,8 @@ func (c *controller) Run() int {
 	}
 
 	c.initialize()
+
+	c.setupDebounce()
 
 	return c.eventLoop()
 }

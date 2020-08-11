@@ -56,6 +56,40 @@ Pressing the Fn+Down Key:
 
 I think you may have notice a pattern. `[5a %x]` where x matches exactly our special Fn Combo.
 
+For normal keys, they look like this:
+
+Pressing the Backspace:
+```
+0000   1b 00 10 50 52 19 8f a8 ff ff 00 00 00 00 09 00
+0010   01 02 00 01 00 83 01 20 00 00 00 5d 01 00 00 2a
+0020   00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+0030   00 00 00 00 00 00 00 00 00 00 00
+```
+
+Pressing the Spacebar:
+```
+0000   1b 00 10 50 52 19 8f a8 ff ff 00 00 00 00 09 00
+0010   01 02 00 01 00 83 01 20 00 00 00 5d 01 00 00 2c
+0020   00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+0030   00 00 00 00 00 00 00 00 00 00 00
+```
+
+You can see that `0x2a` and `0x2c` matches exactly the keycodes for Backspace and Spacebar, respectively.
+
+The 23th byte indicates how large the buffer will be. 32 is normal key press, and 6 is special key combo.
+
+It also seems that 1st byte in the returned buffer indicates what this is. `0x5a`: special combo, `0x5d`: normal key code
+
+For sanity check, what happened when we do `Ctrl+Spacebar`?
+```
+0000   1b 00 e0 55 52 19 8f a8 ff ff 00 00 00 00 09 00
+0010   01 02 00 01 00 83 01 20 00 00 00 5d 01 01 00 2c
+0020   00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+0030   00 00 00 00 00 00 00 00 00 00 00
+```
+
+Yep, we can see the LCTRL modifier.
+
 In addition, when the brightness is increased with Fn+Up, something sends some data over the HID interface (Endpoint 0) instead of raw USB:
 ```
 0000   1c 00 10 00 58 28 8f a8 ff ff 00 00 00 00 1b 00
@@ -67,8 +101,7 @@ In addition, when the brightness is increased with Fn+Up, something sends some d
 0060   00 00 00 00
 ```
 
-You may've recognize the `[5a ba c5 c4 ...]` buffer (see below). That's the one setting the brightness.
-
+You may've recognized the `[5a ba c5 c4 ...]` buffer (see below). That's the one setting the brightness.
 
 ### Keyboard
 

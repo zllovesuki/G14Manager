@@ -1,9 +1,7 @@
 #include <windows.h>
-#include <stdio.h>
 
 static int event_loop(uintptr_t handle_ptr)
 {
-    printf("Using C event_loop\n");
     HWND *hwnd = (HWND *)handle_ptr;
     MSG m;
     int r;

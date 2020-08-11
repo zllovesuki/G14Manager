@@ -9,6 +9,7 @@
 package controller
 
 import (
+	"fmt"
 	"unsafe"
 )
 
@@ -16,6 +17,7 @@ import (
 import "C"
 
 func (c *controller) eventLoop() int {
+	fmt.Println("Using C event_loop")
 	return int(C.event_loop(C.uintptr_t(uintptr(unsafe.Pointer(&c.hWnd)))))
 }
 

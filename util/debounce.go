@@ -10,34 +10,31 @@ type DebounceEvent struct {
 	Data    interface{}
 }
 
-// Debounce returns two channels for input and output.
-func Debounce(wait time.Duration) (noisy chan interface{}, clean chan DebounceEvent) {
-	noisy = make(chan interface{})
-	clean = make(chan DebounceEvent, 1) // do not block our goroutine
+// Debounce returns two channels for (dirty) input and (clean) output.
+func Debounce(wait time.Duration) (chan<- interface{}, <-chan DebounceEvent) {
+	in := make(chan interface{})
+	out := make(chan DebounceEvent, 1) // do not block our goroutine
 
-	go func() {
-		var lastTime time.Time
+	go func(period time.Duration, listen <-chan interface{}, release chan<- DebounceEvent) {
 		var counter int64
 		var data interface{}
+		var timer <-chan time.Time
 
 		for {
 			select {
-			case data = <-noisy:
-				lastTime = time.Now()
+			case data = <-listen:
+				timer = time.After(period)
 				counter++
-			case <-time.Tick(wait):
-				if !lastTime.IsZero() && time.Now().Sub(lastTime) > wait {
-					clean <- DebounceEvent{
-						Counter: counter,
-						Data:    data,
-					}
-
-					lastTime = time.Time{}
-					counter = 0
+			case <-timer:
+				release <- DebounceEvent{
+					Counter: counter,
+					Data:    data,
 				}
+				timer = nil
+				counter = 0
 			}
 		}
-	}()
+	}(wait, in, out)
 
-	return
+	return in, out
 }

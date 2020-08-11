@@ -4,6 +4,72 @@
 |----------------------|-----------------------------------------------------|---------------------------|--------------|----------------|---------------|---------------|------------|
 | Battery Charge Limit | `[44 45 56 53 08 00 00 00 57 00 12 00 %x 00 00 00]` | Battery Charge Percentage | 16           | First byte = 1 | 1024          | 1024          | NULL       |
 
+### USB Protocol
+
+On my machine, the keyboard(s) show up as a few things:
+```
+Following filter control devices are available:
+1 \\.\USBPcap1
+  \??\USB#ROOT_HUB30#5&90ded96&0&0#{f18a0e88-c30c-11d0-8815-00a0c906bed8}
+2 \\.\USBPcap2
+  \??\USB#ROOT_HUB30#5&11614a76&0&0#{f18a0e88-c30c-11d0-8815-00a0c906bed8}
+    [Port 3] USB Composite Device
+      USB Input Device
+        HID Keyboard Device
+      USB Input Device
+        HID Keyboard Device
+      USB Input Device
+        HID-compliant vendor-defined device
+        HID-compliant consumer control device
+        HID-compliant vendor-defined device
+        HID-compliant vendor-defined device
+3 \\.\USBPcap3
+  \??\USB#ROOT_HUB30#5&3462ecd3&0&0#{f18a0e88-c30c-11d0-8815-00a0c906bed8}
+    [Port 3] Goodix fingerprint
+    [Port 4] Intel(R) Wireless Bluetooth(R)
+      IBtUsb_Filter_00
+```
+Running USBPcap in Wireshark on USBPcap2 yields a few interesting observations...
+
+Endpoint 0, 1, and 2 are all unintersting. However, on Endpoint 3 (IN):
+
+Pressing the ROG Key:
+```
+0000   1b 00 10 50 52 19 8f a8 ff ff 00 00 00 00 09 00
+0010   01 02 00 01 00 83 01 06 00 00 00 5a 38 00 00 00
+0020   00
+```
+
+Pressing the Fn+F5 Key: 
+```
+0000   1b 00 10 50 52 19 8f a8 ff ff 00 00 00 00 09 00
+0010   01 02 00 01 00 83 01 06 00 00 00 5a ec 00 00 00
+0020   00
+```
+
+Pressing the Fn+Down Key:
+```
+0000   1b 00 e0 55 52 19 8f a8 ff ff 00 00 00 00 09 00
+0010   01 02 00 01 00 83 01 06 00 00 00 5a c5 00 00 00
+0020   00
+```
+
+I think you may have notice a pattern. `[5a %x]` where x matches exactly our special Fn Combo.
+
+In addition, when the brightness is increased with Fn+Up, something sends some data over the HID interface (Endpoint 0) instead of raw USB:
+```
+0000   1c 00 10 00 58 28 8f a8 ff ff 00 00 00 00 1b 00
+0010   00 02 00 01 00 00 02 48 00 00 00 00 21 09 5a 03
+0020   02 00 40 00 5a ba c5 c4 01 00 00 00 00 00 00 00
+0030   00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+0040   00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+0050   00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+0060   00 00 00 00
+```
+
+You may've recognize the `[5a ba c5 c4 ...]` buffer (see below). That's the one setting the brightness.
+
+
 ### Keyboard
 
 ROG Key Pressed

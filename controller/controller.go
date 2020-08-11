@@ -44,8 +44,8 @@ type Config struct {
 }
 
 type keyedDebounce struct {
-	noisy chan interface{}
-	clean chan util.DebounceEvent
+	noisy chan<- interface{}
+	clean <-chan util.DebounceEvent
 }
 
 type controller struct {

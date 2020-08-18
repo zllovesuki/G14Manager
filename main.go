@@ -59,9 +59,9 @@ func main() {
 	if err := config.Load(); err != nil {
 		log.Fatalln(err)
 	}
-	if err := config.Apply(); err != nil {
+	/*if err := config.Apply(); err != nil {
 		log.Fatalln(err)
-	}
+	}*/
 
 	control, err := controller.NewController(controller.Config{
 		Thermal:  profile,

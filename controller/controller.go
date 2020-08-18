@@ -125,6 +125,20 @@ func (c *controller) wndProc(hwnd win.HWND, msg uint32, wParam, lParam uintptr) 
 		c.Shutdown()
 	case pAPCI:
 		c.handleSystemControlInterface(wParam)
+	case win.WM_INPUT:
+		rawInputHeader := win.RAWINPUTHEADER{}
+		rawInputData := win.RAWINPUTHID{}
+		rawStructSize := uint32(unsafe.Sizeof(rawInputData))
+		r := win.GetRawInputData(
+			(win.HRAWINPUT)(lParam),
+			0x10000003, // RID_INPUT
+			unsafe.Pointer(&rawInputData),
+			&rawStructSize,
+			uint32(unsafe.Sizeof(rawInputHeader)),
+		)
+		log.Println(win.GetLastError())
+		log.Println(r)
+		log.Println(rawInputData)
 	}
 	return win.DefWindowProc(hwnd, msg, wParam, lParam)
 }
@@ -167,6 +181,16 @@ func (c *controller) initialize() {
 		win.MSGFLT_ALLOW,
 		nil,
 	)
+
+	rawInputDevices := []win.RAWINPUTDEVICE{
+		{
+			UsUsagePage: 0xff31,
+			UsUsage:     0x79,
+			DwFlags:     0x100,
+			HwndTarget:  c.hWnd,
+		},
+	}
+	win.RegisterRawInputDevices(&rawInputDevices[0], 1, uint32(unsafe.Sizeof(rawInputDevices[0])))
 
 	win.ShowWindow(c.hWnd, win.SW_HIDE)
 
@@ -250,8 +274,8 @@ func (c *controller) Shutdown() {
 	}
 	time.Sleep(time.Millisecond * 50)
 
-	if err := c.Config.Registry.Save(); err != nil {
+	/*if err := c.Config.Registry.Save(); err != nil {
 		log.Fatalln(err)
-	}
+	}*/
 	os.Exit(0)
 }

@@ -22,11 +22,14 @@ func NewControl(path string, controlCode uint32) (*Control, error) {
 	}
 	h, err := windows.CreateFile(
 		windows.StringToUTF16Ptr(path),
-		0xc0000000, // GENERIC_READ_AND_WRITE https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-rdpepnp/0f2fef8b-ef79-40ff-8314-5f56787e6d9d
-		3,
+		windows.FILE_ATTRIBUTE_NORMAL|windows.GENERIC_READ|windows.GENERIC_WRITE|windows.SYNCHRONIZE,
+		// 0xc0000000, // GENERIC_READ_AND_WRITE https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-rdpepnp/0f2fef8b-ef79-40ff-8314-5f56787e6d9d
+		windows.FILE_SHARE_READ|windows.FILE_SHARE_WRITE,
+		// 3,
 		nil,
 		windows.OPEN_EXISTING,
-		windows.FILE_ATTRIBUTE_DEVICE,
+		0,
+		// windows.FILE_ATTRIBUTE_DEVICE,
 		0,
 	)
 	if err != nil {

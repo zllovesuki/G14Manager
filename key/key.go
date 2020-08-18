@@ -14,7 +14,7 @@ func main() {
 
 	inputBuf := make([]byte, atkacpi.KeyPressControlBufferLength)
 	copy(inputBuf, atkacpi.KeyPressControlBuffer)
-	inputBuf[atkacpi.KeyPressControlByteIndex] = byte(0x38) // emulate pressing the ROG Key
+	inputBuf[atkacpi.KeyPressControlByteIndex] = 197 // emulate pressing the ROG Key
 
 	writeOutput, err := ctrlSet.Write(inputBuf)
 	if err != nil {
@@ -27,7 +27,7 @@ func main() {
 		panic(err)
 	}
 
-	readOutput, err := ctrlGet.Read(atkacpi.BatteryChargeLimitOutputBufferLength)
+	readOutput, err := ctrlGet.Read(atkacpi.KeyPressControlOutputBufferLength)
 	if err != nil {
 		panic(err)
 	}

@@ -8,7 +8,7 @@ import (
 
 // Defines control code for write/read operations to ATKACPI
 const (
-	WriteControlCode = uint32(2237452)
+	WriteControlCode = uint32(2237452) // FILE_DEVICE_UNKNOWN << 16 | FILE_ANY_ACCESS << 14 |
 	ReadControlCode  = uint32(2237448) // we can't just read from the device as we need to wait for interrupt
 )
 

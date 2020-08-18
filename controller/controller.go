@@ -208,7 +208,7 @@ func (c *controller) handleDebounce() {
 			log.Printf("ROG Key pressed %d times\n", ev.Counter)
 			// TODO: customize behavior when pressed different times
 			cmd := exec.Command(c.Config.ROGKey[0], c.Config.ROGKey[1:]...)
-			if err := cmd.Run(); err != nil {
+			if err := cmd.Start(); err != nil {
 				log.Println(err)
 			}
 		case ev := <-c.debounce[174].clean:

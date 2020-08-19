@@ -119,18 +119,21 @@ func (c *controller) handleKeyPress(haltCtx context.Context) {
 
 			// TODO: Handle keyboard brightness up and down
 			/*
-				   case 87:
-					   // On battery
-				   case 107:
-					   // Fn + F10: disable/enable trackpad
-				   case 123:
-					   // Power input change (unplug/plug in)
-				   case 124:
-					   // microphone mute/unmute
-				   case 196:
-					   // brightness up
-				   case 197:
-					   // brightness down
+				case 32:
+					// screen brightness up
+				case 16:
+					// screen brightness down
+				case 107:
+					// Fn + F10: disable/enable trackpad
+				case 123:
+					// Power input change (unplug/plug in)
+				case 124:
+					// microphone mute/unmute
+				case 196:
+					// brightness up
+				case 197:
+					// brightness down
+				// ...etc
 			*/
 			default:
 				log.Printf("Unknown keypress: %d\n", keyCode)

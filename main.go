@@ -11,21 +11,20 @@ import (
 	"github.com/zllovesuki/ROGManager/system/battery"
 	"github.com/zllovesuki/ROGManager/system/persist"
 	"github.com/zllovesuki/ROGManager/system/thermal"
-
-	"github.com/google/shlex"
+	"github.com/zllovesuki/ROGManager/util"
 )
 
 var defaultCommandWithArgs = "Taskmgr.exe"
 
 func main() {
 
-	rogRemap := flag.String("rog", defaultCommandWithArgs, "which program to launch when the ROG Key is pressed")
+	var rogRemap util.ArrayFlags
 
+	flag.Var(&rogRemap, "rog", "customize ROG key behavior when pressed multiple times")
 	flag.Parse()
 
-	commandWithArgs, err := shlex.Split(*rogRemap)
-	if err != nil {
-		log.Fatalln(err)
+	if len(rogRemap) == 0 {
+		rogRemap = []string{defaultCommandWithArgs}
 	}
 
 	config, _ := persist.NewRegistryHelper()
@@ -66,7 +65,7 @@ func main() {
 	control, err := controller.NewController(controller.Config{
 		Thermal:  profile,
 		Registry: config,
-		ROGKey:   commandWithArgs,
+		ROGKey:   rogRemap,
 	})
 
 	if err != nil {

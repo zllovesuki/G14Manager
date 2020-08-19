@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"syscall"
 	"time"
 	"unsafe"
 
@@ -40,7 +41,7 @@ var _ Controller = &controller{}
 type Config struct {
 	Thermal  *thermal.Thermal
 	Registry *persist.RegistryHelper
-	ROGKey   []string // TODO: make this an interface for key remapping
+	ROGKey   []string
 }
 
 type keyedDebounce struct {
@@ -206,10 +207,12 @@ func (c *controller) handleDebounce() {
 		select {
 		case ev := <-c.debounce[58].clean:
 			log.Printf("ROG Key pressed %d times\n", ev.Counter)
-			// TODO: customize behavior when pressed different times
-			cmd := exec.Command(c.Config.ROGKey[0], c.Config.ROGKey[1:]...)
-			if err := cmd.Start(); err != nil {
-				log.Println(err)
+			if int(ev.Counter) <= len(c.Config.ROGKey) {
+				cmd := exec.Command("cmd.exe", "/C", c.Config.ROGKey[ev.Counter-1])
+				cmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: 0x08000000}
+				if err := cmd.Start(); err != nil {
+					log.Println(err)
+				}
 			}
 		case ev := <-c.debounce[174].clean:
 			log.Printf("Fn + F5 pressed %d times\n", ev.Counter)

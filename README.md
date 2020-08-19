@@ -54,13 +54,17 @@ Recommend running ROGManager.exe on startup in Task Scheduler.
 
 ## Remapping the ROG Key
 
-By default, it will launch Task Manager when you press the ROG Key. You can compile your `.ahk` to `.exe` and run your macros.
+Use case: You can compile your `.ahk` to `.exe` and run your macros.
 
-To specify which program to launch, pass your path to the desired program as argument to `-rog`. For example:
+By default, it will launch Task Manager when you press the ROG Key once.
+
+To specify which program to launch when pressed multiple times, pass your path to the desired program as argument to `-rog` multiple times. For example:
 
 ```
-.\ROGManager.exe -rog "Spotify.exe"
+.\ROGManager.exe -rog "Taskmgr.exe" -rog "start Spotify.exe"
 ```
+
+This will launch Task Manager when you press the ROG key once, and Spotify when you press twice.
 
 ## Changing the Fan Curve
 

@@ -1,5 +1,5 @@
 # Fail if we don't have gcc
-Get-Command "gcc.exe"
+# Get-Command "gcc.exe"
 # Fail if we don't have rsrc
 Get-Command "rsrc.exe"
 

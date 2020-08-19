@@ -8,8 +8,8 @@ $GOBIN = $env:GOPATH + "\bin"
 $env:Path += ";" + $env:GOBIN
 $env:GOOS = "windows"
 $env:GOARCH = "amd64"
-$env:GOHOSTARCH = "amd64"
-$env:CGO_ENABLED = "1"
+# $env:GOHOSTARCH = "amd64"
+# $env:CGO_ENABLED = "1"
 
 Write-Host $env:Path
 
@@ -26,5 +26,6 @@ Invoke-Expression $RSRC
 $MOD = "go mod download"
 Invoke-Expression $MOD 2>&1
 
-$BUILD = "go build -tags 'use_cgo' -ldflags='-H=windowsgui -s -w' ."
+# $BUILD = "go build -tags 'use_cgo' -ldflags='-H=windowsgui -s -w' ."
+$BUILD = "go build -ldflags='-H=windowsgui -s -w' ."
 Invoke-Expression $BUILD

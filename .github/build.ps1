@@ -9,7 +9,7 @@ $env:Path += ";" + $env:GOBIN
 $env:GOOS = "windows"
 $env:GOARCH = "amd64"
 # $env:GOHOSTARCH = "amd64"
-# $env:CGO_ENABLED = "1"
+$env:CGO_ENABLED = "1"
 
 Write-Host $env:Path
 

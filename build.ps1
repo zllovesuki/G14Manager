@@ -1,10 +1,11 @@
 # Fail if we don't have gcc
-# Get-Command "gcc.exe"
+Get-Command "gcc.exe"
 # Fail if we don't have rsrc
 Get-Command "rsrc.exe"
 
 $env:GOOS = "windows"
 $env:GOARCH = "amd64"
+$env:CDO_ENABLED = 1
 
 rsrc.exe -arch amd64 -manifest ROGManager.exe.manifest -ico go.ico -o ROGManager.exe.syso
 

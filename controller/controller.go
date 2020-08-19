@@ -85,8 +85,7 @@ func (c *controller) notify(n notification) error {
 }
 
 func (c *controller) initialize(haltCtx context.Context) {
-
-	err := atkacpi.NewKeyListener(haltCtx, c.keyCodeCh)
+	err := atkacpi.NewHidListener(haltCtx, c.keyCodeCh)
 	if err != nil {
 		log.Fatalln(err)
 	}

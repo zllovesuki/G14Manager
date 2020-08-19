@@ -6,11 +6,9 @@
 
 Your warranty is now void. Proceed at your own risk.
 
-## Help Wanted
+## Current Status
 
-After some reverse engineering, it looks like `atkwmiacpi64.sys` hooks itself into the WMI as the provider (and talks to `ACPI\PNP0C14\ATK`). However, even if ATKAMIACPIIO the driver is running, without Asus Optimization running, WMI has no events populated.
-
-Not sure why this is the case, but I will investigate into this further and aim to remove Asus Optimization as part of the requirement.
+After some reverse engineering, ROGManager now reads from hid directly instead of Asus Optimization. However, for now we still need AO for adjusting screen brightness and implementing all the hardware control.
 
 ## Requirements
 

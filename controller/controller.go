@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"os"
 	"os/exec"
 	"syscall"
 	"time"
@@ -33,7 +32,6 @@ var (
 
 type Controller interface {
 	Run() int
-	Shutdown()
 }
 
 var _ Controller = &controller{}
@@ -122,8 +120,6 @@ func (c *controller) handleSystemControlInterface(wParam uintptr) {
 
 func (c *controller) wndProc(hwnd win.HWND, msg uint32, wParam, lParam uintptr) uintptr {
 	switch msg {
-	case win.WM_DESTROY:
-		c.Shutdown()
 	case pAPCI:
 		c.handleSystemControlInterface(wParam)
 	}
@@ -226,6 +222,9 @@ func (c *controller) handleDebounce() {
 				title:   "Toggle Thermal Plan",
 				message: message,
 			}
+			if err := c.Config.Registry.Save(); err != nil {
+				log.Println("error saving to registry", err)
+			}
 		}
 	}
 }
@@ -243,18 +242,4 @@ func (c *controller) Run() int {
 	c.setupDebounce()
 
 	return c.eventLoop()
-}
-
-func (c *controller) Shutdown() {
-	// TODO: revisit this
-	c.notifyQueue <- notification{
-		title:   "Saving Settings to Registry",
-		message: fmt.Sprintf("Thermal Plan: %s", c.Config.Thermal.CurrentProfile().Name),
-	}
-	time.Sleep(time.Millisecond * 50)
-
-	if err := c.Config.Registry.Save(); err != nil {
-		log.Fatalln(err)
-	}
-	os.Exit(0)
 }

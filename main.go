@@ -79,9 +79,8 @@ func main() {
 		syscall.SIGTERM,
 		syscall.SIGQUIT)
 	go func() {
-		s := <-sigc
-		log.Printf("graceful shutdown on %+v\n", s)
-		control.Shutdown()
+		<-sigc
+		os.Exit(0)
 	}()
 
 	os.Exit(control.Run())

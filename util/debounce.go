@@ -1,6 +1,7 @@
 package util
 
 import (
+	"context"
 	"time"
 )
 
@@ -11,30 +12,32 @@ type DebounceEvent struct {
 }
 
 // Debounce returns two channels for (dirty) input and (clean) output.
-func Debounce(wait time.Duration) (chan<- interface{}, <-chan DebounceEvent) {
+func Debounce(haltCtx context.Context, wait time.Duration) (chan<- interface{}, <-chan DebounceEvent) {
 	in := make(chan interface{})
 	out := make(chan DebounceEvent, 1) // do not block our goroutine
 
-	go func(period time.Duration, listen <-chan interface{}, release chan<- DebounceEvent) {
+	go func() {
 		var counter int64
 		var data interface{}
 		var timer <-chan time.Time
 
 		for {
 			select {
-			case data = <-listen:
-				timer = time.After(period)
+			case data = <-in:
+				timer = time.After(wait)
 				counter++
 			case <-timer:
-				release <- DebounceEvent{
+				out <- DebounceEvent{
 					Counter: counter,
 					Data:    data,
 				}
 				timer = nil
 				counter = 0
+			case <-haltCtx.Done():
+				return
 			}
 		}
-	}(wait, in, out)
+	}()
 
 	return in, out
 }

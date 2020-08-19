@@ -12,7 +12,7 @@ func TestDebounce(t *testing.T) { // -race passes
 	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*200)
 	defer cancel()
 
-	in, out := Debounce(time.Millisecond * 10)
+	in, out := Debounce(context.Background(), time.Millisecond*10)
 	rounds := int64(10)
 
 	go func() {
@@ -50,7 +50,7 @@ func TestMultipleDebounce(t *testing.T) { // -race passes
 	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*200)
 	defer cancel()
 
-	in, out := Debounce(time.Millisecond * 10)
+	in, out := Debounce(context.Background(), time.Millisecond*10)
 
 	go func() {
 		numReceived := 0

@@ -8,19 +8,13 @@ Your warranty is now void. Proceed at your own risk.
 
 ## Help Wanted
 
-Asus wrote the `atkwmiacpi64.sys` with a very old version of Windows Driver Kit. If you are into reverse engineering and have knowledge of inner working of the ACPI programming, please help rewrite their driver to be more modern. Any decompiler/dissassembler (retdec and IDA Pro) should give you a good start.
+After some reverse engineering, it looks like `atkwmiacpi64.sys` hooks itself into the WMI as the provider (and talks to `ACPI\PNP0C14\ATK`). However, even if ATKAMIACPIIO the driver is running, without Asus Optimization running, WMI has no events populated.
 
-Reference design:
-
-Linux: [https://github.com/torvalds/linux/blob/master/drivers/platform/x86/asus-wmi.c](https://github.com/torvalds/linux/blob/master/drivers/platform/x86/asus-wmi.c)
-
-macOS: [https://github.com/hieplpvip/AsusSMC](https://github.com/hieplpvip/AsusSMC)
-
-It seems like both "Armoury Crate Control Interface" and "Asus Optimization" talk to "Microsoft Windows Management Interface for ACPI" with device path `ACPI\PNP0C14\ATK`.
+Not sure why this is the case, but I will investigate into this further and aim to remove Asus Optimization as part of the requirement.
 
 ## Requirements
 
-ROGManager requires "Armoury Crate Control Interface" and "Asus Optimization" to be running as a Service, since "Asus Optimization" loads the `atkwmiacpi64.sys` driver and interpret ACPI events as key presses, and exposes a `\\.\ATKACPI` device to be used. "Asus Optimization" also notifies other processes via Messages (which ROGManager will receive). You do not need any other softwares from Asus running to use ROGManager; you can safely uninstall them from your system. However, some softwares are installed as Windows driver, and you should disable them in Services:
+ROGManager requires "Asus Optimization" to be running as a Service, since "Asus Optimization" loads the `atkwmiacpi64.sys` driver and interpret ACPI events as key presses, and exposes a `\\.\ATKACPI` device to be used. You do not need any other softwares from Asus running to use ROGManager; you can safely uninstall them from your system. However, some softwares are installed as Windows driver, and you should disable them in Services:
 
 ![Running Services](images/services.png)
 
@@ -85,7 +79,3 @@ The key combo has a time delay. If you press the combo X times, it will apply th
 ## Developing
 
 Use `.\run.ps1` as it does not compile using CGo.
-
-## CGo Optimizations
-
-The usual default message loop includes calls to win32 API functions, which incurs a decent amount of runtime overhead coming from Go. As an alternative to this, you may compile ROGManager using an optional C implementation of the main message loop, by passing the `use_cgo` build tag.

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"log"
 	"os"
@@ -72,6 +73,8 @@ func main() {
 		log.Fatalln(err)
 	}
 
+	ctx, cancel := context.WithCancel(context.Background())
+
 	sigc := make(chan os.Signal, 1)
 	signal.Notify(sigc,
 		syscall.SIGHUP,
@@ -80,8 +83,9 @@ func main() {
 		syscall.SIGQUIT)
 	go func() {
 		<-sigc
+		cancel()
 		os.Exit(0)
 	}()
 
-	os.Exit(control.Run())
+	control.Run(ctx)
 }

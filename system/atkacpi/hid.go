@@ -9,9 +9,10 @@ import (
 	"github.com/karalabe/usb"
 )
 
+// Defines the vendorID/productID for NKEY keyboard
 const (
-	vendorID  = 0x0b05
-	productID = 0x1866
+	VendorID  = 0x0b05
+	ProductID = 0x1866
 )
 
 const (
@@ -29,7 +30,7 @@ var (
 // NewHidListener will read HID report and return key code to the channel
 func NewHidListener(haltCtx context.Context, eventCh chan uint32) (map[string]usb.DeviceInfo, error) {
 	devicesFound := make(map[string]usb.DeviceInfo)
-	devices, err := usb.EnumerateHid(vendorID, productID)
+	devices, err := usb.EnumerateHid(VendorID, ProductID)
 	if err != nil {
 		return nil, err
 	}

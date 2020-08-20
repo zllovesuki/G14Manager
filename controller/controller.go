@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/zllovesuki/ROGManager/system/atkacpi"
-
 	"github.com/zllovesuki/ROGManager/system/persist"
 	"github.com/zllovesuki/ROGManager/system/thermal"
 	"github.com/zllovesuki/ROGManager/util"
@@ -45,6 +44,7 @@ type controller struct {
 	notifyQueueCh chan notification
 	debounceCh    map[uint32]keyedDebounce
 	keyCodeCh     chan uint32
+	wmiCh         chan uint32
 }
 
 func NewController(conf Config) (Controller, error) {
@@ -61,7 +61,8 @@ func NewController(conf Config) (Controller, error) {
 		Config:        conf,
 		notifyQueueCh: make(chan notification, 10),
 		debounceCh:    make(map[uint32]keyedDebounce),
-		keyCodeCh:     make(chan uint32),
+		keyCodeCh:     make(chan uint32, 1),
+		wmiCh:         make(chan uint32, 1),
 	}, nil
 }
 
@@ -85,7 +86,13 @@ func (c *controller) notify(n notification) error {
 }
 
 func (c *controller) initialize(haltCtx context.Context) {
-	err := atkacpi.NewHidListener(haltCtx, c.keyCodeCh)
+	devices, err := atkacpi.NewHidListener(haltCtx, c.keyCodeCh)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	log.Printf("hid devices: %+v\n", devices)
+
+	err = atkacpi.NewWMIListener(haltCtx, c.wmiCh)
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -105,19 +112,36 @@ func (c *controller) initialize(haltCtx context.Context) {
 	}
 }
 
+func (c *controller) handleWMI(haltCtx context.Context) {
+	for {
+		select {
+		case wmi := <-c.wmiCh:
+			switch wmi {
+			case 87:
+				log.Println("wmi: On battery")
+			case 123:
+				log.Println("wmi: Power input changed")
+			}
+		case <-haltCtx.Done():
+			log.Println("Exiting handleWMI")
+			return
+		}
+	}
+}
+
 func (c *controller) handleKeyPress(haltCtx context.Context) {
 	for {
 		select {
 		case keyCode := <-c.keyCodeCh:
 			switch keyCode {
 			case 56:
-				log.Println("ROG Key Pressed (debounced)")
+				log.Println("hid: ROG Key Pressed (debounced)")
 				c.debounceCh[58].noisy <- struct{}{}
 			case 174:
-				log.Println("Fn + F5 Pressed (debounced)")
+				log.Println("hid: Fn + F5 Pressed (debounced)")
 				c.debounceCh[174].noisy <- struct{}{}
 
-			// TODO: Handle keyboard brightness up and down
+			// TODO: Handle keyboard brightness up and down via wmi
 			/*
 				case 32:
 					// screen brightness up
@@ -136,7 +160,7 @@ func (c *controller) handleKeyPress(haltCtx context.Context) {
 				// ...etc
 			*/
 			default:
-				log.Printf("Unknown keypress: %d\n", keyCode)
+				log.Printf("hid: Unknown  %d\n", keyCode)
 			}
 		case <-haltCtx.Done():
 			log.Println("Exiting handleKeyPress")
@@ -149,7 +173,6 @@ func (c *controller) handleNotify(haltCtx context.Context) {
 	for {
 		select {
 		case msg := <-c.notifyQueueCh:
-			log.Println("Sending toast notification")
 			if err := c.notify(msg); err != nil {
 				log.Printf("Error sending toast notification: %s\n", err)
 			}
@@ -195,7 +218,16 @@ func (c *controller) handleDebounce(haltCtx context.Context) {
 }
 
 func (c *controller) Run(haltCtx context.Context) {
-	// TODO: revisit this
+
+	log.Println("Loading configuration from Registry")
+	// load configs from registry and try to reapply
+	if err := c.Config.Registry.Load(); err != nil {
+		log.Fatalln(err)
+	}
+	if err := c.Config.Registry.Apply(); err != nil {
+		log.Fatalln(err)
+	}
+
 	c.notifyQueueCh <- notification{
 		title:   "Settings Loaded from Registry",
 		message: fmt.Sprintf("Current Thermal Plan: %s", c.Config.Thermal.CurrentProfile().Name),
@@ -206,6 +238,7 @@ func (c *controller) Run(haltCtx context.Context) {
 	go c.handleNotify(haltCtx)
 	go c.handleDebounce(haltCtx)
 	go c.handleKeyPress(haltCtx)
+	go c.handleWMI(haltCtx)
 
 	<-haltCtx.Done()
 }

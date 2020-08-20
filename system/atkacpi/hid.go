@@ -21,41 +21,40 @@ const (
 
 var (
 	hidDevices = []string{
-		"col01", // Special key combo
-		"col02", // Volume up/down?
+		"mi_02&col01", // Special key combo
+		"mi_02&col02", // Volume up/down?
 	}
 )
 
 // NewHidListener will read HID report and return key code to the channel
-func NewHidListener(haltCtx context.Context, eventCh chan uint32) error {
-	devicesFound := make([]usb.DeviceInfo, 0, 2)
+func NewHidListener(haltCtx context.Context, eventCh chan uint32) (map[string]usb.DeviceInfo, error) {
+	devicesFound := make(map[string]usb.DeviceInfo)
 	devices, err := usb.EnumerateHid(vendorID, productID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	for _, device := range devices {
 		// TODO: make it less inefficient
-		log.Println(device.Path)
 		for _, hid := range hidDevices {
 			if !strings.Contains(device.Path, hid) {
 				continue
 			}
-			devicesFound = append(devicesFound, device)
+			devicesFound[hid] = device
 		}
 	}
 	if len(devicesFound) == 0 {
-		return fmt.Errorf("No devices found")
+		return nil, fmt.Errorf("No devices found")
 	}
 
 	for _, device := range devicesFound {
 		d, err := device.Open()
 		if err != nil {
-			return err
+			return nil, err
 		}
 		go readDevice(haltCtx, eventCh, d)
 	}
-	return nil
+	return devicesFound, nil
 }
 
 func readDevice(haltCtx context.Context, eventCh chan uint32, dev usb.Device) {
@@ -64,15 +63,15 @@ func readDevice(haltCtx context.Context, eventCh chan uint32, dev usb.Device) {
 		case <-haltCtx.Done():
 			return
 		default:
-			buf := make([]byte, reportBufSize)
-			buf[0] = reportID
-			_, err := dev.Read(buf)
-			if err != nil {
-				log.Fatalln(err)
-			}
-			if buf[1] > 0 {
-				eventCh <- uint32(buf[1])
-			}
+		}
+		buf := make([]byte, reportBufSize)
+		buf[0] = reportID
+		_, err := dev.Read(buf)
+		if err != nil {
+			log.Fatalln(err)
+		}
+		if buf[1] > 0 && buf[1] < 236 {
+			eventCh <- uint32(buf[1])
 		}
 	}
 }

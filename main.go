@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/zllovesuki/ROGManager/controller"
 	"github.com/zllovesuki/ROGManager/system/battery"
@@ -34,7 +35,6 @@ func main() {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	config.Register(powercfg)
 
 	// TODO: allow user to specify profiles
 	thermalCfg := thermal.Config{
@@ -46,22 +46,17 @@ func main() {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	config.Register(profile)
 
 	// TODO: allow user to change the charge limit
 	battery, err := battery.NewChargeLimit()
 	if err != nil {
 		log.Fatalln(err)
 	}
-	config.Register(battery)
 
-	// load configs from registry and try to reapply
-	if err := config.Load(); err != nil {
-		log.Fatalln(err)
-	}
-	if err := config.Apply(); err != nil {
-		log.Fatalln(err)
-	}
+	// order powercfg to last
+	config.Register(battery)
+	config.Register(profile)
+	config.Register(powercfg)
 
 	control, err := controller.NewController(controller.Config{
 		Thermal:  profile,
@@ -84,6 +79,7 @@ func main() {
 	go func() {
 		<-sigc
 		cancel()
+		time.Sleep(time.Millisecond * 50)
 		os.Exit(0)
 	}()
 

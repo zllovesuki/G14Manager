@@ -29,9 +29,9 @@ type Controller interface {
 var _ Controller = &controller{}
 
 type Config struct {
-	KeyboardBrightness *keyboard.Brightness
-	Thermal            *thermal.Thermal
-	Registry           *persist.RegistryHelper
+	KeyboardControl *keyboard.Control
+	Thermal         *thermal.Thermal
+	Registry        *persist.RegistryHelper
 
 	ROGKey []string
 }
@@ -53,7 +53,7 @@ type controller struct {
 }
 
 func NewController(conf Config) (Controller, error) {
-	if conf.KeyboardBrightness == nil {
+	if conf.KeyboardControl == nil {
 		return nil, errors.New("nil KeyboardBrightness is invalid")
 	}
 	if conf.Thermal == nil {
@@ -94,7 +94,7 @@ func (c *controller) notify(n notification) error {
 }
 
 func (c *controller) initialize(haltCtx context.Context) {
-	devices, err := atkacpi.NewHidListener(haltCtx, c.keyCodeCh)
+	devices, err := keyboard.NewHidListener(haltCtx, c.keyCodeCh)
 	if err != nil {
 		log.Fatalln("error initializing hidListener", err)
 	}
@@ -149,7 +149,6 @@ func keyEmulation(ctrl *atkacpi.ATKControl, keyCode uint32) {
 	switch keyCode {
 	/*
 		TODO: Unimplemented (yet):
-		107, // touchpad toggle
 		124, // mute/unmute microphone
 	*/
 	case
@@ -187,11 +186,14 @@ func (c *controller) handleKeyPress(haltCtx context.Context) {
 				c.debounceCh[174].noisy <- struct{}{}
 
 			case 197: // keyboard brightness down (Fn + Arrow Down)
-				c.Config.KeyboardBrightness.Down()
+				c.Config.KeyboardControl.BrightnessDown()
 				c.debounceCh[0].noisy <- struct{}{}
 			case 196: // keyboard brightness up (Fn + Arrow Up)
-				c.Config.KeyboardBrightness.Up()
+				c.Config.KeyboardControl.BrightnessUp()
 				c.debounceCh[0].noisy <- struct{}{}
+
+			case 107:
+				c.Config.KeyboardControl.ToggleTouchPad()
 
 			// TODO: Handle keyboard brightness up and down via wmi
 			/*

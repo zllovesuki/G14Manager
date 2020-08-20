@@ -1,4 +1,4 @@
-package atkacpi
+package keyboard
 
 import (
 	"context"

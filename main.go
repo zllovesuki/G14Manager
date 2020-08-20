@@ -55,7 +55,7 @@ func main() {
 		log.Fatalln(err)
 	}
 
-	kbBrightness, err := keyboard.NewBrightnessControl()
+	kbCtrl, err := keyboard.NewControl()
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -64,13 +64,13 @@ func main() {
 	config.Register(battery)
 	config.Register(profile)
 	config.Register(powercfg)
-	config.Register(kbBrightness)
+	config.Register(kbCtrl)
 
 	control, err := controller.NewController(controller.Config{
-		KeyboardBrightness: kbBrightness,
-		Thermal:            profile,
-		Registry:           config,
-		ROGKey:             rogRemap,
+		KeyboardControl: kbCtrl,
+		Thermal:         profile,
+		Registry:        config,
+		ROGKey:          rogRemap,
 	})
 
 	if err != nil {

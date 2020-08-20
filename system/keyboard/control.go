@@ -23,7 +23,7 @@ import (
 )
 
 const (
-	persistKey = "KeyboardBrightness"
+	persistKey = "KeyboardControl"
 )
 
 const (
@@ -35,7 +35,8 @@ const (
 )
 
 const (
-	brightnessControlBufferLength = 64
+	brightnessControlBufferLength     = 64
+	touchPadToggleControlBufferLength = 64
 )
 
 const (
@@ -45,6 +46,16 @@ const (
 var (
 	brightnessControlBuffer = []byte{
 		0x5a, 0xba, 0xc5, 0xc4, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	}
+	touchPadToggleControlBuffer = []byte{
+		0x5a, 0xf4, 0x6b, 0x00, 0x00, 0x00, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -66,15 +77,15 @@ const (
 	HIGH         = 0x03
 )
 
-// Brightness allows you to set the keyboard brightness directly
-type Brightness struct {
+// Control allows you to set the hid related functionalities directly
+type Control struct {
 	deviceCtrl        *device.Control
 	currentBrightness Level
 }
 
-// NewBrightnessControl checks if the computer has the brightness control interface, and returns a control interface if it does
-func NewBrightnessControl() (*Brightness, error) {
-	devices, err := usb.EnumerateHid(0, 0)
+// NewControl checks if the computer has the hid control interface, and returns a control interface if it does
+func NewControl() (*Control, error) {
+	devices, err := usb.EnumerateHid(VendorID, ProductID)
 	if err != nil {
 		return nil, err
 	}
@@ -92,32 +103,32 @@ func NewBrightnessControl() (*Brightness, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Brightness{
+	return &Control{
 		deviceCtrl:        ctrl,
 		currentBrightness: OFF,
 	}, nil
 }
 
-func (b *Brightness) set(v Level) error {
+func (c *Control) setBrightness(v Level) error {
 	inputBuf := make([]byte, brightnessControlBufferLength)
 	copy(inputBuf, brightnessControlBuffer)
 	inputBuf[brightnessControlByteIndex] = byte(v)
 
-	_, err := b.deviceCtrl.Write(inputBuf)
+	_, err := c.deviceCtrl.Write(inputBuf)
 	if err != nil {
 		return err
 	}
 
-	b.currentBrightness = v
+	c.currentBrightness = v
 
 	return nil
 }
 
-// Up increases the keyboard brightness by one level
+// BrightnessUp increases the keyboard brightness by one level
 // TODO: use a FSM
-func (b *Brightness) Up() error {
+func (c *Control) BrightnessUp() error {
 	var targetLevel Level
-	switch b.currentBrightness {
+	switch c.currentBrightness {
 	case OFF:
 		targetLevel = LOW
 	case LOW:
@@ -127,14 +138,14 @@ func (b *Brightness) Up() error {
 	default:
 		return nil
 	}
-	return b.set(targetLevel)
+	return c.setBrightness(targetLevel)
 }
 
-// Down decreases the keyboard brightness by one level
+// BrightnessDown decreases the keyboard brightness by one level
 // TODO: use a FSM
-func (b *Brightness) Down() error {
+func (c *Control) BrightnessDown() error {
 	var targetLevel Level
-	switch b.currentBrightness {
+	switch c.currentBrightness {
 	case HIGH:
 		targetLevel = MEDIUM
 	case MEDIUM:
@@ -144,39 +155,54 @@ func (b *Brightness) Down() error {
 	default:
 		return nil
 	}
-	return b.set(targetLevel)
+	return c.setBrightness(targetLevel)
 }
 
-var _ persist.Registry = &Brightness{}
+// ToggleTouchPad will toggle between disabling/enabling TouchPad
+func (c *Control) ToggleTouchPad() error {
+	inputBuf := make([]byte, touchPadToggleControlBufferLength)
+	copy(inputBuf, touchPadToggleControlBuffer)
+
+	_, err := c.deviceCtrl.Write(inputBuf)
+	if err != nil {
+		return err
+	}
+
+	// I don't think we have a way of checking if the touchpad is disabled/enabled
+
+	return nil
+}
+
+var _ persist.Registry = &Control{}
 
 // Name satisfies persist.Registry
-func (b *Brightness) Name() string {
+func (c *Control) Name() string {
 	return persistKey
 }
 
 // Value satisfies persist.Registry
-func (b *Brightness) Value() []byte {
+func (c *Control) Value() []byte {
 	buf := make([]byte, 2)
-	binary.LittleEndian.PutUint16(buf, uint16(b.currentBrightness))
+	binary.LittleEndian.PutUint16(buf, uint16(c.currentBrightness))
 	return buf
 }
 
 // Load satisfies persist.Registry
 // TODO: check if the input is actually valid
-func (b *Brightness) Load(v []byte) error {
+func (c *Control) Load(v []byte) error {
 	if len(v) == 0 {
 		return nil
 	}
-	b.currentBrightness = Level(binary.LittleEndian.Uint16(v))
+	c.currentBrightness = Level(binary.LittleEndian.Uint16(v))
 	return nil
 }
 
 // Apply satisfies persist.Registry
-func (b *Brightness) Apply() error {
-	return b.set(b.currentBrightness)
+func (c *Control) Apply() error {
+	return c.setBrightness(c.currentBrightness)
 }
 
 // Close satisfied persist.Registry
-func (b *Brightness) Close() error {
-	return b.deviceCtrl.Close()
+func (c *Control) Close() error {
+	return c.deviceCtrl.Close()
 }

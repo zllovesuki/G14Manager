@@ -30,7 +30,7 @@ jobs:
           tag_name: ${{ github.ref }}
           release_name: Release ${{ github.ref }}
           body: |
-            Automated Release by GitHub Action CI. Please see tag annotation for channgelog.
+            Automated Release by GitHub Action CI. Please see tag annotation for changelog.
           draft: false
           prerelease: false
       - name: Upload Release Asset

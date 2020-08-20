@@ -1,4 +1,4 @@
-# ROGManager: A Replacement For Armoury Crate (mostly)
+# ROGManager: An open source replacement for Asus Optimization/Armoury Crate
 
 ![Test and Build](https://github.com/zllovesuki/ROGManager/workflows/Test%20and%20Build/badge.svg) ![Build Release](https://github.com/zllovesuki/ROGManager/workflows/Build%20Release/badge.svg)
 
@@ -8,39 +8,19 @@ Your warranty is now void. Proceed at your own risk.
 
 ## Current Status
 
-After some reverse engineering, ROGManager now reads from hid directly instead of Asus Optimization. However, for now we still need AO for adjusting screen brightness and implementing all the hardware control.
+Follow project status on [Sprint Board](https://github.com/zllovesuki/ROGManager/projects/1)
+
+After some reverse engineering, ROGManager now (mostly) replaces Asus Optimization's functionalities. Only unimplemented (yet) functionalities are:
+1. Toggle mute/unmute microphone
+2. Toggle enable/disable TouchPad
+3. Keyboard brightness adjustment (it is in the pipeline)
+4. On-screen display
 
 ## Requirements
 
-ROGManager requires "Asus Optimization" to be running as a Service, since "Asus Optimization" loads the `atkwmiacpi64.sys` driver and interpret ACPI events as key presses, and exposes a `\\.\ATKACPI` device to be used. You do not need any other softwares from Asus running to use ROGManager; you can safely uninstall them from your system. However, some softwares are installed as Windows driver, and you should disable them in Services:
+ROGManager requires "Asus Optimization" to be installed _but does not require AO to be running_. We only need Asus Optimization (the driver) to be installed so Windows will load `atkwmiacpi64.sys`, and exposes a `\\.\ATKACPI` device to be used. You do not need any other softwares from Asus (e.g. Armoury Crate and its cousins, etc) running to use ROGManager; you can safely uninstall them from your system. However, some softwares (e.g. Asus Optimization) are installed as Windows Services, and you should disable them in Services:
 
 ![Running Services](images/services.png)
-
-![Running Processes](images/processes.png)
-
-The OSD functionality is provided by `AsusOSD.exe`, which should also be under "Asus Optimization." 
-
-```
-PS C:\Windows\System32\DriverStore\FileRepository\asussci2.inf_amd64_b12b0d488bd75133\ASUSOptimization> dir
-
-
-    Directory: C:\Windows\System32\DriverStore\FileRepository\asussci2.inf_amd64_b12b0d488bd75133\ASUSOptimization
-
-
-Mode                 LastWriteTime         Length Name
-----                 -------------         ------ ----
-------         7/28/2020     02:41           3684 ASUS Optimization 36D18D69AFC3.xml
-------         7/28/2020     02:52         218024 AsusHotkeyExec.exe
-------         7/28/2020     02:52         273832 AsusOptimization.exe
-------         7/28/2020     02:53         262056 AsusOptimizationStartupTask.exe
-------         7/28/2020     02:53         117160 AsusOSD.exe
-------         7/28/2020     02:53         844200 AsusSplendid.exe
-------         7/28/2020     02:53         177576 AsusWiFiRangeboost.exe
-------         7/28/2020     02:53         184744 AsusWiFiSmartConnect.exe
-------         7/28/2020     02:53          44680 atkwmiacpi64.sys
-------         7/28/2020     02:53         236952 CCTAdjust.dll
-------         7/28/2020     02:53         204184 VideoEnhance_v406_20180511_x64.dll
-```
 
 Recommend running ROGManager.exe on startup in Task Scheduler.
 
@@ -76,4 +56,12 @@ The key combo has a time delay. If you press the combo X times, it will apply th
 
 ## Developing
 
-Use `.\run.ps1` as it does not compile using CGo.
+Use `.\run.ps1`.
+
+## References:
+
+- https://github.com/torvalds/linux/blob/master/drivers/platform/x86/asus-wmi.c
+- https://github.com/torvalds/linux/blob/master/drivers/platform/x86/asus-nb-wmi.c
+- https://github.com/torvalds/linux/blob/master/drivers/hid/hid-asus.c
+- https://github.com/flukejones/rog-core/blob/master/kernel-patch/0001-HID-asus-add-support-for-ASUS-N-Key-keyboard-v5.8.patch
+- [Reverse Engineering](./reverse_eng.md)

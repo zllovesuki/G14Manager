@@ -9,6 +9,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/zllovesuki/ROGManager/system/keyboard"
+
 	"github.com/zllovesuki/ROGManager/controller"
 	"github.com/zllovesuki/ROGManager/system/battery"
 	"github.com/zllovesuki/ROGManager/system/persist"
@@ -53,15 +55,22 @@ func main() {
 		log.Fatalln(err)
 	}
 
+	kbBrightness, err := keyboard.NewBrightnessControl()
+	if err != nil {
+		log.Fatalln(err)
+	}
+
 	// order powercfg to last
 	config.Register(battery)
 	config.Register(profile)
 	config.Register(powercfg)
+	config.Register(kbBrightness)
 
 	control, err := controller.NewController(controller.Config{
-		Thermal:  profile,
-		Registry: config,
-		ROGKey:   rogRemap,
+		KeyboardBrightness: kbBrightness,
+		Thermal:            profile,
+		Registry:           config,
+		ROGKey:             rogRemap,
 	})
 
 	if err != nil {

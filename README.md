@@ -13,7 +13,7 @@ Follow project status on [Sprint Board](https://github.com/zllovesuki/ROGManager
 After some reverse engineering, ROGManager now (mostly) replaces Asus Optimization's functionalities. Only unimplemented (yet) functionalities are:
 1. Toggle mute/unmute microphone
 2. Toggle enable/disable TouchPad
-3. Keyboard brightness adjustment (it is in the pipeline)
+3. ~~Keyboard brightness adjustment (it is in the pipeline)~~
 4. On-screen display
 
 ## Requirements

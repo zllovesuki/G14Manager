@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/zllovesuki/ROGManager/system/atkacpi"
+	"github.com/zllovesuki/ROGManager/system/keyboard"
 	"github.com/zllovesuki/ROGManager/system/persist"
 	"github.com/zllovesuki/ROGManager/system/thermal"
 	"github.com/zllovesuki/ROGManager/util"
@@ -28,9 +29,11 @@ type Controller interface {
 var _ Controller = &controller{}
 
 type Config struct {
-	Thermal  *thermal.Thermal
-	Registry *persist.RegistryHelper
-	ROGKey   []string
+	KeyboardBrightness *keyboard.Brightness
+	Thermal            *thermal.Thermal
+	Registry           *persist.RegistryHelper
+
+	ROGKey []string
 }
 
 type keyedDebounce struct {
@@ -50,6 +53,9 @@ type controller struct {
 }
 
 func NewController(conf Config) (Controller, error) {
+	if conf.KeyboardBrightness == nil {
+		return nil, errors.New("nil KeyboardBrightness is invalid")
+	}
 	if conf.Thermal == nil {
 		return nil, errors.New("nil Thermal is invalid")
 	}
@@ -108,6 +114,7 @@ func (c *controller) initialize(haltCtx context.Context) {
 	keys := []uint32{
 		58,  // ROG Key
 		174, // Fn + F5
+		0,   // for debouncing persisting to Registry
 	}
 	for _, key := range keys {
 		// TODO: make debounce interval configurable, maybe
@@ -179,6 +186,13 @@ func (c *controller) handleKeyPress(haltCtx context.Context) {
 				log.Println("hid: Fn + F5 Pressed (debounced)")
 				c.debounceCh[174].noisy <- struct{}{}
 
+			case 197: // keyboard brightness down (Fn + Arrow Down)
+				c.Config.KeyboardBrightness.Down()
+				c.debounceCh[0].noisy <- struct{}{}
+			case 196: // keyboard brightness up (Fn + Arrow Up)
+				c.Config.KeyboardBrightness.Up()
+				c.debounceCh[0].noisy <- struct{}{}
+
 			// TODO: Handle keyboard brightness up and down via wmi
 			/*
 				case 32:
@@ -198,7 +212,7 @@ func (c *controller) handleKeyPress(haltCtx context.Context) {
 				// ...etc
 			*/
 			default:
-				log.Printf("hid: Unknown  %d\n", keyCode)
+				log.Printf("hid: Unknown %d\n", keyCode)
 			}
 		case <-haltCtx.Done():
 			log.Println("Exiting handleKeyPress")
@@ -224,6 +238,7 @@ func (c *controller) handleNotify(haltCtx context.Context) {
 func (c *controller) handleDebounce(haltCtx context.Context) {
 	for {
 		select {
+
 		case ev := <-c.debounceCh[58].clean:
 			log.Printf("ROG Key pressed %d times\n", ev.Counter)
 			if int(ev.Counter) <= len(c.Config.ROGKey) {
@@ -233,6 +248,7 @@ func (c *controller) handleDebounce(haltCtx context.Context) {
 					log.Println(err)
 				}
 			}
+
 		case ev := <-c.debounceCh[174].clean:
 			log.Printf("Fn + F5 pressed %d times\n", ev.Counter)
 			next, err := c.Config.Thermal.NextProfile(int(ev.Counter))
@@ -245,9 +261,13 @@ func (c *controller) handleDebounce(haltCtx context.Context) {
 				title:   "Toggle Thermal Plan",
 				message: message,
 			}
+			c.debounceCh[0].noisy <- struct{}{}
+
+		case <-c.debounceCh[0].clean:
 			if err := c.Config.Registry.Save(); err != nil {
 				log.Println("error saving to registry", err)
 			}
+
 		case <-haltCtx.Done():
 			log.Println("Exiting handleDebounce")
 			return

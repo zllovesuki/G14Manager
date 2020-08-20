@@ -18,7 +18,11 @@ After some reverse engineering, ROGManager now (mostly) replaces Asus Optimizati
 
 ## Requirements
 
-ROGManager requires "Asus Optimization" to be installed _but does not require AO to be running_. We only need Asus Optimization (the driver) to be installed so Windows will load `atkwmiacpi64.sys`, and exposes a `\\.\ATKACPI` device to be used. You do not need any other softwares from Asus (e.g. Armoury Crate and its cousins, etc) running to use ROGManager; you can safely uninstall them from your system. However, some softwares (e.g. Asus Optimization) are installed as Windows Services, and you should disable them in Services:
+ROGManager requires "Asus Optimization" to be installed _but does not require AO to be running_.
+
+In fact, Asus Optimization **cannot** be running, otherwise ROGManager and Asus Optimization will be fighting over control. We only need Asus Optimization (the driver) to be installed so Windows will load `atkwmiacpi64.sys`, and exposes a `\\.\ATKACPI` device to be used.
+
+You do not need any other softwares from Asus (e.g. Armoury Crate and its cousins, etc) running to use ROGManager; you can safely uninstall them from your system. However, some softwares (e.g. Asus Optimization) are installed as Windows Services, and you should disable them in Services as they do not provide any value:
 
 ![Running Services](images/services.png)
 

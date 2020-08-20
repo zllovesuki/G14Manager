@@ -9,7 +9,7 @@ import (
 func TestThermalPersist(t *testing.T) {
 	defaultProfiles := GetDefaultThermalProfiles()
 	thermal := Thermal{
-		currentProfileIndex: 10,
+		currentProfileIndex: 1,
 		Config: Config{
 			Profiles: defaultProfiles,
 		},
@@ -20,10 +20,14 @@ func TestThermalPersist(t *testing.T) {
 	b := thermal.Value()
 	require.NotEmpty(t, b)
 
-	loaded := Thermal{}
+	loaded := Thermal{
+		Config: Config{
+			Profiles: defaultProfiles,
+		},
+	}
 
 	require.NoError(t, loaded.Load(b))
-	require.EqualValues(t, thermal.Config.Profiles, loaded.Config.Profiles)
-	require.EqualValues(t, thermal.currentProfileIndex, loaded.currentProfileIndex)
+	require.Equal(t, thermal.currentProfileIndex, loaded.currentProfileIndex)
+	require.Equal(t, defaultProfiles[1].Name, thermal.CurrentProfile().Name)
 
 }

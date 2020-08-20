@@ -45,6 +45,8 @@ type controller struct {
 	debounceCh    map[uint32]keyedDebounce
 	keyCodeCh     chan uint32
 	wmiCh         chan uint32
+
+	keyCtrl *atkacpi.ATKControl
 }
 
 func NewController(conf Config) (Controller, error) {
@@ -88,13 +90,18 @@ func (c *controller) notify(n notification) error {
 func (c *controller) initialize(haltCtx context.Context) {
 	devices, err := atkacpi.NewHidListener(haltCtx, c.keyCodeCh)
 	if err != nil {
-		log.Fatalln(err)
+		log.Fatalln("error initializing hidListener", err)
 	}
 	log.Printf("hid devices: %+v\n", devices)
 
 	err = atkacpi.NewWMIListener(haltCtx, c.wmiCh)
 	if err != nil {
-		log.Fatalln(err)
+		log.Fatalln("error initializing wmiListener", err)
+	}
+
+	c.keyCtrl, err = atkacpi.NewAtkControl(atkacpi.WriteControlCode)
+	if err != nil {
+		log.Fatalln("error initializing atk control for keyboard emulation", err)
 	}
 
 	// TODO: revisit this
@@ -121,6 +128,8 @@ func (c *controller) handleWMI(haltCtx context.Context) {
 				log.Println("wmi: On battery")
 			case 123:
 				log.Println("wmi: Power input changed")
+			default:
+				log.Printf("wmi: Unknown %d\n", wmi)
 			}
 		case <-haltCtx.Done():
 			log.Println("Exiting handleWMI")
@@ -129,10 +138,39 @@ func (c *controller) handleWMI(haltCtx context.Context) {
 	}
 }
 
+func keyEmulation(ctrl *atkacpi.ATKControl, keyCode uint32) {
+	switch keyCode {
+	/*
+		TODO: Unimplemented (yet):
+		107, // touchpad toggle
+		124, // mute/unmute microphone
+	*/
+	case
+		16,  // screen brightness down
+		32,  // screen brightness up
+		108, // sleep
+		136, // RF kill toggle
+		0:   // noop
+		log.Printf("Forwarding %d to ATKACPI\n", keyCode)
+
+		inputBuf := make([]byte, atkacpi.KeyPressControlBufferLength)
+		copy(inputBuf, atkacpi.KeyPressControlBuffer)
+		inputBuf[atkacpi.KeyPressControlByteIndex] = byte(keyCode)
+
+		_, err := ctrl.Write(inputBuf)
+		if err != nil {
+			log.Fatalln("error sending key code to ATKACPI", err)
+		}
+	}
+}
+
 func (c *controller) handleKeyPress(haltCtx context.Context) {
 	for {
 		select {
 		case keyCode := <-c.keyCodeCh:
+			// also forward some special key combo to the ATK interface
+			go keyEmulation(c.keyCtrl, keyCode)
+
 			switch keyCode {
 			case 56:
 				log.Println("hid: ROG Key Pressed (debounced)")

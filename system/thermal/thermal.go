@@ -160,11 +160,6 @@ func (t *Thermal) setGPUFan(ctrl *atkacpi.ATKControl, curve []byte) error {
 
 var _ persist.Registry = &Thermal{}
 
-type persistThermal struct {
-	Index    int
-	Profiles []Profile
-}
-
 // Name satisfies persist.Registry
 func (t *Thermal) Name() string {
 	return thermalPersistKey
@@ -172,13 +167,10 @@ func (t *Thermal) Name() string {
 
 // Value satisfies persist.Registry
 func (t *Thermal) Value() []byte {
-	s := persistThermal{
-		Index:    t.currentProfileIndex,
-		Profiles: t.Config.Profiles,
-	}
 	var buf bytes.Buffer
+	name := t.CurrentProfile().Name
 	enc := gob.NewEncoder(&buf)
-	if err := enc.Encode(s); err != nil {
+	if err := enc.Encode(name); err != nil {
 		return nil
 	}
 	return buf.Bytes()
@@ -189,15 +181,18 @@ func (t *Thermal) Load(v []byte) error {
 	if len(v) == 0 {
 		return nil
 	}
-	s := persistThermal{}
+	var name string
 	buf := bytes.NewBuffer(v)
 	dec := gob.NewDecoder(buf)
-	if err := dec.Decode(&s); err != nil {
+	if err := dec.Decode(&name); err != nil {
 		return err
 	}
-	t.currentProfileIndex = s.Index
-	// TODO: remove this once we allow user to specify their curve
-	t.Config.Profiles = s.Profiles
+	for i, profile := range t.Profiles {
+		if profile.Name == name {
+			t.currentProfileIndex = i
+			return nil
+		}
+	}
 	return nil
 }
 

@@ -94,6 +94,11 @@ func (c *controller) notify(n notification) error {
 }
 
 func (c *controller) initialize(haltCtx context.Context) {
+
+	// initialize the ATKACPI interface
+	// TODO: figure out how to use go-ole to do it
+	run("powershell", "-command", `"(Get-WmiObject -Namespace root/WMI -Class AsusAtkWmi_WMNB).INIT(0)`)
+
 	devices, err := keyboard.NewHidListener(haltCtx, c.keyCodeCh)
 	if err != nil {
 		log.Fatalln("error initializing hidListener", err)
@@ -244,9 +249,7 @@ func (c *controller) handleDebounce(haltCtx context.Context) {
 		case ev := <-c.debounceCh[58].clean:
 			log.Printf("ROG Key pressed %d times\n", ev.Counter)
 			if int(ev.Counter) <= len(c.Config.ROGKey) {
-				cmd := exec.Command("cmd.exe", "/C", c.Config.ROGKey[ev.Counter-1])
-				cmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: 0x08000000}
-				if err := cmd.Start(); err != nil {
+				if err := run("cmd.exe", "/C", c.Config.ROGKey[ev.Counter-1]); err != nil {
 					log.Println(err)
 				}
 			}
@@ -302,4 +305,10 @@ func (c *controller) Run(haltCtx context.Context) {
 
 	<-haltCtx.Done()
 	time.Sleep(time.Millisecond * 50) // allows time for context cancel
+}
+
+func run(commands ...string) error {
+	cmd := exec.Command(commands[0], commands[1:]...)
+	cmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: 0x08000000}
+	return cmd.Start()
 }

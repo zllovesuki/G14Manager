@@ -241,4 +241,5 @@ func (c *controller) Run(haltCtx context.Context) {
 	go c.handleWMI(haltCtx)
 
 	<-haltCtx.Done()
+	time.Sleep(time.Millisecond * 50) // allows time for context cancel
 }

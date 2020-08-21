@@ -33,7 +33,7 @@ jobs:
             const { repo: { owner, repo }, sha } = context;
             console.log({ owner, repo, sha });
 
-            const tag_name = context.payload.ref.replace(/\/refs\/tags\//, '');
+            const tag_name = context.ref.replace(/refs\/tags\//, '');
 
             const release = await github.repos.createRelease({
               owner, repo,

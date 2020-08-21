@@ -1,4 +1,5 @@
 *~
-*.exe
 Session.vim
 *.syso
+build/
+rnd/

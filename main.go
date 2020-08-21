@@ -19,9 +19,15 @@ import (
 	"github.com/zllovesuki/ROGManager/util"
 )
 
+var (
+	Version = "dev"
+)
+
 var defaultCommandWithArgs = "Taskmgr.exe"
 
 func main() {
+
+	log.Printf("ROGManager version: %s\n", Version)
 
 	var rogRemap util.ArrayFlags
 

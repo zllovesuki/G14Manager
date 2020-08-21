@@ -1,8 +1,6 @@
 package atkacpi
 
 import (
-	"log"
-
 	"github.com/zllovesuki/ROGManager/system/device"
 )
 
@@ -76,22 +74,19 @@ func NewAtkControl(controlCode uint32) (*ATKControl, error) {
 	}, nil
 }
 
-func (a *ATKControl) Write(buf []byte) (result *device.DeviceOutput, err error) {
-	log.Printf("device %s input buffer: %+v\n", devicePath, buf)
+func (a *ATKControl) Write(buf []byte) (result int, err error) {
 	result, err = a.device.Write(buf)
 	if err != nil {
 		return
 	}
-	log.Printf("device %s write result length: %d\n", devicePath, result.Written)
 	return
 }
 
-func (a *ATKControl) Read(outputBufferLength int) (result *device.DeviceOutput, err error) {
-	result, err = a.device.Read(outputBufferLength)
+func (a *ATKControl) Read(buf []byte) (result int, err error) {
+	result, err = a.device.Read(buf)
 	if err != nil {
 		return
 	}
-	log.Printf("device %s read result: %+v\n", devicePath, result)
 	return
 }
 

@@ -2,18 +2,15 @@ package device
 
 import (
 	"errors"
+	"log"
 
 	"golang.org/x/sys/windows"
 )
 
 type Control struct {
+	path        string
 	handle      windows.Handle
 	controlCode uint32
-}
-
-type DeviceOutput struct {
-	Buffer  []byte
-	Written uint32
 }
 
 func NewControl(path string, controlCode uint32) (*Control, error) {
@@ -22,11 +19,13 @@ func NewControl(path string, controlCode uint32) (*Control, error) {
 	}
 	h, err := windows.CreateFile(
 		windows.StringToUTF16Ptr(path),
-		0xc0000000, // GENERIC_READ_AND_WRITE https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-rdpepnp/0f2fef8b-ef79-40ff-8314-5f56787e6d9d
+		// 0x80 is FILE_READ_ATTRIBUTES https://docs.microsoft.com/en-us/windows/win32/fileio/file-access-rights-constants
+		0x80|windows.GENERIC_READ|windows.GENERIC_WRITE|windows.SYNCHRONIZE,
 		3,
 		nil,
 		windows.OPEN_EXISTING,
-		windows.FILE_ATTRIBUTE_DEVICE,
+		// FILE_NON_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT https://processhacker.sourceforge.io/doc/ntioapi_8h.html
+		0x00000040|0x00000020,
 		0,
 	)
 	if err != nil {
@@ -34,14 +33,16 @@ func NewControl(path string, controlCode uint32) (*Control, error) {
 	}
 
 	return &Control{
+		path:        path,
 		handle:      h,
 		controlCode: controlCode,
 	}, nil
 }
 
-func (d *Control) Write(input []byte) (*DeviceOutput, error) {
+func (d *Control) Write(input []byte) (int, error) {
 	outBuf := make([]byte, 1024)
 	outBufWritten := uint32(0)
+	log.Printf("device: %s (%d) write buffer: %+v\n", d.path, d.controlCode, input)
 	err := windows.DeviceIoControl(
 		d.handle,
 		d.controlCode,
@@ -53,17 +54,14 @@ func (d *Control) Write(input []byte) (*DeviceOutput, error) {
 		nil,
 	)
 	if err != nil {
-		return nil, windows.GetLastError()
+		return 0, windows.GetLastError()
 	}
-	return &DeviceOutput{
-		Buffer:  outBuf,
-		Written: outBufWritten,
-	}, nil
+	return len(input), nil
 }
 
-func (d *Control) Read(outputBufferLength int) (*DeviceOutput, error) {
-	outBuf := make([]byte, outputBufferLength)
+func (d *Control) Read(outBuf []byte) (int, error) {
 	outBufWritten := uint32(0)
+	log.Printf("device: %s (%d) read buffer: %+v\n", d.path, d.controlCode, outBuf)
 	err := windows.DeviceIoControl(
 		d.handle,
 		d.controlCode,
@@ -75,12 +73,9 @@ func (d *Control) Read(outputBufferLength int) (*DeviceOutput, error) {
 		nil,
 	)
 	if err != nil {
-		return nil, windows.GetLastError()
+		return 0, windows.GetLastError()
 	}
-	return &DeviceOutput{
-		Buffer:  outBuf,
-		Written: outBufWritten,
-	}, nil
+	return int(outBufWritten), nil
 }
 
 func (d *Control) Close() error {

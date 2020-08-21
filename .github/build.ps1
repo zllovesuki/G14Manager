@@ -26,6 +26,13 @@ Invoke-Expression $RSRC
 $MOD = "go mod download"
 Invoke-Expression $MOD 2>&1
 
+Write-Host "Building prod release"
+
 # $BUILD = "go build -tags 'use_cgo' -ldflags='-H=windowsgui -s -w' ."
-$BUILD = "go build -ldflags='-H=windowsgui -s -w' ."
+$BUILD = "go build -ldflags=`"-H=windowsgui -s -w -X 'main.Version=$env:GITHUB_REF'`" -o build/ROGManager.exe ."
 Invoke-Expression $BUILD
+
+Write-Host "Building debug release"
+
+$BUILD_DEBUG = "go build -ldflags=`"-X 'main.Version=$env:GITHUB_REF'`" -o build/ROGManager.debug.exe ."
+Invoke-Expression $BUILD_DEBUG

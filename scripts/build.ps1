@@ -9,4 +9,5 @@ $env:CDO_ENABLED = 1
 
 rsrc.exe -arch amd64 -manifest ROGManager.exe.manifest -ico go.ico -o ROGManager.exe.syso
 
-go build -ldflags="-H=windowsgui -s -w" .
+go build -ldflags="-H=windowsgui -s -w" -o "build/ROGManager.exe" .
+go build -o "build/ROGManager.debug.exe" .

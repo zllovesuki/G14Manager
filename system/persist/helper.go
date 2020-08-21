@@ -51,10 +51,10 @@ func (h *RegistryHelper) Load() error {
 	}
 
 	for _, config := range h.configs {
-		log.Printf("Loading \"%s\" from the Registry\n", config.Name())
+		log.Printf("persist: loading \"%s\" from the Registry\n", config.Name())
 		v, _, err := key.GetBinaryValue(config.Name())
 		if err != nil && err != registry.ErrNotExist {
-			log.Printf("Error loading \"%s\" from the Registry: %s\n", config.Name(), err)
+			log.Printf("persist: error loading \"%s\" from the Registry: %s\n", config.Name(), err)
 			return err
 		}
 		config.Load(v)
@@ -73,12 +73,13 @@ func (h *RegistryHelper) Save() error {
 	if err != nil {
 		return err
 	}
+	defer key.Close()
 
 	for _, config := range h.configs {
-		log.Printf("Saving \"%s\" to the Registry\n", config.Name())
+		log.Printf("persist: saving \"%s\" to the Registry\n", config.Name())
 		err := key.SetBinaryValue(config.Name(), config.Value())
 		if err != nil {
-			log.Printf("Error saving \"%s\" to the Registry: %s\n", config.Name(), err)
+			log.Printf("persist: error saving \"%s\" to the Registry: %s\n", config.Name(), err)
 			return err
 		}
 	}
@@ -86,13 +87,13 @@ func (h *RegistryHelper) Save() error {
 	return nil
 }
 
-// Apply will apply each config accordinly. This is usually called after Load()
+// Apply will apply each config accordingly. This is usually called after Load()
 func (h *RegistryHelper) Apply() error {
 	for _, config := range h.configs {
-		log.Printf("Applying \"%s\" config\n", config.Name())
+		log.Printf("persist: applying \"%s\" config\n", config.Name())
 		err := config.Apply()
 		if err != nil {
-			log.Printf("Error applying \"%s\": %s\n", config.Name(), err)
+			log.Printf("persist: error applying \"%s\": %s\n", config.Name(), err)
 			return err
 		}
 		time.Sleep(time.Millisecond * 25) // allow time for hardware configuration to propagate
@@ -104,10 +105,10 @@ func (h *RegistryHelper) Apply() error {
 // Close will release resources of each config
 func (h *RegistryHelper) Close() {
 	for _, config := range h.configs {
-		log.Printf("Closing \"%s\"\n", config.Name())
+		log.Printf("persist: closing \"%s\"\n", config.Name())
 		err := config.Close()
 		if err != nil {
-			log.Printf("Error closing \"%s\": %s\n", config.Name(), err)
+			log.Printf("persist: error closing \"%s\": %s\n", config.Name(), err)
 		}
 	}
 }

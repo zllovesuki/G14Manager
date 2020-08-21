@@ -145,11 +145,13 @@ func (c *controller) handleWMI(haltCtx context.Context) {
 				log.Println("wmi: On battery")
 			case 123:
 				log.Println("wmi: Power input changed")
+			case 233:
+				log.Println("wmi: Suspend/Resume")
 			default:
 				log.Printf("wmi: Unknown %d\n", wmi)
 			}
 		case <-haltCtx.Done():
-			log.Println("Exiting handleWMI")
+			log.Println("controller: exiting handleWMI")
 			return
 		}
 	}
@@ -163,7 +165,7 @@ func keyEmulation(ctrl *atkacpi.ATKControl, keyCode uint32) {
 		108, // sleep
 		136, // RF kill toggle
 		0:   // noop
-		log.Printf("Forwarding %d to ATKACPI\n", keyCode)
+		log.Printf("controller: notifying ATKACPI on %d\n", keyCode)
 
 		inputBuf := make([]byte, atkacpi.KeyPressControlBufferLength)
 		copy(inputBuf, atkacpi.KeyPressControlBuffer)
@@ -171,7 +173,7 @@ func keyEmulation(ctrl *atkacpi.ATKControl, keyCode uint32) {
 
 		_, err := ctrl.Write(inputBuf)
 		if err != nil {
-			log.Fatalln("error sending key code to ATKACPI", err)
+			log.Fatalln("controller: error sending key code to ATKACPI", err)
 		}
 	}
 }
@@ -180,9 +182,6 @@ func (c *controller) handleKeyPress(haltCtx context.Context) {
 	for {
 		select {
 		case keyCode := <-c.keyCodeCh:
-			// also forward some special key combo to the ATK interface
-			go keyEmulation(c.keyCtrl, keyCode)
-
 			switch keyCode {
 			case 56:
 				log.Println("hid: ROG Key Pressed (debounced)")
@@ -205,32 +204,30 @@ func (c *controller) handleKeyPress(haltCtx context.Context) {
 				c.Config.KeyboardControl.ToggleTouchPad()
 
 			case 124:
-				log.Println("hid: mute/unmute micrphone Pressed")
+				log.Println("hid: mute/unmute microphone Pressed")
 				c.Config.VolumeControl.ToggleMicrophoneMute()
 
-			// TODO: Handle keyboard brightness up and down via wmi
-			/*
-				case 32:
-					// screen brightness up
-				case 16:
-					// screen brightness down
-				case 107:
-					// Fn + F10: disable/enable trackpad
-				case 123:
-					// Power input change (unplug/plug in)
-				case 124:
-					// microphone mute/unmute
-				case 196:
-					// brightness up
-				case 197:
-					// brightness down
-				// ...etc
-			*/
+			case 234:
+				log.Println("hid: volume down Pressed")
+
+			case 233:
+				log.Println("hid: volume up Pressed")
+
+			case 32:
+				log.Println("hid: Fn + F7 Pressed")
+
+			case 16:
+				log.Println("hid: Fn + F8 Pressed")
+
 			default:
 				log.Printf("hid: Unknown %d\n", keyCode)
 			}
+
+			// also forward some special key combo to the ATK interface
+			go keyEmulation(c.keyCtrl, keyCode)
+
 		case <-haltCtx.Done():
-			log.Println("Exiting handleKeyPress")
+			log.Println("controller: exiting handleKeyPress")
 			return
 		}
 	}
@@ -244,7 +241,7 @@ func (c *controller) handleNotify(haltCtx context.Context) {
 				log.Printf("Error sending toast notification: %s\n", err)
 			}
 		case <-haltCtx.Done():
-			log.Println("Exiting handleNotify")
+			log.Println("controller: exiting handleNotify")
 			return
 		}
 	}
@@ -255,7 +252,7 @@ func (c *controller) handleDebounce(haltCtx context.Context) {
 		select {
 
 		case ev := <-c.debounceCh[58].clean:
-			log.Printf("ROG Key pressed %d times\n", ev.Counter)
+			log.Printf("controller: ROG Key pressed %d times\n", ev.Counter)
 			if int(ev.Counter) <= len(c.Config.ROGKey) {
 				if err := run("cmd.exe", "/C", c.Config.ROGKey[ev.Counter-1]); err != nil {
 					log.Println(err)
@@ -263,7 +260,7 @@ func (c *controller) handleDebounce(haltCtx context.Context) {
 			}
 
 		case ev := <-c.debounceCh[174].clean:
-			log.Printf("Fn + F5 pressed %d times\n", ev.Counter)
+			log.Printf("controller: Fn + F5 pressed %d times\n", ev.Counter)
 			next, err := c.Config.Thermal.NextProfile(int(ev.Counter))
 			message := fmt.Sprintf("Thermal plan changed to %s", next)
 			if err != nil {
@@ -278,11 +275,11 @@ func (c *controller) handleDebounce(haltCtx context.Context) {
 
 		case <-c.debounceCh[0].clean:
 			if err := c.Config.Registry.Save(); err != nil {
-				log.Println("error saving to registry", err)
+				log.Println("controller: error saving to registry", err)
 			}
 
 		case <-haltCtx.Done():
-			log.Println("Exiting handleDebounce")
+			log.Println("controller: exiting handleDebounce")
 			return
 		}
 	}
@@ -290,7 +287,7 @@ func (c *controller) handleDebounce(haltCtx context.Context) {
 
 func (c *controller) Run(haltCtx context.Context) {
 
-	log.Println("Loading configuration from Registry")
+	log.Println("controller: loading configuration from Registry")
 	// load configs from registry and try to reapply
 	if err := c.Config.Registry.Load(); err != nil {
 		log.Fatalln(err)
@@ -312,6 +309,7 @@ func (c *controller) Run(haltCtx context.Context) {
 	go c.handleWMI(haltCtx)
 
 	<-haltCtx.Done()
+	time.Sleep(time.Millisecond * 50)
 	c.Config.Registry.Close()
 	c.Config.VolumeControl.Close()
 }

@@ -21,25 +21,37 @@ jobs:
       - name: Build Artifacts
         shell: powershell
         run: .\.github\build.ps1
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@latest
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create Release # https://github.com/actions/upload-release-asset/issues/47#issuecomment-659071145
+        uses: actions/github-script@v2
         with:
-          tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
-          body: |
-            Automated Release by GitHub Action CI. Please see tag annotation for changelog.
-          draft: false
-          prerelease: false
-      - name: Upload Release Asset
-        id: upload-release-asset
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./ROGManager.exe
-          asset_name: ROGManager.exe
-          asset_content_type: application/vnd.microsoft.portable-executable
+          github-token: ${{secrets.GITHUB_TOKEN}}
+          script: |
+            console.log('environment', process.versions);
+            
+            const fs = require('fs').promises;
+            
+            const { repo: { owner, repo }, sha } = context;
+            console.log({ owner, repo, sha });
+
+            const release = await github.repos.createRelease({
+              owner, repo,
+              tag_name: process.env.GITHUB_REF,
+              draft: false,
+              prerelease: false,
+              body: "Automated Release by GitHub Action CI. Please see tag annotation for changelog.",
+              name: "Release " + process.env.GITHUB_REF,
+              target_commitish: sha
+            });
+
+            console.log('created release', { release });
+        
+            for (let file of await fs.readdir('./build/')) {
+              console.log('uploading', file);
+
+              await github.repos.uploadReleaseAsset({
+                owner, repo,
+                release_id: release.data.id,
+                name: file,
+                data: await fs.readFile(`./build/${file}`)
+              });            
+            }

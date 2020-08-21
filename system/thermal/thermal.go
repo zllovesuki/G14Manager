@@ -109,7 +109,7 @@ func (t *Thermal) setPowerPlan(ctrl *atkacpi.ATKControl, profile Profile) error 
 		return err
 	}
 
-	log.Printf("thermal throttle plan set: 0x%x\n", profile.ThrottlePlan)
+	log.Printf("thermal: throttle plan set: 0x%x\n", profile.ThrottlePlan)
 
 	return nil
 }
@@ -130,7 +130,7 @@ func (t *Thermal) setFanCurve(ctrl *atkacpi.ATKControl, profile Profile) error {
 
 func (t *Thermal) setFan(ctrl *atkacpi.ATKControl, device byte, curve []byte) error {
 	if len(curve) != 16 {
-		log.Println("invalid found, skipping")
+		log.Printf("thermal: invalid curve found, skipping\n")
 		return nil
 	}
 
@@ -145,7 +145,7 @@ func (t *Thermal) setFan(ctrl *atkacpi.ATKControl, device byte, curve []byte) er
 		return err
 	}
 
-	log.Printf("device 0x%x curve set to %+v\n", device, curve)
+	log.Printf("thermal: device 0x%x curve set to %+v\n", device, curve)
 
 	return nil
 }

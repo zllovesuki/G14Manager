@@ -14,6 +14,7 @@ the {uuid} part is generic GUID_DEVINTERFACE_HID: https://docs.microsoft.com/en-
 import (
 	"encoding/binary"
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/zllovesuki/ROGManager/system/device"
@@ -206,6 +207,7 @@ func (c *Control) ToggleTouchPad() error {
 }
 
 func initializeInterface(ctrl *device.Control) error {
+	log.Println("kbCtrl: initializaing hid interface")
 	for _, buf := range initBufs {
 		initBuf := make([]byte, initBufferLength)
 		copy(initBuf, buf)

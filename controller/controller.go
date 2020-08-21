@@ -13,6 +13,7 @@ import (
 	"github.com/zllovesuki/ROGManager/system/keyboard"
 	"github.com/zllovesuki/ROGManager/system/persist"
 	"github.com/zllovesuki/ROGManager/system/thermal"
+	"github.com/zllovesuki/ROGManager/system/volume"
 	"github.com/zllovesuki/ROGManager/util"
 
 	"gopkg.in/toast.v1"
@@ -29,6 +30,7 @@ type Controller interface {
 var _ Controller = &controller{}
 
 type Config struct {
+	VolumeControl   *volume.Control
 	KeyboardControl *keyboard.Control
 	Thermal         *thermal.Thermal
 	Registry        *persist.RegistryHelper
@@ -53,8 +55,11 @@ type controller struct {
 }
 
 func NewController(conf Config) (Controller, error) {
+	if conf.VolumeControl == nil {
+		return nil, errors.New("nil volume.Control is invalid")
+	}
 	if conf.KeyboardControl == nil {
-		return nil, errors.New("nil KeyboardBrightness is invalid")
+		return nil, errors.New("nil keyboard.Control is invalid")
 	}
 	if conf.Thermal == nil {
 		return nil, errors.New("nil Thermal is invalid")
@@ -152,10 +157,6 @@ func (c *controller) handleWMI(haltCtx context.Context) {
 
 func keyEmulation(ctrl *atkacpi.ATKControl, keyCode uint32) {
 	switch keyCode {
-	/*
-		TODO: Unimplemented (yet):
-		124, // mute/unmute microphone
-	*/
 	case
 		16,  // screen brightness down
 		32,  // screen brightness up
@@ -202,6 +203,10 @@ func (c *controller) handleKeyPress(haltCtx context.Context) {
 			case 107:
 				log.Println("hid: Fn + F10 Pressed")
 				c.Config.KeyboardControl.ToggleTouchPad()
+
+			case 124:
+				log.Println("hid: mute/unmute micrphone Pressed")
+				c.Config.VolumeControl.ToggleMicrophoneMute()
 
 			// TODO: Handle keyboard brightness up and down via wmi
 			/*
@@ -307,7 +312,8 @@ func (c *controller) Run(haltCtx context.Context) {
 	go c.handleWMI(haltCtx)
 
 	<-haltCtx.Done()
-	time.Sleep(time.Millisecond * 50) // allows time for context cancel
+	c.Config.Registry.Close()
+	c.Config.VolumeControl.Close()
 }
 
 func run(commands ...string) error {

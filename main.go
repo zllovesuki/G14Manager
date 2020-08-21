@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/zllovesuki/ROGManager/system/keyboard"
+	"github.com/zllovesuki/ROGManager/system/volume"
 
 	"github.com/zllovesuki/ROGManager/controller"
 	"github.com/zllovesuki/ROGManager/system/battery"
@@ -60,6 +61,11 @@ func main() {
 		log.Fatalln(err)
 	}
 
+	volCtrl, err := volume.NewControl()
+	if err != nil {
+		log.Fatalln(err)
+	}
+
 	// order powercfg to last
 	config.Register(battery)
 	config.Register(profile)
@@ -67,6 +73,7 @@ func main() {
 	config.Register(kbCtrl)
 
 	control, err := controller.NewController(controller.Config{
+		VolumeControl:   volCtrl,
 		KeyboardControl: kbCtrl,
 		Thermal:         profile,
 		Registry:        config,
@@ -88,7 +95,7 @@ func main() {
 	go func() {
 		<-sigc
 		cancel()
-		time.Sleep(time.Millisecond * 50)
+		time.Sleep(time.Second * 5) // 5 second for grace period
 		os.Exit(0)
 	}()
 

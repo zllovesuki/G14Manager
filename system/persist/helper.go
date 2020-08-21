@@ -9,7 +9,7 @@ import (
 
 const (
 	registryKey  = registry.LOCAL_MACHINE
-	registryPath = `SOFTWARE\ROGManager`
+	registryPath = `SOFTWARE\G14Manager`
 )
 
 // RegistryHelper contains a list of configurations to be loaded, saved, and applied

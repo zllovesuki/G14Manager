@@ -4,9 +4,9 @@ import (
 	"encoding/binary"
 	"errors"
 
-	"github.com/zllovesuki/ROGManager/system/atkacpi"
-	"github.com/zllovesuki/ROGManager/system/ioctl"
-	"github.com/zllovesuki/ROGManager/system/persist"
+	"github.com/zllovesuki/G14Manager/system/atkacpi"
+	"github.com/zllovesuki/G14Manager/system/ioctl"
+	"github.com/zllovesuki/G14Manager/system/persist"
 )
 
 const (

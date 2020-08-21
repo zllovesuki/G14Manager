@@ -10,7 +10,7 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/zllovesuki/ROGManager/system/persist"
+	"github.com/zllovesuki/G14Manager/system/persist"
 )
 
 const (

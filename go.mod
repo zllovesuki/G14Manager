@@ -1,4 +1,4 @@
-module github.com/zllovesuki/ROGManager
+module github.com/zllovesuki/G14Manager
 
 go 1.14
 

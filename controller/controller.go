@@ -9,19 +9,19 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/zllovesuki/ROGManager/system/atkacpi"
-	"github.com/zllovesuki/ROGManager/system/ioctl"
-	"github.com/zllovesuki/ROGManager/system/keyboard"
-	"github.com/zllovesuki/ROGManager/system/persist"
-	"github.com/zllovesuki/ROGManager/system/thermal"
-	"github.com/zllovesuki/ROGManager/system/volume"
-	"github.com/zllovesuki/ROGManager/util"
+	"github.com/zllovesuki/G14Manager/system/atkacpi"
+	"github.com/zllovesuki/G14Manager/system/ioctl"
+	"github.com/zllovesuki/G14Manager/system/keyboard"
+	"github.com/zllovesuki/G14Manager/system/persist"
+	"github.com/zllovesuki/G14Manager/system/thermal"
+	"github.com/zllovesuki/G14Manager/system/volume"
+	"github.com/zllovesuki/G14Manager/util"
 
 	"gopkg.in/toast.v1"
 )
 
 const (
-	appName = "ROGManager"
+	appName = "G14Manager"
 )
 
 type Controller interface {

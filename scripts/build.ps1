@@ -7,7 +7,7 @@ $env:GOOS = "windows"
 $env:GOARCH = "amd64"
 $env:CDO_ENABLED = 1
 
-rsrc.exe -arch amd64 -manifest ROGManager.exe.manifest -ico go.ico -o ROGManager.exe.syso
+rsrc.exe -arch amd64 -manifest G14Manager.exe.manifest -ico go.ico -o G14Manager.exe.syso
 
-go build -ldflags="-H=windowsgui -s -w" -o "build/ROGManager.exe" .
-go build -o "build/ROGManager.debug.exe" .
+go build -ldflags="-H=windowsgui -s -w" -o "build/G14Manager.exe" .
+go build -o "build/G14Manager.debug.exe" .

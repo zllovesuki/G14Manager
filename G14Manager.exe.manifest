@@ -3,7 +3,7 @@
 <assemblyIdentity
     version="1.0.0.0"
     processorArchitecture="amd64"
-    name="ROGManager"
+    name="G14Manager"
     type="win32"
 />
 <trustInfo xmlns="urn:schemas-microsoft-com:asm.v3">

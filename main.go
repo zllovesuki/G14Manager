@@ -9,14 +9,14 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/zllovesuki/ROGManager/system/keyboard"
-	"github.com/zllovesuki/ROGManager/system/volume"
+	"github.com/zllovesuki/G14Manager/system/keyboard"
+	"github.com/zllovesuki/G14Manager/system/volume"
 
-	"github.com/zllovesuki/ROGManager/controller"
-	"github.com/zllovesuki/ROGManager/system/battery"
-	"github.com/zllovesuki/ROGManager/system/persist"
-	"github.com/zllovesuki/ROGManager/system/thermal"
-	"github.com/zllovesuki/ROGManager/util"
+	"github.com/zllovesuki/G14Manager/controller"
+	"github.com/zllovesuki/G14Manager/system/battery"
+	"github.com/zllovesuki/G14Manager/system/persist"
+	"github.com/zllovesuki/G14Manager/system/thermal"
+	"github.com/zllovesuki/G14Manager/util"
 )
 
 var (
@@ -34,7 +34,7 @@ func main() {
 
 	flag.Parse()
 
-	log.Printf("ROGManager version: %s\n", Version)
+	log.Printf("G14Manager version: %s\n", Version)
 	log.Printf("Experimental enabled: %v\n", *enableExperimental)
 
 	if len(rogRemap) == 0 {

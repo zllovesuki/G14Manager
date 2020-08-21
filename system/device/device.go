@@ -21,7 +21,7 @@ func NewControl(path string, controlCode uint32) (*Control, error) {
 		windows.StringToUTF16Ptr(path),
 		// 0x80 is FILE_READ_ATTRIBUTES https://docs.microsoft.com/en-us/windows/win32/fileio/file-access-rights-constants
 		0x80|windows.GENERIC_READ|windows.GENERIC_WRITE|windows.SYNCHRONIZE,
-		3,
+		windows.FILE_SHARE_READ|windows.FILE_SHARE_WRITE,
 		nil,
 		windows.OPEN_EXISTING,
 		// FILE_NON_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT https://processhacker.sourceforge.io/doc/ntioapi_8h.html

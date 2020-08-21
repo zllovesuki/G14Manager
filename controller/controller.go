@@ -102,7 +102,7 @@ func (c *controller) initialize(haltCtx context.Context) {
 
 	// initialize the ATKACPI interface
 	// TODO: figure out how to use go-ole to do it
-	run("powershell", "-command", `"(Get-WmiObject -Namespace root/WMI -Class AsusAtkWmi_WMNB).INIT(0)`)
+	run("powershell", "-command", `"(Get-WmiObject -Namespace root/WMI -Class AsusAtkWmi_WMNB).INIT(0)"`)
 
 	devices, err := keyboard.NewHidListener(haltCtx, c.keyCodeCh)
 	if err != nil {

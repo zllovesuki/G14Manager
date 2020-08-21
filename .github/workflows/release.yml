@@ -33,13 +33,15 @@ jobs:
             const { repo: { owner, repo }, sha } = context;
             console.log({ owner, repo, sha });
 
+            const tag_name = context.payload.ref.replace(/\/refs\/tags\//, '');
+
             const release = await github.repos.createRelease({
               owner, repo,
-              tag_name: process.env.GITHUB_REF,
+              tag_name: tag_name,
               draft: false,
               prerelease: false,
               body: "Automated Release by GitHub Action CI. Please see tag annotation for changelog.",
-              name: "Release " + process.env.GITHUB_REF,
+              name: "Release " + tag_name,
               target_commitish: sha
             });
 

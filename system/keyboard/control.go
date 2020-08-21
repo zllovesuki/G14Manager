@@ -11,10 +11,14 @@ Everything after \hid is just plain old PnP DeviceID, but with "\" replaced with
 the {uuid} part is generic GUID_DEVINTERFACE_HID: https://docs.microsoft.com/en-us/windows-hardware/drivers/install/guid-devinterface-hid
 */
 
+// #include "virtual.h"
+import "C"
+
 import (
 	"encoding/binary"
 	"fmt"
 	"log"
+	"runtime"
 	"strings"
 
 	"github.com/zllovesuki/ROGManager/system/device"
@@ -202,6 +206,18 @@ func (c *Control) ToggleTouchPad() error {
 	}
 
 	// I don't think we have a way of checking if the touchpad is disabled/enabled
+
+	return nil
+}
+
+// EmulateKeyPress allows you send arbitary keyboard scan code. Useful for remapping Fn + <key>
+func (c *Control) EmulateKeyPress(keyCode uint16) error {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+
+	if C.send_key_press(C.ushort(keyCode)) != 0 {
+		return fmt.Errorf("kbCtrl: cannot emulate key press")
+	}
 
 	return nil
 }

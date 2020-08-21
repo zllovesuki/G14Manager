@@ -37,6 +37,14 @@ Optionally, disable ASUS System Analysis Driver with `sc.exe config "ASUSSAIO" s
 
 Recommend running `ROGManager.exe` on startup in Task Scheduler with "Run with highest privileges."
 
+## Remapping Fn+Left/Right to PgUp/PgDown
+
+This feature is currently behind an experimental flag. Pass `-experimental` flag to enable it.
+
+```
+.\ROGManage.exe -experimental
+```
+
 ## Remapping the ROG Key
 
 Use case: You can compile your `.ahk` to `.exe` and run your macros.

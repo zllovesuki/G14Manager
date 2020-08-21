@@ -42,7 +42,7 @@ Recommend running `G14Manager.exe` on startup in Task Scheduler with "Run with h
 This feature is currently behind an experimental flag. Pass `-experimental` flag to enable it.
 
 ```
-.\ROGManage.exe -experimental
+.\G14Manager.exe -experimental
 ```
 
 ## Remapping the ROG Key

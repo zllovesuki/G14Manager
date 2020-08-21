@@ -191,13 +191,16 @@ func (c *controller) handleKeyPress(haltCtx context.Context) {
 				c.debounceCh[174].noisy <- struct{}{}
 
 			case 197: // keyboard brightness down (Fn + Arrow Down)
+				log.Println("hid: Fn + Arrow Down Pressed")
 				c.Config.KeyboardControl.BrightnessDown()
 				c.debounceCh[0].noisy <- struct{}{}
 			case 196: // keyboard brightness up (Fn + Arrow Up)
+				log.Println("hid: Fn + Arrow Up Pressed")
 				c.Config.KeyboardControl.BrightnessUp()
 				c.debounceCh[0].noisy <- struct{}{}
 
 			case 107:
+				log.Println("hid: Fn + F10 Pressed")
 				c.Config.KeyboardControl.ToggleTouchPad()
 
 			// TODO: Handle keyboard brightness up and down via wmi

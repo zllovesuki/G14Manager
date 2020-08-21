@@ -51,9 +51,9 @@ type controller struct {
 	notifyQueueCh chan notification
 	debounceCh    map[uint32]keyedDebounce
 	keyCodeCh     chan uint32
-	wmiCh         chan uint32
+	acpiCh        chan uint32
 
-	keyCtrl *atkacpi.ATKControl
+	atkCtrl *atkacpi.ATKControl
 }
 
 func NewController(conf Config) (Controller, error) {
@@ -77,27 +77,8 @@ func NewController(conf Config) (Controller, error) {
 		notifyQueueCh: make(chan notification, 10),
 		debounceCh:    make(map[uint32]keyedDebounce),
 		keyCodeCh:     make(chan uint32, 1),
-		wmiCh:         make(chan uint32, 1),
+		acpiCh:        make(chan uint32, 1),
 	}, nil
-}
-
-type notification struct {
-	title   string
-	message string
-}
-
-func (c *controller) notify(n notification) error {
-	notification := toast.Notification{
-		AppID:    appName,
-		Title:    n.title,
-		Message:  n.message,
-		Duration: toast.Short,
-		Audio:    "silent",
-	}
-	if err := notification.Push(); err != nil {
-		return err
-	}
-	return nil
 }
 
 func (c *controller) initialize(haltCtx context.Context) {
@@ -112,12 +93,12 @@ func (c *controller) initialize(haltCtx context.Context) {
 	}
 	log.Printf("hid devices: %+v\n", devices)
 
-	err = atkacpi.NewWMIListener(haltCtx, c.wmiCh)
+	err = atkacpi.NewACPIListener(haltCtx, c.acpiCh)
 	if err != nil {
 		log.Fatalln("error initializing wmiListener", err)
 	}
 
-	c.keyCtrl, err = atkacpi.NewAtkControl(atkacpi.WriteControlCode)
+	c.atkCtrl, err = atkacpi.NewAtkControl(atkacpi.WriteControlCode)
 	if err != nil {
 		log.Fatalln("error initializing atk control for keyboard emulation", err)
 	}
@@ -138,28 +119,28 @@ func (c *controller) initialize(haltCtx context.Context) {
 	}
 }
 
-func (c *controller) handleWMI(haltCtx context.Context) {
+func (c *controller) handleACPI(haltCtx context.Context) {
 	for {
 		select {
-		case wmi := <-c.wmiCh:
-			switch wmi {
+		case acpi := <-c.acpiCh:
+			switch acpi {
 			case 87:
-				log.Println("wmi: On battery")
+				log.Println("acpi: On battery")
 			case 123:
-				log.Println("wmi: Power input changed")
+				log.Println("acpi: Power input changed")
 			case 233:
-				log.Println("wmi: Suspend/Resume")
+				log.Println("acpi: Suspend/Resume")
 			default:
-				log.Printf("wmi: Unknown %d\n", wmi)
+				log.Printf("acpi: Unknown %d\n", acpi)
 			}
 		case <-haltCtx.Done():
-			log.Println("controller: exiting handleWMI")
+			log.Println("controller: exiting handleACPI")
 			return
 		}
 	}
 }
 
-func keyEmulation(ctrl *atkacpi.ATKControl, keyCode uint32) {
+func notifyACPI(ctrl *atkacpi.ATKControl, keyCode uint32) {
 	switch keyCode {
 	case
 		16,  // screen brightness down
@@ -243,8 +224,8 @@ func (c *controller) handleKeyPress(haltCtx context.Context) {
 				log.Printf("hid: Unknown %d\n", keyCode)
 			}
 
-			// also forward some special key combo to the ATK interface
-			go keyEmulation(c.keyCtrl, keyCode)
+			// notify the ATK interface on some special key combo for hardware functions
+			go notifyACPI(c.atkCtrl, keyCode)
 
 		case <-haltCtx.Done():
 			log.Println("controller: exiting handleKeyPress")
@@ -253,11 +234,31 @@ func (c *controller) handleKeyPress(haltCtx context.Context) {
 	}
 }
 
+type notification struct {
+	title   string
+	message string
+}
+
+func (c *controller) sendToastNotification(n notification) error {
+	notification := toast.Notification{
+		AppID:    appName,
+		Title:    n.title,
+		Message:  n.message,
+		Duration: toast.Short,
+		Audio:    "silent",
+	}
+	if err := notification.Push(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// In the future this will be notifying OSD
 func (c *controller) handleNotify(haltCtx context.Context) {
 	for {
 		select {
 		case msg := <-c.notifyQueueCh:
-			if err := c.notify(msg); err != nil {
+			if err := c.sendToastNotification(msg); err != nil {
 				log.Printf("Error sending toast notification: %s\n", err)
 			}
 		case <-haltCtx.Done():
@@ -326,7 +327,7 @@ func (c *controller) Run(haltCtx context.Context) {
 	go c.handleNotify(haltCtx)
 	go c.handleDebounce(haltCtx)
 	go c.handleKeyPress(haltCtx)
-	go c.handleWMI(haltCtx)
+	go c.handleACPI(haltCtx)
 
 	<-haltCtx.Done()
 	time.Sleep(time.Millisecond * 50)

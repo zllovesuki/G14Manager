@@ -14,8 +14,8 @@ type wmiEvent struct {
 	TIME_CREATED uint64
 }
 
-// NewWMIListener will query WMI directly and return key code to the channel
-func NewWMIListener(haltCtx context.Context, eventCh chan uint32) error {
+// NewACPIListener will query WMI directly and return acpi events to the channel
+func NewACPIListener(haltCtx context.Context, eventCh chan uint32) error {
 	ch := make(chan wmiEvent)
 	q, err := wmi.NewNotificationQuery(ch, `SELECT * FROM AsusAtkWmiEvent`)
 	if err != nil {

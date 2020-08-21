@@ -86,7 +86,7 @@ func (h *RegistryHelper) Save() error {
 	return nil
 }
 
-// Apply will apple each config accordinly. This is usually called after Load()
+// Apply will apply each config accordinly. This is usually called after Load()
 func (h *RegistryHelper) Apply() error {
 	for _, config := range h.configs {
 		log.Printf("Applying \"%s\" config\n", config.Name())
@@ -99,4 +99,15 @@ func (h *RegistryHelper) Apply() error {
 	}
 
 	return nil
+}
+
+// Close will release resources of each config
+func (h *RegistryHelper) Close() {
+	for _, config := range h.configs {
+		log.Printf("Closing \"%s\"\n", config.Name())
+		err := config.Close()
+		if err != nil {
+			log.Printf("Error closing \"%s\": %s\n", config.Name(), err)
+		}
+	}
 }

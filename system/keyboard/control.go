@@ -21,9 +21,9 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/zllovesuki/ROGManager/system/device"
-	"github.com/zllovesuki/ROGManager/system/ioctl"
-	"github.com/zllovesuki/ROGManager/system/persist"
+	"github.com/zllovesuki/G14Manager/system/device"
+	"github.com/zllovesuki/G14Manager/system/ioctl"
+	"github.com/zllovesuki/G14Manager/system/persist"
 
 	"github.com/karalabe/usb"
 )

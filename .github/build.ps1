@@ -19,7 +19,7 @@ Invoke-Expression $CommandInstallRSRC
 # easier for us to debug
 Get-ChildItem $GOBIN
 
-$RSRC = $GOBIN + "\rsrc.exe -arch amd64 -manifest ROGManager.exe.manifest -ico go.ico -o ROGManager.exe.syso"
+$RSRC = $GOBIN + "\rsrc.exe -arch amd64 -manifest G14Manager.exe.manifest -ico go.ico -o G14Manager.exe.syso"
 Invoke-Expression $RSRC
 
 # Stupid go mod download writes to stderr
@@ -29,10 +29,10 @@ Invoke-Expression $MOD 2>&1
 Write-Host "Building prod release"
 
 # $BUILD = "go build -tags 'use_cgo' -ldflags='-H=windowsgui -s -w' ."
-$BUILD = "go build -ldflags=`"-H=windowsgui -s -w -X 'main.Version=$env:GITHUB_REF'`" -o build/ROGManager.exe ."
+$BUILD = "go build -ldflags=`"-H=windowsgui -s -w -X 'main.Version=$env:GITHUB_REF'`" -o build/G14Manager.exe ."
 Invoke-Expression $BUILD
 
 Write-Host "Building debug release"
 
-$BUILD_DEBUG = "go build -ldflags=`"-X 'main.Version=$env:GITHUB_REF'`" -o build/ROGManager.debug.exe ."
+$BUILD_DEBUG = "go build -ldflags=`"-X 'main.Version=$env:GITHUB_REF'`" -o build/G14Manager.debug.exe ."
 Invoke-Expression $BUILD_DEBUG

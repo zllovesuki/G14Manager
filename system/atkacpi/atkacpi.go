@@ -1,7 +1,7 @@
 package atkacpi
 
 import (
-	"github.com/zllovesuki/ROGManager/system/device"
+	"github.com/zllovesuki/G14Manager/system/device"
 )
 
 // Defines the byte index for setting behavior

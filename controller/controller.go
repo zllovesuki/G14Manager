@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/zllovesuki/ROGManager/system/atkacpi"
+	"github.com/zllovesuki/ROGManager/system/ioctl"
 	"github.com/zllovesuki/ROGManager/system/keyboard"
 	"github.com/zllovesuki/ROGManager/system/persist"
 	"github.com/zllovesuki/ROGManager/system/thermal"
@@ -98,7 +99,7 @@ func (c *controller) initialize(haltCtx context.Context) {
 		log.Fatalln("error initializing wmiListener", err)
 	}
 
-	c.atkCtrl, err = atkacpi.NewAtkControl(atkacpi.WriteControlCode)
+	c.atkCtrl, err = atkacpi.NewAtkControl(ioctl.ATK_ACPI_WMIFUNCTION)
 	if err != nil {
 		log.Fatalln("error initializing atk control for keyboard emulation", err)
 	}

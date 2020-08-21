@@ -4,12 +4,6 @@ import (
 	"github.com/zllovesuki/ROGManager/system/device"
 )
 
-// Defines control code for write/read operations to ATKACPI
-const (
-	WriteControlCode = uint32(2237452)
-	ReadControlCode  = uint32(2237448) // we can't just read from the device as we need to wait for interrupt
-)
-
 // Defines the byte index for setting behavior
 const (
 	KeyPressControlByteIndex           = 12

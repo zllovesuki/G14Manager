@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	"github.com/zllovesuki/ROGManager/system/device"
+	"github.com/zllovesuki/ROGManager/system/ioctl"
 	"github.com/zllovesuki/ROGManager/system/persist"
 
 	"github.com/karalabe/usb"
@@ -29,10 +30,6 @@ import (
 
 const (
 	persistKey = "KeyboardControl"
-)
-
-const (
-	writeControlCode = uint32(721297) // HidD_SetFeature
 )
 
 const (
@@ -131,7 +128,7 @@ func NewControl() (*Control, error) {
 		return nil, fmt.Errorf("Keyboard control interface not found")
 	}
 
-	ctrl, err := device.NewControl(path, writeControlCode)
+	ctrl, err := device.NewControl(path, ioctl.HID_SET_FEATURE)
 	if err != nil {
 		return nil, err
 	}

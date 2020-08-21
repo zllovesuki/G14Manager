@@ -9,6 +9,7 @@ import (
 	"log"
 
 	"github.com/zllovesuki/ROGManager/system/atkacpi"
+	"github.com/zllovesuki/ROGManager/system/ioctl"
 	"github.com/zllovesuki/ROGManager/system/persist"
 )
 
@@ -74,7 +75,7 @@ func (t *Thermal) NextProfile(howMany int) (string, error) {
 	nextIndex := (t.currentProfileIndex + howMany) % len(t.Config.Profiles)
 	nextProfile := t.Config.Profiles[nextIndex]
 
-	ctrl, err := atkacpi.NewAtkControl(atkacpi.WriteControlCode)
+	ctrl, err := atkacpi.NewAtkControl(ioctl.ATK_ACPI_WMIFUNCTION)
 	if err != nil {
 		return "", err
 	}

@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/zllovesuki/ROGManager/system/atkacpi"
+	"github.com/zllovesuki/ROGManager/system/ioctl"
 	"github.com/zllovesuki/ROGManager/system/persist"
 )
 
@@ -29,7 +30,7 @@ func (c *ChargeLimit) Set(pct uint8) error {
 	if pct <= 40 || pct >= 100 {
 		return errors.New("charge limit percentage must be between 40 and 100, inclusive")
 	}
-	ctrl, err := atkacpi.NewAtkControl(atkacpi.WriteControlCode)
+	ctrl, err := atkacpi.NewAtkControl(ioctl.ATK_ACPI_WMIFUNCTION)
 	if err != nil {
 		return err
 	}

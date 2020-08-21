@@ -30,6 +30,8 @@ type Controller interface {
 var _ Controller = &controller{}
 
 type Config struct {
+	EnableExperimental bool
+
 	VolumeControl   *volume.Control
 	KeyboardControl *keyboard.Control
 	Thermal         *thermal.Thermal
@@ -198,6 +200,24 @@ func (c *controller) handleKeyPress(haltCtx context.Context) {
 				log.Println("hid: Fn + Arrow Up Pressed")
 				c.Config.KeyboardControl.BrightnessUp()
 				c.debounceCh[0].noisy <- struct{}{}
+
+			case 178:
+				log.Println("hid: Fn + Array Left Pressed")
+				if c.Config.EnableExperimental {
+					log.Println("controller: (experimental) remapping to PgUp")
+					if err := c.Config.KeyboardControl.EmulateKeyPress(0x49); err != nil {
+						log.Printf("controller: %v\n", err)
+					}
+				}
+
+			case 179:
+				log.Println("hid: Fn + Array Right Pressed")
+				if c.Config.EnableExperimental {
+					log.Println("controller: (experimental) remapping to PgDown")
+					if err := c.Config.KeyboardControl.EmulateKeyPress(0x51); err != nil {
+						log.Printf("controller: %v\n", err)
+					}
+				}
 
 			case 107:
 				log.Println("hid: Fn + F10 Pressed")

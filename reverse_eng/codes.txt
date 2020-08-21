@@ -17,7 +17,7 @@ Fn + F12: 136
 Fn + C: 158
 Fn + V: 138
 Fn + Win: (Handled by Hardware)
-Fn + Arrow {Left, Down, Right, Up}: {128, 197, 179, 196}
+Fn + Arrow {Left, Down, Right, Up}: {178, 197, 179, 196}
 
 Vol-: 234
 Vol+: 233

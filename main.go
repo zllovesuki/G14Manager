@@ -27,12 +27,15 @@ var defaultCommandWithArgs = "Taskmgr.exe"
 
 func main() {
 
-	log.Printf("ROGManager version: %s\n", Version)
+	var enableExperimental = flag.Bool("experimental", false, "enable experimental features (such as Fn+Left remapping)")
 
 	var rogRemap util.ArrayFlags
-
 	flag.Var(&rogRemap, "rog", "customize ROG key behavior when pressed multiple times")
+
 	flag.Parse()
+
+	log.Printf("ROGManager version: %s\n", Version)
+	log.Printf("Experimental enabled: %v\n", *enableExperimental)
 
 	if len(rogRemap) == 0 {
 		rogRemap = []string{defaultCommandWithArgs}
@@ -79,11 +82,12 @@ func main() {
 	config.Register(kbCtrl)
 
 	control, err := controller.NewController(controller.Config{
-		VolumeControl:   volCtrl,
-		KeyboardControl: kbCtrl,
-		Thermal:         profile,
-		Registry:        config,
-		ROGKey:          rogRemap,
+		EnableExperimental: *enableExperimental,
+		VolumeControl:      volCtrl,
+		KeyboardControl:    kbCtrl,
+		Thermal:            profile,
+		Registry:           config,
+		ROGKey:             rogRemap,
 	})
 
 	if err != nil {

@@ -1,1 +1,1 @@
-tag_for_release.sh eol=lf
+scripts/tag_for_release.sh eol=lf

@@ -25,9 +25,13 @@ If your encounter an issue with using G14Manager (e.g. does not start, functiona
 
 ## Requirements
 
-You must have a Zephyrus G14 (GA401), and has Asus Optimization the driver (aka Asus System Control Interface V2) installed. You may check and see if `C:\Windows\System32\DriverStore\FileRepository\asussci2.inf_amd64_xxxxxxxxxxxxxxxx` exists. G14Manager is **not tested** on other Zephyrus laptops (e.g. G15). You are welcome to test G14Manager on laptops such as G15, however support will be limited, and all functionalities are not guaranteed to be working.
+You must have a Zephyrus G14 with R9 4900HS + 2060MQ (GA401IV), and has Asus Optimization the driver (aka Asus System Control Interface V2) installed. You may check and see if `C:\Windows\System32\DriverStore\FileRepository\asussci2.inf_amd64_xxxxxxxxxxxxxxxx` exists. (I'm working toward removing this as a requirement.)
 
-Asus Optimization (the service) **cannot** be running, otherwise G14Manager and Asus Optimization will be fighting over control. We only need Asus Optimization (the driver) to be installed so Windows will load `atkwmiacpi64.sys`, and exposes a `\\.\ATKACPI` device to be used.
+G14Manager is **not tested** on other Zephyrus laptops (e.g. G15). You are welcome to test G14Manager on laptops such as G15, however support will be limited, and all functionalities are not guaranteed to be working.
+
+For other G14 variants, please submit an issue with your DSDT and SSDT table so I can verify that G14Manager will work on your variants.
+
+Asus Optimization (the service) **cannot** be running, otherwise G14Manager and Asus Optimization will be fighting over control. We only need Asus Optimization (the driver) to be installed so Windows will load `atkwmiacpi64.sys`, and exposes a `\\.\ATKACPI` device to be used. (I'm working toward removing this as a requirement.)
 
 You do not need any other softwares from Asus (e.g. Armoury Crate and its cousins, etc) running to use G14Manager; you can safely uninstall them from your system. However, some softwares (e.g. Asus Optimization) are installed as Windows Services, and you should disable them in Services as they do not provide any value:
 

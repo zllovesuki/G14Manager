@@ -3,3 +3,4 @@ Session.vim
 *.syso
 build/
 rnd/
+.vscode

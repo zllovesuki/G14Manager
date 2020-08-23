@@ -8565,7 +8565,7 @@ DefinitionBlock ("", "DSDT", 2, "ALASKA", "A M I ", 0x01072009)
             }
         }
 
-        Method (WEBC, 3, NotSerialized)
+        Method (WEBC, 3, NotSerialized) // Write EmBedded Controller ?
         {
             Local0 = Acquire (CMUT, 0xFFFF)
             If ((Local0 == Zero))
@@ -8894,7 +8894,7 @@ DefinitionBlock ("", "DSDT", 2, "ALASKA", "A M I ", 0x01072009)
             Return (WEBC (0x06, One, DUBF))
         }
 
-        Method (GDFC, 1, NotSerialized)
+        Method (GDFC, 1, NotSerialized) // Get Default Fan Curve
         {
             Name (DUBF, Buffer (0x10)
             {
@@ -8911,7 +8911,7 @@ DefinitionBlock ("", "DSDT", 2, "ALASKA", "A M I ", 0x01072009)
             Return (DUBF) /* \_SB_.PCI0.SBRG.EC0_.GDFC.DUBF */
         }
 
-        Method (SUFC, 5, NotSerialized) // SetUp Fan Control/Curve?
+        Method (SUFC, 5, NotSerialized) // Set User Fan Curve
         {
             Name (DUBF, Buffer (0x10)
             {

@@ -9,13 +9,12 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/zllovesuki/G14Manager/system/keyboard"
-	"github.com/zllovesuki/G14Manager/system/volume"
-
 	"github.com/zllovesuki/G14Manager/controller"
 	"github.com/zllovesuki/G14Manager/system/battery"
+	"github.com/zllovesuki/G14Manager/system/keyboard"
 	"github.com/zllovesuki/G14Manager/system/persist"
 	"github.com/zllovesuki/G14Manager/system/thermal"
+	"github.com/zllovesuki/G14Manager/system/volume"
 	"github.com/zllovesuki/G14Manager/util"
 )
 
@@ -36,6 +35,9 @@ func main() {
 
 	log.Printf("G14Manager version: %s\n", Version)
 	log.Printf("Experimental enabled: %v\n", *enableExperimental)
+	if os.Getenv("DRY_RUN") != "" {
+		log.Printf("[dry run] no hardware i/o will be performed")
+	}
 
 	if len(rogRemap) == 0 {
 		rogRemap = []string{defaultCommandWithArgs}

@@ -17,7 +17,7 @@
 0B3CBB35-E3C2-45ED-91C2-4C5A6D195D1C:
         object_id:  
         notify_id: FF                   // search for Notify (ATKD, 0xFF) in g14-dsdt.dsl
-        reserved: 00
+        reserved: 00                    // Circular array holds upto 16 events
         instance_count: 1
         flags: 0x8 ACPI_WMI_EVENT
 05901221-D566-11D1-B2F0-00A0C9062910:

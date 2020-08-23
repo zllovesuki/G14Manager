@@ -3,6 +3,7 @@ package device
 import (
 	"errors"
 	"log"
+	"os"
 
 	"golang.org/x/sys/windows"
 )
@@ -11,6 +12,7 @@ type Control struct {
 	path        string
 	handle      windows.Handle
 	controlCode uint32
+	isDryRun    bool
 }
 
 func NewControl(path string, controlCode uint32) (*Control, error) {
@@ -36,13 +38,18 @@ func NewControl(path string, controlCode uint32) (*Control, error) {
 		path:        path,
 		handle:      h,
 		controlCode: controlCode,
+		isDryRun:    os.Getenv("DRY_RUN") != "",
 	}, nil
 }
 
 func (d *Control) Write(input []byte) (int, error) {
+	if d.isDryRun {
+		log.Printf("[dry run] device: %s (%d) write input buffer [0:16]: %+v\n", d.path, d.controlCode, input[0:16])
+		return len(input), nil
+	}
 	outBuf := make([]byte, 1024)
 	outBufWritten := uint32(0)
-	log.Printf("device: %s (%d) write input buffer: %+v\n", d.path, d.controlCode, input)
+	log.Printf("device: %s (%d) write input buffer [0:16]: %+v\n", d.path, d.controlCode, input[0:16])
 	err := windows.DeviceIoControl(
 		d.handle,
 		d.controlCode,
@@ -56,13 +63,17 @@ func (d *Control) Write(input []byte) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	log.Printf("device: write output buffer [0:4]: +%v\n", outBuf[0:4])
+	log.Printf("device: write output buffer [0:16]: %+v\n", outBuf[0:16])
 	return len(input), nil
 }
 
 func (d *Control) Read(outBuf []byte) (int, error) {
+	if d.isDryRun {
+		log.Printf("[dry run] device: %s (%d) read input buffer [0:16]: %+v\n", d.path, d.controlCode, outBuf[0:16])
+		return 0, nil
+	}
 	outBufWritten := uint32(0)
-	log.Printf("device: %s (%d) read input buffer: %+v\n", d.path, d.controlCode, outBuf)
+	log.Printf("device: %s (%d) read input buffer [0:16]: %+v\n", d.path, d.controlCode, outBuf[0:16])
 	err := windows.DeviceIoControl(
 		d.handle,
 		d.controlCode,
@@ -77,6 +88,30 @@ func (d *Control) Read(outBuf []byte) (int, error) {
 		return 0, err
 	}
 	return int(outBufWritten), nil
+}
+
+func (d *Control) Execute(input []byte, outLen int) ([]byte, error) {
+	if d.isDryRun {
+		log.Printf("[dry run] device: %s (%d) execute input buffer [0:16]: %+v\n", d.path, d.controlCode, input[0:16])
+		return make([]byte, outLen), nil
+	}
+	outBuf := make([]byte, 1024)
+	outBufWritten := uint32(0)
+	log.Printf("device: %s (%d) execute input buffer: %+v\n", d.path, d.controlCode, input)
+	err := windows.DeviceIoControl(
+		d.handle,
+		d.controlCode,
+		&input[0],
+		uint32(len(input)),
+		&outBuf[0],
+		uint32(len(outBuf)),
+		&outBufWritten,
+		nil,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return outBuf[0:outLen], nil
 }
 
 func (d *Control) Close() error {

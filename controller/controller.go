@@ -5,12 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"os"
 	"os/exec"
 	"syscall"
 	"time"
 
 	"github.com/zllovesuki/G14Manager/system/atkacpi"
-	"github.com/zllovesuki/G14Manager/system/ioctl"
 	"github.com/zllovesuki/G14Manager/system/keyboard"
 	"github.com/zllovesuki/G14Manager/system/persist"
 	"github.com/zllovesuki/G14Manager/system/thermal"
@@ -54,7 +54,8 @@ type controller struct {
 	keyCodeCh     chan uint32
 	acpiCh        chan uint32
 
-	atkWmiCtrl *atkacpi.ATKControl
+	wmi      atkacpi.WMI
+	isDryRun bool
 }
 
 func NewController(conf Config) (Controller, error) {
@@ -79,6 +80,7 @@ func NewController(conf Config) (Controller, error) {
 		debounceCh:    make(map[uint32]keyedDebounce),
 		keyCodeCh:     make(chan uint32, 1),
 		acpiCh:        make(chan uint32, 1),
+		isDryRun:      os.Getenv("DRY_RUN") != "",
 	}, nil
 }
 
@@ -95,15 +97,14 @@ func (c *controller) initialize(haltCtx context.Context) {
 		log.Fatalln("controller: error initializing wmiListener", err)
 	}
 
-	c.atkWmiCtrl, err = atkacpi.NewAtkControl(ioctl.ATK_ACPI_WMIFUNCTION)
+	c.wmi, err = atkacpi.NewWMI()
 	if err != nil {
-		log.Fatalln("controller: error initializing atk control for WMI methods", err)
+		log.Fatalln("controller: error initializing atk wmi interface", err)
 	}
 
 	// initialize the ATKACPI interface
 	initBuf := make([]byte, 16)
-	copy(initBuf, atkacpi.InitializationBuffer)
-	if _, err := c.atkWmiCtrl.Write(initBuf); err != nil {
+	if _, err := c.wmi.Evaluate(atkacpi.INIT, initBuf); err != nil {
 		log.Fatalln("controller: cannot initialize ATKD")
 	}
 
@@ -149,7 +150,7 @@ func (c *controller) handleACPI(haltCtx context.Context) {
 	}
 }
 
-func notifyACPI(ctrl *atkacpi.ATKControl, keyCode uint32) {
+func (c *controller) notifyACPI(keyCode uint32) {
 	switch keyCode {
 	case
 		16,  // screen brightness down
@@ -159,11 +160,11 @@ func notifyACPI(ctrl *atkacpi.ATKControl, keyCode uint32) {
 		0:   // noop
 		log.Printf("controller: notifying ATKACPI on %d\n", keyCode)
 
-		inputBuf := make([]byte, atkacpi.HardwareControlBufferLength)
-		copy(inputBuf, atkacpi.HardwareControlBuffer)
-		inputBuf[atkacpi.HardwareControlByteIndex] = byte(keyCode)
+		args := make([]byte, 8)
+		copy(args[0:], util.Uint32ToLEBuffer(atkacpi.DevsHardwareCtrl))
+		copy(args[4:], util.Uint32ToLEBuffer(keyCode))
 
-		_, err := ctrl.Write(inputBuf)
+		_, err := c.wmi.Evaluate(atkacpi.DEVS, args)
 		if err != nil {
 			log.Fatalln("controller: error sending key code to ATKACPI", err)
 		}
@@ -234,7 +235,7 @@ func (c *controller) handleKeyPress(haltCtx context.Context) {
 			}
 
 			// notify the ATK interface on some special key combo for hardware functions
-			go notifyACPI(c.atkWmiCtrl, keyCode)
+			go c.notifyACPI(keyCode)
 
 		case <-haltCtx.Done():
 			log.Println("controller: exiting handleKeyPress")
@@ -304,6 +305,9 @@ func (c *controller) handleDebounce(haltCtx context.Context) {
 			c.debounceCh[0].noisy <- struct{}{}
 
 		case <-c.debounceCh[0].clean:
+			if c.isDryRun {
+				continue
+			}
 			if err := c.Config.Registry.Save(); err != nil {
 				log.Println("controller: error saving to registry", err)
 			}

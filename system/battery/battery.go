@@ -5,8 +5,8 @@ import (
 	"errors"
 
 	"github.com/zllovesuki/G14Manager/system/atkacpi"
-	"github.com/zllovesuki/G14Manager/system/ioctl"
 	"github.com/zllovesuki/G14Manager/system/persist"
+	"github.com/zllovesuki/G14Manager/util"
 )
 
 const (
@@ -15,12 +15,18 @@ const (
 
 // ChargeLimit allows you to limit the full charge percentage on your laptop
 type ChargeLimit struct {
+	wmi          atkacpi.WMI
 	currentLimit uint8
 }
 
 // NewChargeLimit initializes the control interface and returns an instance of ChargeLimit
 func NewChargeLimit() (*ChargeLimit, error) {
+	wmi, err := atkacpi.NewWMI()
+	if err != nil {
+		return nil, err
+	}
 	return &ChargeLimit{
+		wmi:          wmi,
 		currentLimit: 80,
 	}, nil
 }
@@ -30,17 +36,12 @@ func (c *ChargeLimit) Set(pct uint8) error {
 	if pct <= 40 || pct >= 100 {
 		return errors.New("charge limit percentage must be between 40 and 100, inclusive")
 	}
-	ctrl, err := atkacpi.NewAtkControl(ioctl.ATK_ACPI_WMIFUNCTION)
-	if err != nil {
-		return err
-	}
-	defer ctrl.Close()
 
-	inputBuf := make([]byte, atkacpi.BatteryChargeLimitInputBufferLength)
-	copy(inputBuf, atkacpi.BatteryChargeLimitControlBuffer)
-	inputBuf[atkacpi.BatteryChargeLimitControlByteIndex] = byte(pct)
+	args := make([]byte, 8)
+	copy(args[0:], util.Uint32ToLEBuffer(atkacpi.DevsBatteryChargeLimit))
+	copy(args[4:], util.Uint32ToLEBuffer(uint32(pct)))
 
-	_, err = ctrl.Write(inputBuf)
+	_, err := c.wmi.Evaluate(atkacpi.DEVS, args)
 	if err != nil {
 		return err
 	}
@@ -78,5 +79,5 @@ func (c *ChargeLimit) Apply() error {
 
 // Close satisfied persist.Registry
 func (c *ChargeLimit) Close() error {
-	return nil
+	return c.wmi.Close()
 }

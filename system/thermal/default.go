@@ -8,7 +8,7 @@ func GetDefaultThermalProfiles() []Profile {
 	defaults := []struct {
 		name             string
 		windowsPowerPlan string
-		throttlePlan     byte
+		throttlePlan     uint32
 		cpuFanCurve      string
 		gpuFanCurve      string
 	}{
@@ -16,15 +16,15 @@ func GetDefaultThermalProfiles() []Profile {
 			name:             "Fanless",
 			windowsPowerPlan: "Power saver",
 			throttlePlan:     throttlePlanSilent,
-			cpuFanCurve:      "39c:0%,49c:0%,59c:0%,69c:0%,79c:31%,89c:49%,99c:56%,109c:56%",
-			gpuFanCurve:      "39c:0%,49c:0%,59c:0%,69c:0%,79c:34%,89c:51%,99c:61%,109c:61%",
+			cpuFanCurve:      "20c:0%,50c:0%,55c:0%,60c:0%,65c:31%,70c:49%,75c:56%,98c:56%",
+			gpuFanCurve:      "20c:0%,50c:0%,55c:0%,60c:0%,65c:34%,70c:51%,75c:61%,98c:61%",
 		},
 		{
 			name:             "Quiet",
 			windowsPowerPlan: "Power saver",
 			throttlePlan:     throttlePlanSilent,
-			cpuFanCurve:      "39c:10%,49c:10%,59c:10%,69c:10%,79c:31%,89c:49%,99c:56%,109c:56%",
-			gpuFanCurve:      "39c:0%,49c:0%,59c:0%,69c:0%,79c:34%,89c:51%,99c:61%,109c:61%",
+			cpuFanCurve:      "20c:10%,50c:10%,55c:10%,60c:10%,65c:31%,70c:49%,75c:56%,98c:56%",
+			gpuFanCurve:      "20c:0%,50c:0%,55c:0%,60c:0%,65c:34%,70c:51%,75c:61%,98c:61%",
 		},
 		{
 			name:             "Silent",

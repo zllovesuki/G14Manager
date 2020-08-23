@@ -2,6 +2,7 @@ Reference:
 - https://github.com/rufferson/ashs
 - https://code.woboq.org/linux/linux/include/linux/platform_data/x86/asus-wmi.h.html
 - http://gauss.ececs.uc.edu/Courses/c4029/pdf/ACPI_6.0.pdf
+- https://wiki.ubuntu.com/Kernel/Reference/WMI
 - g14-dsdt.dsl
 
 

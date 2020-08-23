@@ -37,9 +37,9 @@ func (c *ChargeLimit) Set(pct uint8) error {
 		return errors.New("charge limit percentage must be between 40 and 100, inclusive")
 	}
 
-	args := make([]byte, 0, 8)
-	args = append(args, util.Uint32ToLEBuffer(atkacpi.DevsBatteryChargeLimit)...)
-	args = append(args, util.Uint32ToLEBuffer(uint32(pct))...)
+	args := make([]byte, 8)
+	copy(args[0:], util.Uint32ToLEBuffer(atkacpi.DevsBatteryChargeLimit))
+	copy(args[4:], util.Uint32ToLEBuffer(uint32(pct)))
 
 	_, err := c.wmi.Evaluate(atkacpi.DEVS, args)
 	if err != nil {

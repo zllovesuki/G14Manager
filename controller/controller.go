@@ -160,9 +160,9 @@ func (c *controller) notifyACPI(keyCode uint32) {
 		0:   // noop
 		log.Printf("controller: notifying ATKACPI on %d\n", keyCode)
 
-		args := make([]byte, 0, 8)
-		args = append(args, util.Uint32ToLEBuffer(atkacpi.DevsHardwareCtrl)...)
-		args = append(args, util.Uint32ToLEBuffer(keyCode)...)
+		args := make([]byte, 8)
+		copy(args[0:], util.Uint32ToLEBuffer(atkacpi.DevsHardwareCtrl))
+		copy(args[4:], util.Uint32ToLEBuffer(keyCode))
 
 		_, err := c.wmi.Evaluate(atkacpi.DEVS, args)
 		if err != nil {

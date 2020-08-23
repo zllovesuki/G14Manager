@@ -107,9 +107,9 @@ func (t *Thermal) NextProfile(howMany int) (string, error) {
 }
 
 func (t *Thermal) setThrottlePlan(profile Profile) error {
-	args := make([]byte, 0, 8)
-	args = append(args, util.Uint32ToLEBuffer(atkacpi.DevsThrottleCtrl)...)
-	args = append(args, util.Uint32ToLEBuffer(profile.ThrottlePlan)...)
+	args := make([]byte, 8)
+	copy(args[0:], util.Uint32ToLEBuffer(atkacpi.DevsThrottleCtrl))
+	copy(args[4:], util.Uint32ToLEBuffer(profile.ThrottlePlan))
 
 	_, err := t.wmi.Evaluate(atkacpi.DEVS, args)
 	if err != nil {
@@ -131,8 +131,8 @@ func (t *Thermal) setFanCurve(profile Profile) error {
 			return nil
 		}
 
-		cpuArgs := make([]byte, 0, 20)
-		cpuArgs = append(cpuArgs, util.Uint32ToLEBuffer(atkacpi.DevsCPUFanCurve)...)
+		cpuArgs := make([]byte, 20)
+		copy(cpuArgs[0:], util.Uint32ToLEBuffer(atkacpi.DevsCPUFanCurve))
 		copy(cpuArgs[4:], cpuFanCurve)
 
 		if _, err := t.wmi.Evaluate(atkacpi.DEVS, cpuArgs); err != nil {
@@ -150,8 +150,8 @@ func (t *Thermal) setFanCurve(profile Profile) error {
 			return nil
 		}
 
-		gpuArgs := make([]byte, 0, 20)
-		gpuArgs = append(gpuArgs, util.Uint32ToLEBuffer(atkacpi.DevsGPUFanCurve)...)
+		gpuArgs := make([]byte, 20)
+		copy(gpuArgs[0:], util.Uint32ToLEBuffer(atkacpi.DevsGPUFanCurve))
 		copy(gpuArgs[4:], gpuFanCurve)
 
 		if _, err := t.wmi.Evaluate(atkacpi.DEVS, gpuArgs); err != nil {

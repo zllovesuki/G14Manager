@@ -68,10 +68,10 @@ func (a *atkWmi) Evaluate(id Method, args []byte) ([]byte, error) {
 		return nil, fmt.Errorf("args should have at least one parameter")
 	}
 
-	acpiBuf := make([]byte, 0, 16)
-	acpiBuf = append(acpiBuf, util.Uint32ToLEBuffer(uint32(id))...)
-	acpiBuf = append(acpiBuf, util.Uint32ToLEBuffer(uint32(len(args)))...)
-	acpiBuf = append(acpiBuf, args...)
+	acpiBuf := make([]byte, 8+len(args))
+	copy(acpiBuf[0:], util.Uint32ToLEBuffer(uint32(id)))
+	copy(acpiBuf[4:], util.Uint32ToLEBuffer(uint32(len(args))))
+	copy(acpiBuf[8:], args)
 
 	result, err := a.device.Execute(acpiBuf, 16)
 	if err != nil {

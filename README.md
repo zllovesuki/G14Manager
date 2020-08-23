@@ -25,7 +25,7 @@ If your encounter an issue with using G14Manager (e.g. does not start, functiona
 
 ## Requirements
 
-You must have a Zephyrus G14 with R9 4900HS + 2060MQ (GA401IV), and has Asus Optimization the driver (aka Asus System Control Interface V2) installed. You may check and see if `C:\Windows\System32\DriverStore\FileRepository\asussci2.inf_amd64_xxxxxxxxxxxxxxxx` exists. (I'm working toward removing this as a requirement.)
+You must have a Zephyrus G14 with R9 4900HS + 2060MQ (GA401IV), and has Asus Optimization the driver (aka `atkwmiacpi64`) installed. You may check and see if `C:\Windows\System32\DriverStore\FileRepository\asussci2.inf_amd64_xxxxxxxxxxxxxxxx` exists. (I'm working toward removing this as a requirement.)
 
 G14Manager is **not tested** on other Zephyrus laptops (e.g. G15). You are welcome to test G14Manager on laptops such as G15, however support will be limited, and all functionalities are not guaranteed to be working.
 
@@ -36,6 +36,16 @@ Asus Optimization (the service) **cannot** be running, otherwise G14Manager and 
 You do not need any other softwares from Asus (e.g. Armoury Crate and its cousins, etc) running to use G14Manager; you can safely uninstall them from your system. However, some softwares (e.g. Asus Optimization) are installed as Windows Services, and you should disable them in Services as they do not provide any value:
 
 ![Running Services](images/services.png)
+
+### Technical Notes
+
+"ASUS System Control Interface V2" exists as a placeholder so Asus Optimization can have a device "attached" to it, and loads `atkwmiacpi64.sys`. The hardware for ASCI is a stud in the DSDT table.
+
+"Armoury Crate Control Interface" also exists as a placeholder (stud in the DSDT table), and I'm not sure what purpose does this serve. Strictly speaking, you may disable this in Device Manager and suffer no ill side effects.
+
+Only two pieces of hardwares are useful for taking full control of your G14: "Microsoft ACPI-Compliant Embedded Controller" (this stores the configuration, including your fan curves), and "Microsoft Windows Management Interface for ACPI" (this interacts with the embedded controller in the firmware). Since they are ACPI functions, userspace applications cannot invoke those methods (unless we run WinRing0). Therefore, `atkwmiacpi64.sys` exists solely to create a kernel mode device (`\\.\ATKACPI`), and an userspace device (`\\DosDevices\ATKACPI`) so userspace applications and interface with the firmware (including controlling the fan curve, among other devious things).
+
+---
 
 Optionally, disable ASUS System Analysis Driver with `sc.exe config "ASUSSAIO" start=disabled` in a Terminal with Administrator privileges, if you do not plan to use MyASUS.
 

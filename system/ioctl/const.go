@@ -1,6 +1,7 @@
 package ioctl
 
 // Defines control code for write/read operations to ATKACPI
+// For understand what they are, use https://www.osronline.com/article.cfm%5earticle=229.htm
 const (
 	ATK_ACPI_WMIFUNCTION     = 0x22240c
 	ATK_ACPI_FUNCTION        = 0x222404

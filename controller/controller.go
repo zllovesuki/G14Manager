@@ -127,10 +127,15 @@ func (c *controller) handleACPI(haltCtx context.Context) {
 			switch acpi {
 			case 87:
 				log.Println("acpi: On battery")
+			case 88:
+				log.Println("acpi: On AC power")
+				// this is when you plug in the 180W charger
+				// However, plugging in the USB C PD will not show 88 (might need to detect it in user space)
+				// there's also this mysterious 207 code, that only pops up when 180W charger is plugged in/unplugged
 			case 123:
 				log.Println("acpi: Power input changed")
 			case 233:
-				log.Println("acpi: Suspend/Resume")
+				log.Println("acpi: On Lid Open/Close")
 			default:
 				log.Printf("acpi: Unknown %d\n", acpi)
 			}

@@ -27,4 +27,4 @@ ROG Key: 56
 WMI:
 On battery: 87
 Power source changed: 123
-On suspend/resume: 233
+On Lid Open/Close: 233

@@ -22,7 +22,7 @@ const (
 // Defines the IIA0 argument (big endian for readability)
 // golang: this is not ergonomic *face palm*
 const (
-	DevsHardwareCtrl       uint32 = 0x00110021
+	DevsHardwareCtrl       uint32 = 0x00100021
 	DevsBatteryChargeLimit uint32 = 0x00120057
 	DevsThrottleCtrl       uint32 = 0x00120075
 	DevsCPUFanCurve        uint32 = 0x00110024

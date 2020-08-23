@@ -42,7 +42,7 @@ func NewControl(path string, controlCode uint32) (*Control, error) {
 func (d *Control) Write(input []byte) (int, error) {
 	outBuf := make([]byte, 1024)
 	outBufWritten := uint32(0)
-	log.Printf("device: %s (%d) write buffer: %+v\n", d.path, d.controlCode, input)
+	log.Printf("device: %s (%d) write input buffer: %+v\n", d.path, d.controlCode, input)
 	err := windows.DeviceIoControl(
 		d.handle,
 		d.controlCode,
@@ -54,14 +54,15 @@ func (d *Control) Write(input []byte) (int, error) {
 		nil,
 	)
 	if err != nil {
-		return 0, windows.GetLastError()
+		return 0, err
 	}
+	log.Printf("device: write output buffer [0:4]: +%v\n", outBuf[0:4])
 	return len(input), nil
 }
 
 func (d *Control) Read(outBuf []byte) (int, error) {
 	outBufWritten := uint32(0)
-	log.Printf("device: %s (%d) read buffer: %+v\n", d.path, d.controlCode, outBuf)
+	log.Printf("device: %s (%d) read input buffer: %+v\n", d.path, d.controlCode, outBuf)
 	err := windows.DeviceIoControl(
 		d.handle,
 		d.controlCode,
@@ -73,7 +74,7 @@ func (d *Control) Read(outBuf []byte) (int, error) {
 		nil,
 	)
 	if err != nil {
-		return 0, windows.GetLastError()
+		return 0, err
 	}
 	return int(outBufWritten), nil
 }

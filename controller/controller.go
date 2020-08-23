@@ -54,7 +54,7 @@ type controller struct {
 	keyCodeCh     chan uint32
 	acpiCh        chan uint32
 
-	atkCtrl *atkacpi.ATKControl
+	atkWmiCtrl *atkacpi.ATKControl
 }
 
 func NewController(conf Config) (Controller, error) {
@@ -84,24 +84,27 @@ func NewController(conf Config) (Controller, error) {
 
 func (c *controller) initialize(haltCtx context.Context) {
 
-	// initialize the ATKACPI interface
-	// TODO: figure out how to use go-ole to do it
-	run("powershell", "-command", `"(Get-WmiObject -Namespace root/WMI -Class AsusAtkWmi_WMNB).INIT(0)"`)
-
 	devices, err := keyboard.NewHidListener(haltCtx, c.keyCodeCh)
 	if err != nil {
-		log.Fatalln("error initializing hidListener", err)
+		log.Fatalln("controller: error initializing hidListener", err)
 	}
 	log.Printf("hid devices: %+v\n", devices)
 
 	err = atkacpi.NewACPIListener(haltCtx, c.acpiCh)
 	if err != nil {
-		log.Fatalln("error initializing wmiListener", err)
+		log.Fatalln("controller: error initializing wmiListener", err)
 	}
 
-	c.atkCtrl, err = atkacpi.NewAtkControl(ioctl.ATK_ACPI_WMIFUNCTION)
+	c.atkWmiCtrl, err = atkacpi.NewAtkControl(ioctl.ATK_ACPI_WMIFUNCTION)
 	if err != nil {
-		log.Fatalln("error initializing atk control for keyboard emulation", err)
+		log.Fatalln("controller: error initializing atk control for WMI methods", err)
+	}
+
+	// initialize the ATKACPI interface
+	initBuf := make([]byte, 16)
+	copy(initBuf, atkacpi.InitializationBuffer)
+	if _, err := c.atkWmiCtrl.Write(initBuf); err != nil {
+		log.Fatalln("controller: cannot initialize ATKD")
 	}
 
 	// TODO: revisit this
@@ -156,9 +159,9 @@ func notifyACPI(ctrl *atkacpi.ATKControl, keyCode uint32) {
 		0:   // noop
 		log.Printf("controller: notifying ATKACPI on %d\n", keyCode)
 
-		inputBuf := make([]byte, atkacpi.KeyPressControlBufferLength)
-		copy(inputBuf, atkacpi.KeyPressControlBuffer)
-		inputBuf[atkacpi.KeyPressControlByteIndex] = byte(keyCode)
+		inputBuf := make([]byte, atkacpi.HardwareControlBufferLength)
+		copy(inputBuf, atkacpi.HardwareControlBuffer)
+		inputBuf[atkacpi.HardwareControlByteIndex] = byte(keyCode)
 
 		_, err := ctrl.Write(inputBuf)
 		if err != nil {
@@ -231,7 +234,7 @@ func (c *controller) handleKeyPress(haltCtx context.Context) {
 			}
 
 			// notify the ATK interface on some special key combo for hardware functions
-			go notifyACPI(c.atkCtrl, keyCode)
+			go notifyACPI(c.atkWmiCtrl, keyCode)
 
 		case <-haltCtx.Done():
 			log.Println("controller: exiting handleKeyPress")

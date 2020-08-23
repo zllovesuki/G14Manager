@@ -6,7 +6,7 @@ import (
 
 // Defines the byte index for setting behavior
 const (
-	KeyPressControlByteIndex           = 12
+	HardwareControlByteIndex           = 12
 	BatteryChargeLimitControlByteIndex = 12
 	ThrottlePlanControlByteIndex       = 12
 	// Fan curve is a little different, DeviceControlByteIndex sets CPU/GPU, and Start Index defines the curve
@@ -16,7 +16,7 @@ const (
 
 // Defines the buffer size when writing to ATKACPI
 const (
-	KeyPressControlBufferLength         = 16
+	HardwareControlBufferLength         = 16
 	BatteryChargeLimitInputBufferLength = 16
 	ThrottlePlanInputBufferLength       = 16
 	FanCurveInputBufferLength           = 28
@@ -24,7 +24,7 @@ const (
 
 // Defines the buffer size when reading from ATKACPI
 const (
-	KeyPressControlOutputBufferLength    = 4
+	HardwareControlOutputBufferLength    = 4
 	BatteryChargeLimitOutputBufferLength = 1024
 	ThrottlePlanOutputBufferLength       = 1024
 	FanCurveOutputBufferLength           = 1024
@@ -40,8 +40,9 @@ const (
 // The ID for DEVS is 0x53564544, and because of endianess difference, they are reversed in the buffer template in the first 4 bytes.
 // Length of argument is in 4th-7th bytes
 // Remaining buffer is argument
+// TODO: Refactor this into a helper function
 var (
-	KeyPressControlBuffer = []byte{
+	HardwareControlBuffer = []byte{
 		0x44, 0x45, 0x56, 0x53, // DEVS, Arg1
 		// Arg2
 		0x08, 0x00, 0x00, 0x00, // 8 bytes of argument
@@ -72,6 +73,13 @@ var (
 		0xFF, 0xFF, 0xFF, 0xFF, // IIA2
 		0xFF, 0xFF, 0xFF, 0xFF, // IIA3
 		0xFF, 0xFF, 0xFF, 0xFF, // IIA4
+	}
+	InitializationBuffer = []byte{
+		0x49, 0x4e, 0x49, 0x54, // INIT, Arg1
+		// Arg2
+		0x08, 0x00, 0x00, 0x00, // 8 bytes of argument
+		0x00, 0x00, 0x00, 0x00, // IIA0, value doesn't matter
+		0x00, 0x00, 0x00, 0x00, // IIA1, unused
 	}
 )
 

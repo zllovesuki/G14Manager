@@ -22,7 +22,7 @@ var _ Registry = &mockConfig{}
 
 const (
 	testRegistryKey  = registry.CURRENT_USER
-	testRegistryPath = `SOFTWARE/ROGManagerTest`
+	testRegistryPath = `SOFTWARE/G14ManagerTest`
 )
 
 func TestPersistToRegistry(t *testing.T) {
@@ -44,7 +44,7 @@ func TestPersistToRegistry(t *testing.T) {
 	hL := RegistryHelper{
 		configs: make(map[string]Registry),
 		key:     registry.CURRENT_USER,
-		path:    `SOFTWARE/ROGManagerTest`,
+		path:    `SOFTWARE/G14ManagerTest`,
 	}
 
 	m = mockConfig{}

@@ -87,4 +87,9 @@ Most keycodes can be found in [reverse_eng/codes.txt](reverse_eng/codes.txt), an
 - https://github.com/torvalds/linux/blob/master/drivers/platform/x86/asus-nb-wmi.c
 - https://github.com/torvalds/linux/blob/master/drivers/hid/hid-asus.c
 - https://github.com/flukejones/rog-core/blob/master/kernel-patch/0001-HID-asus-add-support-for-ASUS-N-Key-keyboard-v5.8.patch
+- https://github.com/rufferson/ashs
+- https://code.woboq.org/linux/linux/include/linux/platform_data/x86/asus-wmi.h.html
+- http://gauss.ececs.uc.edu/Courses/c4029/pdf/ACPI_6.0.pdf
+- https://wiki.ubuntu.com/Kernel/Reference/WMI
+- [DSDT Table](./reverse_end/g14-dsdt.dsl)
 - [Reverse Engineering](./reverse_eng)

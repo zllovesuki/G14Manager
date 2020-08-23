@@ -1,43 +1,86 @@
 package atkacpi
 
 import (
-	"context"
 	"fmt"
 
-	"github.com/bi-zone/wmi"
+	"github.com/zllovesuki/G14Manager/system/device"
+	"github.com/zllovesuki/G14Manager/system/ioctl"
+	"github.com/zllovesuki/G14Manager/util"
 )
 
-type wmiEvent struct {
-	Active       bool
-	EventID      uint32
-	InstanceName string
-	TIME_CREATED uint64
+// Method defines the WMI method IDs
+type Method uint32
+
+// Defines the WMI method IDs (big endian for readability)
+// golang: this is not ergonomic *face palm*
+const (
+	DSTS Method = 0x53545344
+	INIT Method = 0x54494e49
+	DEVS Method = 0x53564544
+)
+
+// Defines the IIA0 argument (big endian for readability)
+// golang: this is not ergonomic *face palm*
+const (
+	DevsHardwareCtrl       uint32 = 0x00110021
+	DevsBatteryChargeLimit uint32 = 0x00120057
+	DevsThrottleCtrl       uint32 = 0x00120075
+	DevsCPUFanCurve        uint32 = 0x00110024
+	DevsGPUFanCurve        uint32 = 0x00110025
+	DstsDefaultCPUFanCurve uint32 = 0x00110024
+	DstsDefaultGPUFanCurve uint32 = 0x00110025
+	DstsCurrentCPUFanSpeed uint32 = 0x00110013
+	DstsCurrentGPUFanSpeed uint32 = 0x00110014
+)
+
+// This is needed since we are calling from userspace
+// and we need atkwmiacpi64.sys to do the leg work of
+// calling ACPI methods from kernel space
+// However, we could technically interact with ACPI\PNP0C14\ATK...
+const devicePath = `\\.\ATKACPI`
+
+// WMI is for evaluating WMI methods
+type WMI interface {
+	// Evaluate will pass through the buffer (little endian) to the WMI method
+	Evaluate(id Method, args []byte) ([]byte, error)
+	Close() error
 }
 
-// NewACPIListener will query WMI directly and return acpi events to the channel
-func NewACPIListener(haltCtx context.Context, eventCh chan uint32) error {
-	ch := make(chan wmiEvent)
-	q, err := wmi.NewNotificationQuery(ch, `SELECT * FROM AsusAtkWmiEvent`)
+type atkWmi struct {
+	device *device.Control
+}
+
+var _ WMI = &atkWmi{}
+
+// NewWMI returns an WMI for evaluating WMI methods exposed by the ATKD ACPI device
+func NewWMI() (WMI, error) {
+	device, err := device.NewControl(devicePath, ioctl.ATK_ACPI_WMIFUNCTION)
 	if err != nil {
-		return fmt.Errorf("Failed to create NotificationQuery; %s", err)
+		return nil, err
 	}
-	q.SetConnectServerArgs(nil, `root\wmi`)
+	return &atkWmi{
+		device: device,
+	}, nil
+}
 
-	go func() {
-		q.StartNotifications()
-	}()
+func (a *atkWmi) Evaluate(id Method, args []byte) ([]byte, error) {
+	if len(args) < 8 {
+		return nil, fmt.Errorf("args should have at least one parameter")
+	}
 
-	go func() {
-		for {
-			select {
-			case ev := <-ch:
-				eventCh <- ev.EventID
-			case <-haltCtx.Done():
-				q.Stop()
-				return
-			}
-		}
-	}()
+	acpiBuf := make([]byte, 0, 16)
+	acpiBuf = append(acpiBuf, util.Uint32ToLEBuffer(uint32(id))...)
+	acpiBuf = append(acpiBuf, util.Uint32ToLEBuffer(uint32(len(args)))...)
+	acpiBuf = append(acpiBuf, args...)
 
-	return nil
+	result, err := a.device.Execute(acpiBuf, 16)
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+func (a *atkWmi) Close() error {
+	return a.device.Close()
 }

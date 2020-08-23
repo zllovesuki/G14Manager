@@ -2,6 +2,17 @@ package thermal
 
 // This is inspired by the atrofac utility (https://github.com/cronosun/atrofac)
 
+/*
+Factory fan curves:
+device 0x24 in profile 0x0 has fan curve [20 48 51 54 57 61 65 98 14 19 22 26 31 43 49 56]
+device 0x24 in profile 0x1 has fan curve [20 44 47 50 53 56 60 98 11 14 17 19 22 26 31 38]
+device 0x24 in profile 0x2 has fan curve [20 50 55 60 65 70 75 98 21 26 31 38 43 48 56 65]
+
+device 0x25 in profile 0x0 has fan curve [20 48 51 54 57 61 65 98 14 21 25 28 34 44 51 61]
+device 0x25 in profile 0x1 has fan curve [20 44 47 50 53 56 60 98 11 14 18 21 25 28 34 40]
+device 0x25 in profile 0x2 has fan curve [20 50 55 60 65 70 75 98 25 28 34 40 44 49 61 70]
+*/
+
 import (
 	"bytes"
 	"encoding/gob"
@@ -9,23 +20,19 @@ import (
 	"log"
 
 	"github.com/zllovesuki/G14Manager/system/atkacpi"
-	"github.com/zllovesuki/G14Manager/system/ioctl"
 	"github.com/zllovesuki/G14Manager/system/persist"
+	"github.com/zllovesuki/G14Manager/util"
 )
 
 const (
 	thermalPersistKey = "ThermalProfile"
 )
 
+// TODO: validate these constants are actually what they say they are
 const (
-	throttlePlanPerformance = byte(0x00)
-	throttlePlanTurbo       = byte(0x01)
-	throttlePlanSilent      = byte(0x02)
-)
-
-const (
-	cpuFanCurveDevice = byte(0x24)
-	gpuFanCurveDevice = byte(0x25)
+	throttlePlanPerformance uint32 = 0x00
+	throttlePlanTurbo       uint32 = 0x01
+	throttlePlanSilent      uint32 = 0x02
 )
 
 // Profile contain each thermal profile definition
@@ -33,13 +40,14 @@ const (
 type Profile struct {
 	Name             string
 	WindowsPowerPlan string
-	ThrottlePlan     byte
+	ThrottlePlan     uint32
 	CPUFanCurve      *fanTable
 	GPUFanCurve      *fanTable
 }
 
 // Thermal defines contains the Windows Power Option and list of thermal profiles
 type Thermal struct {
+	wmi                 atkacpi.WMI
 	currentProfileIndex int
 	Config
 }
@@ -58,8 +66,13 @@ func NewThermal(conf Config) (*Thermal, error) {
 	if len(conf.Profiles) == 0 {
 		return nil, errors.New("empty Profiles is invalid")
 	}
+	wmi, err := atkacpi.NewWMI()
+	if err != nil {
+		return nil, err
+	}
 
 	return &Thermal{
+		wmi:                 wmi,
 		currentProfileIndex: 0,
 		Config:              conf,
 	}, nil
@@ -75,18 +88,12 @@ func (t *Thermal) NextProfile(howMany int) (string, error) {
 	nextIndex := (t.currentProfileIndex + howMany) % len(t.Config.Profiles)
 	nextProfile := t.Config.Profiles[nextIndex]
 
-	ctrl, err := atkacpi.NewAtkControl(ioctl.ATK_ACPI_WMIFUNCTION)
-	if err != nil {
-		return "", err
-	}
-	defer ctrl.Close()
-
-	// note: always set thermal throttle plan first
-	if err := t.setPowerPlan(ctrl, nextProfile); err != nil {
+	// note: always set thermal throttle plan first, then override with user fan curve
+	if err := t.setThrottlePlan(nextProfile); err != nil {
 		return "", err
 	}
 
-	if err := t.setFanCurve(ctrl, nextProfile); err != nil {
+	if err := t.setFanCurve(nextProfile); err != nil {
 		return "", err
 	}
 
@@ -99,13 +106,12 @@ func (t *Thermal) NextProfile(howMany int) (string, error) {
 	return nextProfile.Name, nil
 }
 
-func (t *Thermal) setPowerPlan(ctrl *atkacpi.ATKControl, profile Profile) error {
-	inputBuf := make([]byte, atkacpi.ThrottlePlanInputBufferLength)
-	copy(inputBuf, atkacpi.ThrottlePlanControlBuffer)
+func (t *Thermal) setThrottlePlan(profile Profile) error {
+	args := make([]byte, 0, 8)
+	args = append(args, util.Uint32ToLEBuffer(atkacpi.DevsThrottleCtrl)...)
+	args = append(args, util.Uint32ToLEBuffer(profile.ThrottlePlan)...)
 
-	inputBuf[atkacpi.ThrottlePlanControlByteIndex] = profile.ThrottlePlan
-
-	_, err := ctrl.Write(inputBuf)
+	_, err := t.wmi.Evaluate(atkacpi.DEVS, args)
 	if err != nil {
 		return err
 	}
@@ -115,48 +121,47 @@ func (t *Thermal) setPowerPlan(ctrl *atkacpi.ATKControl, profile Profile) error 
 	return nil
 }
 
-func (t *Thermal) setFanCurve(ctrl *atkacpi.ATKControl, profile Profile) error {
+func (t *Thermal) setFanCurve(profile Profile) error {
+
 	if profile.CPUFanCurve != nil {
-		if err := t.setFan(ctrl, cpuFanCurveDevice, profile.CPUFanCurve.Bytes()); err != nil {
+		cpuFanCurve := profile.CPUFanCurve.Bytes()
+
+		if len(cpuFanCurve) != 16 {
+			log.Printf("thermal: invalid cpu fan curve\n")
+			return nil
+		}
+
+		cpuArgs := make([]byte, 0, 20)
+		cpuArgs = append(cpuArgs, util.Uint32ToLEBuffer(atkacpi.DevsCPUFanCurve)...)
+		copy(cpuArgs[4:], cpuFanCurve)
+
+		if _, err := t.wmi.Evaluate(atkacpi.DEVS, cpuArgs); err != nil {
 			return err
 		}
+
+		log.Printf("thermal: cpu fan curve set to %+v\n", cpuFanCurve)
 	}
+
 	if profile.GPUFanCurve != nil {
-		if err := t.setFan(ctrl, gpuFanCurveDevice, profile.GPUFanCurve.Bytes()); err != nil {
+		gpuFanCurve := profile.GPUFanCurve.Bytes()
+
+		if len(gpuFanCurve) != 16 {
+			log.Printf("thermal: invalid gpu fan curve\n")
+			return nil
+		}
+
+		gpuArgs := make([]byte, 0, 20)
+		gpuArgs = append(gpuArgs, util.Uint32ToLEBuffer(atkacpi.DevsGPUFanCurve)...)
+		copy(gpuArgs[4:], gpuFanCurve)
+
+		if _, err := t.wmi.Evaluate(atkacpi.DEVS, gpuArgs); err != nil {
 			return err
 		}
+
+		log.Printf("thermal: gpu fan curve set to %+v\n", gpuFanCurve)
 	}
-	return nil
-}
-
-func (t *Thermal) setFan(ctrl *atkacpi.ATKControl, device byte, curve []byte) error {
-	if len(curve) != 16 {
-		log.Printf("thermal: invalid curve found, skipping\n")
-		return nil
-	}
-
-	inputBuf := make([]byte, atkacpi.FanCurveInputBufferLength)
-	copy(inputBuf, atkacpi.FanCurveControlBuffer)
-
-	inputBuf[atkacpi.FanCurveDeviceControlByteIndex] = device
-	copy(inputBuf[atkacpi.FanCurveControlByteStartIndex:], curve)
-
-	_, err := ctrl.Write(inputBuf)
-	if err != nil {
-		return err
-	}
-
-	log.Printf("thermal: device 0x%x curve set to %+v\n", device, curve)
 
 	return nil
-}
-
-func (t *Thermal) setCPUFan(ctrl *atkacpi.ATKControl, curve []byte) error {
-	return t.setFan(ctrl, cpuFanCurveDevice, curve)
-}
-
-func (t *Thermal) setGPUFan(ctrl *atkacpi.ATKControl, curve []byte) error {
-	return t.setFan(ctrl, gpuFanCurveDevice, curve)
 }
 
 var _ persist.Registry = &Thermal{}

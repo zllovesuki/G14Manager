@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"log"
@@ -103,7 +104,7 @@ func (c *controller) initialize(haltCtx context.Context) {
 	}
 
 	// initialize the ATKACPI interface
-	initBuf := make([]byte, 16)
+	initBuf := make([]byte, 8)
 	if _, err := c.wmi.Evaluate(atkacpi.INIT, initBuf); err != nil {
 		log.Fatalln("controller: cannot initialize ATKD")
 	}
@@ -161,8 +162,8 @@ func (c *controller) notifyACPI(keyCode uint32) {
 		log.Printf("controller: notifying ATKACPI on %d\n", keyCode)
 
 		args := make([]byte, 8)
-		copy(args[0:], util.Uint32ToLEBuffer(atkacpi.DevsHardwareCtrl))
-		copy(args[4:], util.Uint32ToLEBuffer(keyCode))
+		binary.LittleEndian.PutUint32(args[0:], atkacpi.DevsHardwareCtrl)
+		binary.LittleEndian.PutUint32(args[4:], keyCode)
 
 		_, err := c.wmi.Evaluate(atkacpi.DEVS, args)
 		if err != nil {

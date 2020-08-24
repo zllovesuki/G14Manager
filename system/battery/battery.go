@@ -6,7 +6,6 @@ import (
 
 	"github.com/zllovesuki/G14Manager/system/atkacpi"
 	"github.com/zllovesuki/G14Manager/system/persist"
-	"github.com/zllovesuki/G14Manager/util"
 )
 
 const (
@@ -38,8 +37,8 @@ func (c *ChargeLimit) Set(pct uint8) error {
 	}
 
 	args := make([]byte, 8)
-	copy(args[0:], util.Uint32ToLEBuffer(atkacpi.DevsBatteryChargeLimit))
-	copy(args[4:], util.Uint32ToLEBuffer(uint32(pct)))
+	binary.LittleEndian.PutUint32(args[0:], atkacpi.DevsBatteryChargeLimit)
+	binary.LittleEndian.PutUint32(args[4:], uint32(pct))
 
 	_, err := c.wmi.Evaluate(atkacpi.DEVS, args)
 	if err != nil {

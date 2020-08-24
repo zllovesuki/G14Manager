@@ -15,13 +15,13 @@ device 0x25 in profile 0x2 has fan curve [20 50 55 60 65 70 75 98 25 28 34 40 44
 
 import (
 	"bytes"
+	"encoding/binary"
 	"encoding/gob"
 	"errors"
 	"log"
 
 	"github.com/zllovesuki/G14Manager/system/atkacpi"
 	"github.com/zllovesuki/G14Manager/system/persist"
-	"github.com/zllovesuki/G14Manager/util"
 )
 
 const (
@@ -108,8 +108,8 @@ func (t *Thermal) NextProfile(howMany int) (string, error) {
 
 func (t *Thermal) setThrottlePlan(profile Profile) error {
 	args := make([]byte, 8)
-	copy(args[0:], util.Uint32ToLEBuffer(atkacpi.DevsThrottleCtrl))
-	copy(args[4:], util.Uint32ToLEBuffer(profile.ThrottlePlan))
+	binary.LittleEndian.PutUint32(args[0:], atkacpi.DevsThrottleCtrl)
+	binary.LittleEndian.PutUint32(args[4:], profile.ThrottlePlan)
 
 	_, err := t.wmi.Evaluate(atkacpi.DEVS, args)
 	if err != nil {
@@ -132,7 +132,7 @@ func (t *Thermal) setFanCurve(profile Profile) error {
 		}
 
 		cpuArgs := make([]byte, 20)
-		copy(cpuArgs[0:], util.Uint32ToLEBuffer(atkacpi.DevsCPUFanCurve))
+		binary.LittleEndian.PutUint32(cpuArgs[0:], atkacpi.DevsCPUFanCurve)
 		copy(cpuArgs[4:], cpuFanCurve)
 
 		if _, err := t.wmi.Evaluate(atkacpi.DEVS, cpuArgs); err != nil {
@@ -151,7 +151,7 @@ func (t *Thermal) setFanCurve(profile Profile) error {
 		}
 
 		gpuArgs := make([]byte, 20)
-		copy(gpuArgs[0:], util.Uint32ToLEBuffer(atkacpi.DevsGPUFanCurve))
+		binary.LittleEndian.PutUint32(gpuArgs[0:], atkacpi.DevsGPUFanCurve)
 		copy(gpuArgs[4:], gpuFanCurve)
 
 		if _, err := t.wmi.Evaluate(atkacpi.DEVS, gpuArgs); err != nil {

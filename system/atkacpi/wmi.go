@@ -1,11 +1,11 @@
 package atkacpi
 
 import (
+	"encoding/binary"
 	"fmt"
 
 	"github.com/zllovesuki/G14Manager/system/device"
 	"github.com/zllovesuki/G14Manager/system/ioctl"
-	"github.com/zllovesuki/G14Manager/util"
 )
 
 // Method defines the WMI method IDs
@@ -69,8 +69,8 @@ func (a *atkWmi) Evaluate(id Method, args []byte) ([]byte, error) {
 	}
 
 	acpiBuf := make([]byte, 8+len(args))
-	copy(acpiBuf[0:], util.Uint32ToLEBuffer(uint32(id)))
-	copy(acpiBuf[4:], util.Uint32ToLEBuffer(uint32(len(args))))
+	binary.LittleEndian.PutUint32(acpiBuf[0:], uint32(id))
+	binary.LittleEndian.PutUint32(acpiBuf[4:], uint32(len(args)))
 	copy(acpiBuf[8:], args)
 
 	result, err := a.device.Execute(acpiBuf, 16)

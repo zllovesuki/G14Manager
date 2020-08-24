@@ -29,7 +29,7 @@ You must have a Zephyrus G14, and has Asus Optimization the driver (aka `atkwmia
 
 G14Manager is **not tested** on other Zephyrus laptops (e.g. G15). You are welcome to test G14Manager on laptops such as G15, however support will be limited, and all functionalities are not guaranteed to be working.
 
-Verified compatibible G14 variatns:
+Verified compatible G14 variatns:
 - GA401IV
 - GA401IH
 

@@ -25,9 +25,13 @@ If your encounter an issue with using G14Manager (e.g. does not start, functiona
 
 ## Requirements
 
-You must have a Zephyrus G14 with R9 4900HS + 2060MQ (GA401IV), and has Asus Optimization the driver (aka `atkwmiacpi64`) installed. You may check and see if `C:\Windows\System32\DriverStore\FileRepository\asussci2.inf_amd64_xxxxxxxxxxxxxxxx` exists. (I'm working toward removing this as a requirement.)
+You must have a Zephyrus G14, and has Asus Optimization the driver (aka `atkwmiacpi64`) installed. You may check and see if `C:\Windows\System32\DriverStore\FileRepository\asussci2.inf_amd64_xxxxxxxxxxxxxxxx` exists. (I'm working toward removing this as a requirement.)
 
 G14Manager is **not tested** on other Zephyrus laptops (e.g. G15). You are welcome to test G14Manager on laptops such as G15, however support will be limited, and all functionalities are not guaranteed to be working.
+
+Verified compatibible G14 variatns:
+- GA401IV
+- GA401IH
 
 For other G14 variants, please submit an issue with your DSDT and SSDT table so I can verify that G14Manager will work on your variants.
 
@@ -80,6 +84,10 @@ For the initial release, you have to change fan curve in `system\thermal\default
 Use the `Fn + F5` key combo to cycle through all the profiles. Fanless -> Quiet -> Slient -> Performance.
 
 The key combo has a time delay. If you press the combo X times, it will apply the the next X profile. For example, if you are currently on "Fanless" profile, pressing `Fn + F5` twice will apply the "Slient" profile.
+
+## Battery Charge Limit
+
+By default, G14Manager will limit full charge to be 80%. This will be customizable in a later release.
 
 ## How to Build
 

@@ -8,7 +8,7 @@ import (
 
 func TestThermalPersist(t *testing.T) {
 	defaultProfiles := GetDefaultThermalProfiles()
-	thermal := Thermal{
+	thermal := Control{
 		currentProfileIndex: 1,
 		Config: Config{
 			Profiles: defaultProfiles,
@@ -20,7 +20,7 @@ func TestThermalPersist(t *testing.T) {
 	b := thermal.Value()
 	require.NotEmpty(t, b)
 
-	loaded := Thermal{
+	loaded := Control{
 		Config: Config{
 			Profiles: defaultProfiles,
 		},

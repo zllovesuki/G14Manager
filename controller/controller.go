@@ -36,7 +36,7 @@ type Config struct {
 
 	VolumeControl   *volume.Control
 	KeyboardControl *keyboard.Control
-	Thermal         *thermal.Thermal
+	Thermal         *thermal.Control
 	Registry        *persist.RegistryHelper
 
 	ROGKey []string
@@ -52,8 +52,11 @@ type controller struct {
 
 	notifyQueueCh chan notification
 	debounceCh    map[uint32]keyedDebounce
-	keyCodeCh     chan uint32
-	acpiCh        chan uint32
+
+	keyCodeCh chan uint32
+	acpiCh    chan uint32
+	hwCtrlCh  chan uint32
+	kbCtrlCh  chan uint32
 
 	wmi      atkacpi.WMI
 	isDryRun bool
@@ -76,12 +79,17 @@ func NewController(conf Config) (Controller, error) {
 		return nil, errors.New("empty key remap is invalid")
 	}
 	return &controller{
-		Config:        conf,
+		Config: conf,
+
 		notifyQueueCh: make(chan notification, 10),
 		debounceCh:    make(map[uint32]keyedDebounce),
-		keyCodeCh:     make(chan uint32, 1),
-		acpiCh:        make(chan uint32, 1),
-		isDryRun:      os.Getenv("DRY_RUN") != "",
+
+		keyCodeCh: make(chan uint32, 1),
+		acpiCh:    make(chan uint32, 1),
+		hwCtrlCh:  make(chan uint32, 1),
+		kbCtrlCh:  make(chan uint32, 1),
+
+		isDryRun: os.Getenv("DRY_RUN") != "",
 	}, nil
 }
 
@@ -104,70 +112,109 @@ func (c *controller) initialize(haltCtx context.Context) {
 	}
 
 	// initialize the ATKACPI interface
-	initBuf := make([]byte, 8)
+	log.Printf("controller: initializing ATKD for acpi events")
+	initBuf := make([]byte, 4)
 	if _, err := c.wmi.Evaluate(atkacpi.INIT, initBuf); err != nil {
 		log.Fatalln("controller: cannot initialize ATKD")
 	}
 
-	// TODO: revisit this
+	// "keys" with 0x are for internal functions
 	keys := []uint32{
 		58,  // ROG Key
 		174, // Fn + F5
-		0,   // for debouncing persisting to Registry
+
+		0x0,   // for debouncing persisting to Registry
+		0x123, // for debouncing power input change acpi event
 	}
 	for _, key := range keys {
-		// TODO: make debounce interval configurable, maybe
+		// TODO: make debounce interval configurable for accessbility
 		in, out := util.Debounce(haltCtx, time.Millisecond*500)
 		c.debounceCh[key] = keyedDebounce{
 			noisy: in,
 			clean: out,
 		}
 	}
+
+	// seed the channel so we get the the charger status
+	c.debounceCh[0x123].noisy <- struct{}{}
 }
 
-func (c *controller) handleACPI(haltCtx context.Context) {
+func (c *controller) handleACPINotification(haltCtx context.Context) {
 	for {
 		select {
 		case acpi := <-c.acpiCh:
 			switch acpi {
-			case 87:
+			case 87, 88, 207: // ignore these events
+				continue
+			/*case 87:
 				log.Println("acpi: On battery")
 			case 88:
 				log.Println("acpi: On AC power")
 				// this is when you plug in the 180W charger
 				// However, plugging in the USB C PD will not show 88 (might need to detect it in user space)
-				// there's also this mysterious 207 code, that only pops up when 180W charger is plugged in/unplugged
+				// there's also this mysterious 207 code, that only pops up when 180W charger is plugged in/unplugged*/
 			case 123:
 				log.Println("acpi: Power input changed")
+				c.debounceCh[0x123].noisy <- struct{}{}
 			case 233:
 				log.Println("acpi: On Lid Open/Close")
 			default:
 				log.Printf("acpi: Unknown %d\n", acpi)
 			}
 		case <-haltCtx.Done():
-			log.Println("controller: exiting handleACPI")
+			log.Println("controller: exiting handleACPINotification")
 			return
 		}
 	}
 }
 
-func (c *controller) notifyACPI(keyCode uint32) {
-	switch keyCode {
-	case
-		16,  // screen brightness down
-		32,  // screen brightness up
-		108, // sleep
-		136, // RF kill toggle
-		0:   // noop
-		log.Printf("controller: notifying ATKACPI on %d\n", keyCode)
+func (c *controller) handleACPIHardwareControl(haltCtx context.Context) {
+	// pre-allocate memory so we don't have to reallocate everytime we need it
+	args := make([]byte, 8)
 
-		args := make([]byte, 8)
-		binary.LittleEndian.PutUint32(args[0:], atkacpi.DevsHardwareCtrl)
-		binary.LittleEndian.PutUint32(args[4:], keyCode)
+	for {
+		select {
+		case keyCode := <-c.hwCtrlCh:
+			log.Printf("hwCtrl: notification from keypress on %d\n", keyCode)
 
-		_, err := c.wmi.Evaluate(atkacpi.DEVS, args)
-		if err != nil {
-			log.Fatalln("controller: error sending key code to ATKACPI", err)
+			binary.LittleEndian.PutUint32(args[0:], atkacpi.DevsHardwareCtrl)
+			binary.LittleEndian.PutUint32(args[4:], keyCode)
+
+			_, err := c.wmi.Evaluate(atkacpi.DEVS, args)
+			if err != nil {
+				log.Fatalln("hwCtrl: error sending key code to ATKACPI", err)
+			}
+		case <-haltCtx.Done():
+			log.Println("controller: exiting handleACPIHardwareControl")
+			return
+		}
+	}
+}
+
+func (c *controller) handleKeyboardControl(haltCtx context.Context) {
+	for {
+		select {
+		case keyCode := <-c.kbCtrlCh:
+			log.Printf("kbCtrl: notification from keypress on %d\n", keyCode)
+
+			switch keyCode {
+			case 197: // keyboard brightness down (Fn + Arrow Down)
+				log.Println("kbCtrl: Decrease keyboard backlight")
+				c.Config.KeyboardControl.BrightnessDown()
+				c.debounceCh[0].noisy <- struct{}{}
+
+			case 196: // keyboard brightness up (Fn + Arrow Up)
+				log.Println("kbCtrl: Increase keyboard backlight")
+				c.Config.KeyboardControl.BrightnessUp()
+				c.debounceCh[0].noisy <- struct{}{}
+
+			case 107: // toggle touchpad disable/enable
+				log.Println("kbCtrl: Toggle disable/enable TouchPad")
+				c.Config.KeyboardControl.ToggleTouchPad()
+			}
+		case <-haltCtx.Done():
+			log.Println("controller: exiting handleKeyboardControl")
+			return
 		}
 	}
 }
@@ -180,18 +227,10 @@ func (c *controller) handleKeyPress(haltCtx context.Context) {
 			case 56:
 				log.Println("hid: ROG Key Pressed (debounced)")
 				c.debounceCh[58].noisy <- struct{}{}
+
 			case 174:
 				log.Println("hid: Fn + F5 Pressed (debounced)")
 				c.debounceCh[174].noisy <- struct{}{}
-
-			case 197: // keyboard brightness down (Fn + Arrow Down)
-				log.Println("hid: Fn + Arrow Down Pressed")
-				c.Config.KeyboardControl.BrightnessDown()
-				c.debounceCh[0].noisy <- struct{}{}
-			case 196: // keyboard brightness up (Fn + Arrow Up)
-				log.Println("hid: Fn + Arrow Up Pressed")
-				c.Config.KeyboardControl.BrightnessUp()
-				c.debounceCh[0].noisy <- struct{}{}
 
 			case 178:
 				log.Println("hid: Fn + Array Left Pressed")
@@ -211,11 +250,7 @@ func (c *controller) handleKeyPress(haltCtx context.Context) {
 					}
 				}
 
-			case 107:
-				log.Println("hid: Fn + F10 Pressed")
-				c.Config.KeyboardControl.ToggleTouchPad()
-
-			case 124:
+			case 124: // TODO: make it run on a separate goroutine
 				log.Println("hid: mute/unmute microphone Pressed")
 				c.Config.VolumeControl.ToggleMicrophoneMute()
 
@@ -225,19 +260,25 @@ func (c *controller) handleKeyPress(haltCtx context.Context) {
 			case 233:
 				log.Println("hid: volume up Pressed")
 
-			case 32:
-				log.Println("hid: Fn + F7 Pressed")
+			case
+				16,  // screen brightness down
+				32,  // screen brightness up
+				108, // sleep
+				136: // RF kill toggle
+				// notify the ATK interface on some special key combo for hardware functions
+				c.hwCtrlCh <- keyCode
 
-			case 16:
-				log.Println("hid: Fn + F8 Pressed")
+			// TODO: revisit this
+			case
+				197, // keyboard brightness down (Fn + Arrow Down)
+				196, // keyboard brightness up (Fn + Arrow Up)
+				107: // toggle touchpad disable/enable
+				// let another goroutine handles it
+				c.kbCtrlCh <- keyCode
 
 			default:
 				log.Printf("hid: Unknown %d\n", keyCode)
 			}
-
-			// notify the ATK interface on some special key combo for hardware functions
-			go c.notifyACPI(keyCode)
-
 		case <-haltCtx.Done():
 			log.Println("controller: exiting handleKeyPress")
 			return
@@ -282,7 +323,6 @@ func (c *controller) handleNotify(haltCtx context.Context) {
 func (c *controller) handleDebounce(haltCtx context.Context) {
 	for {
 		select {
-
 		case ev := <-c.debounceCh[58].clean:
 			log.Printf("controller: ROG Key pressed %d times\n", ev.Counter)
 			if int(ev.Counter) <= len(c.Config.ROGKey) {
@@ -310,7 +350,24 @@ func (c *controller) handleDebounce(haltCtx context.Context) {
 				continue
 			}
 			if err := c.Config.Registry.Save(); err != nil {
-				log.Println("controller: error saving to registry", err)
+				log.Fatalln("controller: error saving to registry", err)
+			}
+
+		case <-c.debounceCh[0x123].clean:
+			function := make([]byte, 4)
+			binary.LittleEndian.PutUint32(function, atkacpi.DstsCheckCharger)
+			status, err := c.wmi.Evaluate(atkacpi.DSTS, function)
+			if err != nil {
+				log.Println("controller: cannot check charger status")
+				continue
+			}
+			switch binary.LittleEndian.Uint32(status[0:4]) {
+			case 0x0:
+				log.Printf("controller: charger is not plugged in")
+			case 0x10001:
+				log.Printf("controller: 180W charger plugged in")
+			case 0x10002:
+				log.Printf("controller: USB-C PD charger plugged in")
 			}
 
 		case <-haltCtx.Done():
@@ -340,8 +397,10 @@ func (c *controller) Run(haltCtx context.Context) {
 
 	go c.handleNotify(haltCtx)
 	go c.handleDebounce(haltCtx)
+	go c.handleACPINotification(haltCtx)
+	go c.handleACPIHardwareControl(haltCtx)
+	go c.handleKeyboardControl(haltCtx)
 	go c.handleKeyPress(haltCtx)
-	go c.handleACPI(haltCtx)
 
 	<-haltCtx.Done()
 	time.Sleep(time.Millisecond * 50)

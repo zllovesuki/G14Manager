@@ -7,11 +7,15 @@ Reference:
 
 
 DSTS (0x53545344):
-- 0x00120061 / Check power supply(?)
+- 0x00120061 / Check power supply/charging?(?)
     (Get-WmiObject -Namespace root/WMI -Class AsusAtkWmi_WMNB).DSTS(0x00120061)
     Plugged in:     0x00010001 (65537)
     Not plugged in: 0x00010000 (65536)
-    (not sure what 0x00010002 is yet)
+- 0x0012006C / Is the charger plugged in?
+    (Get-WmiObject -Namespace root/WMI -Class AsusAtkWmi_WMNB).DSTS(0x0012006C)
+    USB-C PD:       0x00010002 (65538)
+    180W:           0x00010001 (65537)
+    No:             0x00000000
 - 0x00010011 : Wireless Device Presence flag
 - 0x00010013 : Bluetooth Device Presence flag
 - 0x00110013 : Get Current CPU Fan Speed

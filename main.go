@@ -56,7 +56,7 @@ func main() {
 		Profiles: thermal.GetDefaultThermalProfiles(),
 	}
 
-	profile, err := thermal.NewThermal(thermalCfg)
+	profile, err := thermal.NewControl(thermalCfg)
 	if err != nil {
 		log.Fatalln(err)
 	}

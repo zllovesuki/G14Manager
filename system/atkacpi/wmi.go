@@ -15,8 +15,10 @@ type Method uint32
 // golang: this is not ergonomic *face palm*
 const (
 	DSTS Method = 0x53545344
-	INIT Method = 0x54494e49
 	DEVS Method = 0x53564544
+	INIT Method = 0x54494e49
+	BSTS Method = 0x53545342 // returns 0 on G14
+	SFUN Method = 0x4e554653
 )
 
 // Defines the IIA0 argument (big endian for readability)
@@ -31,6 +33,7 @@ const (
 	DstsDefaultGPUFanCurve uint32 = 0x00110025
 	DstsCurrentCPUFanSpeed uint32 = 0x00110013
 	DstsCurrentGPUFanSpeed uint32 = 0x00110014
+	DstsCheckCharger       uint32 = 0x0012006c
 )
 
 // This is needed since we are calling from userspace
@@ -64,7 +67,7 @@ func NewWMI() (WMI, error) {
 }
 
 func (a *atkWmi) Evaluate(id Method, args []byte) ([]byte, error) {
-	if len(args) < 8 {
+	if len(args) < 4 {
 		return nil, fmt.Errorf("args should have at least one parameter")
 	}
 

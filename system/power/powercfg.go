@@ -1,4 +1,4 @@
-package thermal
+package power
 
 import (
 	"bytes"
@@ -27,15 +27,15 @@ type plan struct {
 	Name         string
 }
 
-// PowerCfg ...
-type PowerCfg struct {
+// Cfg allows the caller to change the Power Plan Option in Windows
+type Cfg struct {
 	plansMap   map[string]plan
 	activePlan plan
 }
 
-// NewPowerCfg will return a PowerCfg allowing you to modify the Windows Power Option
-func NewPowerCfg() (*PowerCfg, error) {
-	cfg := &PowerCfg{
+// NewCfg will return a Cfg allowing you to modify the Windows Power Option
+func NewCfg() (*Cfg, error) {
+	cfg := &Cfg{
 		plansMap: make(map[string]plan, 0),
 	}
 	err := cfg.loadPowerPlans()
@@ -45,7 +45,7 @@ func NewPowerCfg() (*PowerCfg, error) {
 	return cfg, nil
 }
 
-func (p *PowerCfg) loadPowerPlans() error {
+func (p *Cfg) loadPowerPlans() error {
 	powerCfgOut, err := run("powercfg", "/l")
 	if err != nil {
 		log.Printf("cannot list power plans: %s\n", err)
@@ -67,7 +67,7 @@ func (p *PowerCfg) loadPowerPlans() error {
 	return nil
 }
 
-func (p *PowerCfg) setPowerPlan(active plan) error {
+func (p *Cfg) setPowerPlan(active plan) error {
 	_, err := run("powercfg", "/S", active.GUID)
 	if err != nil {
 		log.Printf("cannot set active power plan: %s\n", err)
@@ -78,7 +78,7 @@ func (p *PowerCfg) setPowerPlan(active plan) error {
 }
 
 // Set will change the Windows Power Option to the given power plan name
-func (p *PowerCfg) Set(planName string) (nextPlan string, err error) {
+func (p *Cfg) Set(planName string) (nextPlan string, err error) {
 	propose, ok := p.plansMap[planName]
 	if !ok {
 		err = errors.New("Cannot find target power plan")
@@ -103,15 +103,15 @@ func (p *PowerCfg) Set(planName string) (nextPlan string, err error) {
 	return
 }
 
-var _ persist.Registry = &PowerCfg{}
+var _ persist.Registry = &Cfg{}
 
 // Name satisfies persist.Registry
-func (p *PowerCfg) Name() string {
+func (p *Cfg) Name() string {
 	return powerPersistKey
 }
 
 // Value satisfies persist.Registry
-func (p *PowerCfg) Value() []byte {
+func (p *Cfg) Value() []byte {
 	var buf bytes.Buffer
 	enc := gob.NewEncoder(&buf)
 	if err := enc.Encode(p.activePlan); err != nil {
@@ -121,7 +121,7 @@ func (p *PowerCfg) Value() []byte {
 }
 
 // Load satisfies persist.Registry
-func (p *PowerCfg) Load(v []byte) error {
+func (p *Cfg) Load(v []byte) error {
 	if len(v) == 0 {
 		return nil
 	}
@@ -136,7 +136,7 @@ func (p *PowerCfg) Load(v []byte) error {
 }
 
 // Apply satisfies persist.Registry
-func (p *PowerCfg) Apply() error {
+func (p *Cfg) Apply() error {
 	if p.activePlan.Name == "" {
 		return nil
 	}
@@ -145,7 +145,7 @@ func (p *PowerCfg) Apply() error {
 }
 
 // Close satisfied persist.Registry
-func (p *PowerCfg) Close() error {
+func (p *Cfg) Close() error {
 	return nil
 }
 

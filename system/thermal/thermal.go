@@ -23,6 +23,7 @@ import (
 
 	"github.com/zllovesuki/G14Manager/system/atkacpi"
 	"github.com/zllovesuki/G14Manager/system/persist"
+	"github.com/zllovesuki/G14Manager/system/power"
 )
 
 const (
@@ -55,7 +56,7 @@ type Control struct {
 
 // Config defines the entry point for Windows Power Option and a list of thermal profiles
 type Config struct {
-	PowerCfg *PowerCfg
+	PowerCfg *power.Cfg
 	Profiles []Profile
 }
 

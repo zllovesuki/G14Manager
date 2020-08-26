@@ -41,3 +41,25 @@ func Debounce(haltCtx context.Context, wait time.Duration) (chan<- interface{}, 
 
 	return in, out
 }
+
+// PassThrough will pipe (dirty) input directly to (clean) output without debouncing.
+func PassThrough(haltCtx context.Context) (chan<- interface{}, <-chan DebounceEvent) {
+	in := make(chan interface{})
+	out := make(chan DebounceEvent, 1) // do not block our goroutine
+
+	go func() {
+		for {
+			select {
+			case data := <-in:
+				out <- DebounceEvent{
+					Counter: 1,
+					Data:    data,
+				}
+			case <-haltCtx.Done():
+				return
+			}
+		}
+	}()
+
+	return in, out
+}

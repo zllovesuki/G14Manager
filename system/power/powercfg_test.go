@@ -1,4 +1,4 @@
-package thermal
+package power
 
 import (
 	"testing"
@@ -13,7 +13,7 @@ func TestPersistPowerCfg(t *testing.T) {
 		OriginalName: "Name",
 	}
 
-	cfg := &PowerCfg{
+	cfg := &Cfg{
 		activePlan: expectedPlan,
 	}
 	require.NotEmpty(t, cfg.Name())
@@ -21,7 +21,7 @@ func TestPersistPowerCfg(t *testing.T) {
 	b := cfg.Value()
 	require.NotEmpty(t, b)
 
-	loaded := PowerCfg{}
+	loaded := Cfg{}
 
 	require.NoError(t, loaded.Load(b))
 	require.EqualValues(t, expectedPlan, loaded.activePlan)

@@ -13,6 +13,7 @@ import (
 	"github.com/zllovesuki/G14Manager/system/battery"
 	"github.com/zllovesuki/G14Manager/system/keyboard"
 	"github.com/zllovesuki/G14Manager/system/persist"
+	"github.com/zllovesuki/G14Manager/system/power"
 	"github.com/zllovesuki/G14Manager/system/thermal"
 	"github.com/zllovesuki/G14Manager/system/volume"
 	"github.com/zllovesuki/G14Manager/util"
@@ -45,7 +46,7 @@ func main() {
 
 	config, _ := persist.NewRegistryHelper()
 
-	powercfg, err := thermal.NewPowerCfg()
+	powercfg, err := power.NewCfg()
 	if err != nil {
 		log.Fatalln(err)
 	}

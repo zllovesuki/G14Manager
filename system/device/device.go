@@ -44,12 +44,12 @@ func NewControl(path string, controlCode uint32) (*Control, error) {
 
 func (d *Control) Write(input []byte) (int, error) {
 	if d.isDryRun {
-		log.Printf("[dry run] device: %s (%d) write input buffer [0:16]: %+v\n", d.path, d.controlCode, input[0:16])
+		log.Printf("[dry run] device: %s (%d) write input buffer [0:8]: %+v\n", d.path, d.controlCode, input[0:8])
 		return len(input), nil
 	}
 	outBuf := make([]byte, 1024)
 	outBufWritten := uint32(0)
-	log.Printf("device: %s (%d) write input buffer [0:16]: %+v\n", d.path, d.controlCode, input[0:16])
+	log.Printf("device: %s (%d) write input buffer [0:8]: %+v\n", d.path, d.controlCode, input[0:8])
 	err := windows.DeviceIoControl(
 		d.handle,
 		d.controlCode,
@@ -63,17 +63,17 @@ func (d *Control) Write(input []byte) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	log.Printf("device: write output buffer [0:16]: %+v\n", outBuf[0:16])
+	log.Printf("device: write output buffer [0:8]: %+v\n", outBuf[0:8])
 	return len(input), nil
 }
 
 func (d *Control) Read(outBuf []byte) (int, error) {
 	if d.isDryRun {
-		log.Printf("[dry run] device: %s (%d) read input buffer [0:16]: %+v\n", d.path, d.controlCode, outBuf[0:16])
+		log.Printf("[dry run] device: %s (%d) read input buffer [0:8]: %+v\n", d.path, d.controlCode, outBuf[0:8])
 		return 0, nil
 	}
 	outBufWritten := uint32(0)
-	log.Printf("device: %s (%d) read input buffer [0:16]: %+v\n", d.path, d.controlCode, outBuf[0:16])
+	log.Printf("device: %s (%d) read input buffer [0:8]: %+v\n", d.path, d.controlCode, outBuf[0:8])
 	err := windows.DeviceIoControl(
 		d.handle,
 		d.controlCode,
@@ -92,7 +92,7 @@ func (d *Control) Read(outBuf []byte) (int, error) {
 
 func (d *Control) Execute(input []byte, outLen int) ([]byte, error) {
 	if d.isDryRun {
-		log.Printf("[dry run] device: %s (%d) execute input buffer [0:16]: %+v\n", d.path, d.controlCode, input[0:16])
+		log.Printf("[dry run] device: %s (%d) execute input buffer [0:8]: %+v\n", d.path, d.controlCode, input[0:8])
 		return make([]byte, outLen), nil
 	}
 	outBuf := make([]byte, 1024)

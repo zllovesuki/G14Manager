@@ -18,7 +18,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"log"
-	"runtime"
 	"strings"
 
 	"github.com/zllovesuki/G14Manager/system/device"
@@ -155,7 +154,8 @@ func NewControl() (*Control, error) {
 	}, nil
 }
 
-func (c *Control) setBrightness(v Level) error {
+// SetBrightness sets the keyboard backlight brightness to an arbitary level
+func (c *Control) SetBrightness(v Level) error {
 	inputBuf := make([]byte, brightnessControlBufferLength)
 	copy(inputBuf, brightnessControlBuffer)
 	inputBuf[brightnessControlByteIndex] = byte(v)
@@ -170,7 +170,7 @@ func (c *Control) setBrightness(v Level) error {
 	return nil
 }
 
-// BrightnessUp increases the keyboard brightness by one level
+// BrightnessUp increases the keyboard backlight brightness by one level
 // TODO: use a FSM
 func (c *Control) BrightnessUp() error {
 	var targetLevel Level
@@ -184,10 +184,10 @@ func (c *Control) BrightnessUp() error {
 	default:
 		return nil
 	}
-	return c.setBrightness(targetLevel)
+	return c.SetBrightness(targetLevel)
 }
 
-// BrightnessDown decreases the keyboard brightness by one level
+// BrightnessDown decreases the keyboard backlight brightness by one level
 // TODO: use a FSM
 func (c *Control) BrightnessDown() error {
 	var targetLevel Level
@@ -201,7 +201,7 @@ func (c *Control) BrightnessDown() error {
 	default:
 		return nil
 	}
-	return c.setBrightness(targetLevel)
+	return c.SetBrightness(targetLevel)
 }
 
 // ToggleTouchPad will toggle between disabling/enabling TouchPad
@@ -221,9 +221,6 @@ func (c *Control) ToggleTouchPad() error {
 
 // EmulateKeyPress allows you send arbitary keyboard scan code. Useful for remapping Fn + <key>
 func (c *Control) EmulateKeyPress(keyCode uint16) error {
-	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
-
 	if C.send_key_press(C.ushort(keyCode)) != 0 {
 		return fmt.Errorf("kbCtrl: cannot emulate key press")
 	}
@@ -270,7 +267,7 @@ func (c *Control) Load(v []byte) error {
 
 // Apply satisfies persist.Registry
 func (c *Control) Apply() error {
-	return c.setBrightness(c.currentBrightness)
+	return c.SetBrightness(c.currentBrightness)
 }
 
 // Close satisfied persist.Registry

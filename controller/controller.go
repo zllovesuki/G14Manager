@@ -451,7 +451,6 @@ func (c *Controller) Run(haltCtx context.Context) {
 	<-haltCtx.Done()
 	time.Sleep(time.Millisecond * 50)
 	c.Config.Registry.Close()
-	c.Config.VolumeControl.Close()
 }
 
 func run(commands ...string) error {

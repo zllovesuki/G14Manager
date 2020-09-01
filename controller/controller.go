@@ -107,6 +107,8 @@ func (c *Controller) initialize(haltCtx context.Context) {
 	}
 	log.Printf("hid devices: %+v\n", devices)
 
+	// This is a bit buggy, as Windows seems to time out our connection to WMI
+	// TODO: Find a better way os listening from atk wmi events
 	err = atkacpi.NewACPIListener(haltCtx, c.acpiCh)
 	if err != nil {
 		log.Fatalln("controller: error initializing atkacpi wmi listener", err)
@@ -408,7 +410,9 @@ func (c *Controller) handleWorkQueue(haltCtx context.Context) {
 			c.Config.KeyboardControl.ToggleTouchPad()
 
 		case <-c.workQueueCh[fnVolCtrl].clean:
-			c.Config.VolumeControl.ToggleMicrophoneMute()
+			if err := c.Config.VolumeControl.ToggleMicrophoneMute(); err != nil {
+				log.Printf("volCtrl: error toggling mute: %+v\n", err)
+			}
 
 		case ev := <-c.workQueueCh[fnHwCtrl].clean:
 			keyCode := ev.Data.(uint32)

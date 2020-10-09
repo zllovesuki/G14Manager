@@ -1,3 +1,7 @@
+cirello.io/oversight v1.0.3 h1:EcfL4xF6XfbxWMEMdDuMBoMxFWCODyMm+CQstXQf39g=
+cirello.io/oversight v1.0.3/go.mod h1:Rdj5qP4E3yk0/L/gXpElXtYZECfPgPFY+4pBhOmx9vE=
+github.com/BurntSushi/toml v0.3.1 h1:WXkYYl6Yr3qBf1K79EBnL4mak0OimBfB0XUf9Vl28OQ=
+github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/bi-zone/go-ole v1.2.5 h1:/4G2KrTbq1e3FsMkd40quzwIrLb4QdxZJnUUlG7UjcM=
 github.com/bi-zone/go-ole v1.2.5/go.mod h1:BxzT498d9QAq10L6G/pTMscpDzqnpKN6DUBbmFKwyQY=
 github.com/bi-zone/wmi v1.1.4 h1:82DmCVK/Qf0MKSvUP52tfoJPsD/LPebHI1gZMN6izG4=
@@ -30,7 +34,11 @@ golang.org/x/sys v0.0.0-20200806060901-a37d78b92225 h1:a5kp7Ohh+lqGCGHUBQdPwGHTJ
 golang.org/x/sys v0.0.0-20200806060901-a37d78b92225/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/sys v0.0.0-20200820212457-1fb795427249 h1:tKP05IMsVLZ4VeeCEFmrIUmxAAx6UD8IBdPtYlYNa8g=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
+gopkg.in/natefinch/lumberjack.v2 v2.0.0 h1:1Lc07Kr7qY4U2YPouBjpCLxpiyxIVoxqXgkXLknAOE8=
+gopkg.in/natefinch/lumberjack.v2 v2.0.0/go.mod h1:l0ndWWf7gzL7RNwBG7wST/UCcT4T24xpD6X8LsfU/+k=
 gopkg.in/toast.v1 v1.0.0-20180812000517-0a84660828b2 h1:MZF6J7CV6s/h0HBkfqebrYfKCVEo5iN+wzE4QhV3Evo=
 gopkg.in/toast.v1 v1.0.0-20180812000517-0a84660828b2/go.mod h1:s1Sn2yZos05Qfs7NKt867Xe18emOmtsO3eAKbDaon0o=
+gopkg.in/yaml.v2 v2.3.0 h1:clyUAQHOM3G0M3f5vQj7LuJrETvjVot3Z5el9nffUtU=
+gopkg.in/yaml.v2 v2.3.0/go.mod h1:hI93XBmqTisBFMUTm0b8Fm+jr3Dg1NNxqwp+5A1VGuI=
 gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c h1:dUUwHk2QECo/6vqA44rthZ8ie2QXMNeKRTHCNY2nXvo=
 gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=

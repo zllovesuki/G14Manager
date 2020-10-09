@@ -6,8 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"os"
 	"os/exec"
+	"runtime"
 	"syscall"
 	"time"
 
@@ -39,6 +39,7 @@ const (
 
 type Config struct {
 	EnableExperimental bool
+	DryRun             bool
 
 	VolumeControl   *volume.Control
 	KeyboardControl *keyboard.Control
@@ -64,8 +65,7 @@ type Controller struct {
 	acpiCh    chan uint32
 	powerEvCh chan uint32
 
-	wmi      atkacpi.WMI
-	isDryRun bool
+	wmi atkacpi.WMI
 }
 
 func NewController(conf Config) (*Controller, error) {
@@ -93,8 +93,6 @@ func NewController(conf Config) (*Controller, error) {
 		keyCodeCh: make(chan uint32, 1),
 		acpiCh:    make(chan uint32, 1),
 		powerEvCh: make(chan uint32, 1),
-
-		isDryRun: os.Getenv("DRY_RUN") != "",
 	}, nil
 }
 
@@ -173,10 +171,10 @@ func (c *Controller) initialize(haltCtx context.Context) {
 		}
 	}
 
-	// seed the channel so we get the the charger status
-	c.workQueueCh[fnCheckCharger].noisy <- struct{}{}
 	// load and apply configurations
 	c.workQueueCh[fnApplyConfigs].noisy <- struct{}{}
+	// seed the channel so we get the the charger status
+	c.workQueueCh[fnCheckCharger].noisy <- struct{}{}
 }
 
 func (c *Controller) handleACPINotification(haltCtx context.Context) {
@@ -315,6 +313,8 @@ func (c *Controller) handleNotify(haltCtx context.Context) {
 }
 
 func (c *Controller) handleWorkQueue(haltCtx context.Context) {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
 	for {
 		select {
 		case ev := <-c.workQueueCh[58].clean:
@@ -357,7 +357,7 @@ func (c *Controller) handleWorkQueue(haltCtx context.Context) {
 			}
 
 		case <-c.workQueueCh[fnPersistConfigs].clean:
-			if c.isDryRun {
+			if c.Config.DryRun {
 				continue
 			}
 			if err := c.Config.Registry.Save(); err != nil {

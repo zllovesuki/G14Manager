@@ -60,8 +60,12 @@ type atkWmi struct {
 var _ WMI = &atkWmi{}
 
 // NewWMI returns an WMI for evaluating WMI methods exposed by the ATKD ACPI device
-func NewWMI() (WMI, error) {
-	device, err := device.NewControl(devicePath, ioctl.ATK_ACPI_WMIFUNCTION)
+func NewWMI(dryRun bool) (WMI, error) {
+	device, err := device.NewControl(device.Config{
+		DryRun:      dryRun,
+		Path:        devicePath,
+		ControlCode: ioctl.ATK_ACPI_WMIFUNCTION,
+	})
 	if err != nil {
 		return nil, err
 	}

@@ -13,13 +13,16 @@ import (
 type Control struct {
 	sync.Mutex
 	deferFuncs []func()
+	dryRun     bool
 	isMuted    bool
 	// defaultOutput *wca.IMMDevice
 	defaultInput *wca.IMMDevice
 }
 
-func NewControl() (*Control, error) {
-	c := &Control{}
+func NewControl(dryRun bool) (*Control, error) {
+	c := &Control{
+		dryRun: dryRun,
+	}
 
 	if err := c.checkMicrophoneMute(); err != nil {
 		return nil, err
@@ -110,6 +113,10 @@ func (c *Control) checkMicrophoneMute() (err error) {
 func (c *Control) ToggleMicrophoneMute() error {
 	c.Lock()
 	defer c.Unlock()
+
+	if c.dryRun {
+		return nil
+	}
 
 	done, err := c.connect()
 	if err != nil {

@@ -30,24 +30,23 @@ func Run(ctx context.Context, conf RunConfig) error {
 		conf.RogRemap = []string{defaultCommandWithArgs}
 	}
 
-	var wmi atkacpi.WMI
+	wmi, err := atkacpi.NewWMI(conf.DryRun)
+	if err != nil {
+		return err
+	}
+
 	var config persist.ConfigRegistry
-	var err error
 
 	if conf.DryRun {
-		wmi, _ = atkacpi.NewDryWMI()
 		config, err = persist.NewDryRegistryHelper()
 		if err != nil {
 			return err
 		}
 	} else {
-		wmi, err = atkacpi.NewWMI()
-		if err != nil {
-			return err
-		}
 		config, _ = persist.NewRegistryHelper()
 	}
 
+	// TODO: make powercfg dryrun-able as well
 	powercfg, err := power.NewCfg()
 	if err != nil {
 		return err
@@ -71,12 +70,12 @@ func Run(ctx context.Context, conf RunConfig) error {
 		return err
 	}
 
-	kbCtrl, err := keyboard.NewControl()
+	kbCtrl, err := keyboard.NewControl(conf.DryRun)
 	if err != nil {
 		return err
 	}
 
-	volCtrl, err := volume.NewControl()
+	volCtrl, err := volume.NewControl(conf.DryRun)
 	if err != nil {
 		return err
 	}

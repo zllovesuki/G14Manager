@@ -13,3 +13,17 @@ type Registry interface {
 	// Close should handle graceful shutdown (e.g. closing sockets, etc)
 	Close() error
 }
+
+// ConfigRegistry defines an interface to save/load/apply configs in each Registry
+type ConfigRegistry interface {
+	// Register should register the given Registry to be load/save/apply
+	Register(registry Registry)
+	// Load should restore the configurations from the backing storage
+	Load() error
+	// Save should save the configurations to the backing storage
+	Save() error
+	// Apply should instruct each Registry to apply the configurations
+	Apply() error
+	// Close should instruct each Registry to close/clean up
+	Close()
+}

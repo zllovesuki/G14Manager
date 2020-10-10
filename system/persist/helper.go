@@ -22,8 +22,10 @@ type RegistryHelper struct {
 	path          string
 }
 
+var _ ConfigRegistry = &RegistryHelper{}
+
 // NewRegistryHelper returns a helper to persist config to the Registry
-func NewRegistryHelper() (*RegistryHelper, error) {
+func NewRegistryHelper() (ConfigRegistry, error) {
 	return &RegistryHelper{
 		configs: make(map[string]Registry),
 		key:     registryKey,

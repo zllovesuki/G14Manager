@@ -124,7 +124,7 @@ type Control struct {
 }
 
 // NewControl checks if the computer has the hid control interface, and returns a control interface if it does
-func NewControl() (*Control, error) {
+func NewControl(dryRun bool) (*Control, error) {
 	devices, err := usb.EnumerateHid(VendorID, ProductID)
 	if err != nil {
 		return nil, err
@@ -139,7 +139,11 @@ func NewControl() (*Control, error) {
 		return nil, fmt.Errorf("Keyboard control interface not found")
 	}
 
-	ctrl, err := device.NewControl(path, ioctl.HID_SET_FEATURE)
+	ctrl, err := device.NewControl(device.Config{
+		DryRun:      dryRun,
+		Path:        path,
+		ControlCode: ioctl.HID_SET_FEATURE,
+	})
 	if err != nil {
 		return nil, err
 	}

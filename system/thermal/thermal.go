@@ -56,25 +56,25 @@ type Control struct {
 
 // Config defines the entry point for Windows Power Option and a list of thermal profiles
 type Config struct {
+	WMI      atkacpi.WMI
 	PowerCfg *power.Cfg
 	Profiles []Profile
 }
 
 // NewControl allows you to cycle to the next thermal profile
 func NewControl(conf Config) (*Control, error) {
+	if conf.WMI == nil {
+		return nil, errors.New("nil WMI is invalid")
+	}
 	if conf.PowerCfg == nil {
 		return nil, errors.New("nil PowerCfg is invalid")
 	}
 	if len(conf.Profiles) == 0 {
 		return nil, errors.New("empty Profiles is invalid")
 	}
-	wmi, err := atkacpi.NewWMI()
-	if err != nil {
-		return nil, err
-	}
 
 	return &Control{
-		wmi:                 wmi,
+		wmi:                 conf.WMI,
 		currentProfileIndex: 0,
 		Config:              conf,
 	}, nil

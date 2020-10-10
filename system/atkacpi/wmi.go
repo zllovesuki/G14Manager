@@ -3,6 +3,7 @@ package atkacpi
 import (
 	"encoding/binary"
 	"fmt"
+	"sync"
 
 	"github.com/zllovesuki/G14Manager/system/device"
 	"github.com/zllovesuki/G14Manager/system/ioctl"
@@ -46,18 +47,25 @@ const devicePath = `\\.\ATKACPI`
 type WMI interface {
 	// Evaluate will pass through the buffer (little endian) to the WMI method
 	Evaluate(id Method, args []byte) ([]byte, error)
+	// Close will close the underlying IO to the hardware
 	Close() error
 }
 
 type atkWmi struct {
-	device *device.Control
+	sync.Mutex
+	alreadyClosed bool
+	device        *device.Control
 }
 
 var _ WMI = &atkWmi{}
 
 // NewWMI returns an WMI for evaluating WMI methods exposed by the ATKD ACPI device
-func NewWMI() (WMI, error) {
-	device, err := device.NewControl(devicePath, ioctl.ATK_ACPI_WMIFUNCTION)
+func NewWMI(dryRun bool) (WMI, error) {
+	device, err := device.NewControl(device.Config{
+		DryRun:      dryRun,
+		Path:        devicePath,
+		ControlCode: ioctl.ATK_ACPI_WMIFUNCTION,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -67,6 +75,9 @@ func NewWMI() (WMI, error) {
 }
 
 func (a *atkWmi) Evaluate(id Method, args []byte) ([]byte, error) {
+	a.Lock()
+	defer a.Unlock()
+
 	if len(args) < 4 {
 		return nil, fmt.Errorf("args should have at least one parameter")
 	}
@@ -85,5 +96,11 @@ func (a *atkWmi) Evaluate(id Method, args []byte) ([]byte, error) {
 }
 
 func (a *atkWmi) Close() error {
+	a.Lock()
+	defer a.Unlock()
+	if a.alreadyClosed {
+		return nil
+	}
+	a.alreadyClosed = true
 	return a.device.Close()
 }

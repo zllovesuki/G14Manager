@@ -3,7 +3,6 @@ package device
 import (
 	"errors"
 	"log"
-	"os"
 
 	"golang.org/x/sys/windows"
 )
@@ -12,7 +11,6 @@ type Control struct {
 	path        string
 	handle      windows.Handle
 	controlCode uint32
-	isDryRun    bool
 }
 
 func NewControl(path string, controlCode uint32) (*Control, error) {
@@ -38,15 +36,10 @@ func NewControl(path string, controlCode uint32) (*Control, error) {
 		path:        path,
 		handle:      h,
 		controlCode: controlCode,
-		isDryRun:    os.Getenv("DRY_RUN") != "",
 	}, nil
 }
 
 func (d *Control) Write(input []byte) (int, error) {
-	if d.isDryRun {
-		log.Printf("[dry run] device: %s (%d) write input buffer [0:8]: %+v\n", d.path, d.controlCode, input[0:8])
-		return len(input), nil
-	}
 	outBuf := make([]byte, 1024)
 	outBufWritten := uint32(0)
 	log.Printf("device: %s (%d) write input buffer [0:8]: %+v\n", d.path, d.controlCode, input[0:8])
@@ -68,10 +61,6 @@ func (d *Control) Write(input []byte) (int, error) {
 }
 
 func (d *Control) Read(outBuf []byte) (int, error) {
-	if d.isDryRun {
-		log.Printf("[dry run] device: %s (%d) read input buffer [0:8]: %+v\n", d.path, d.controlCode, outBuf[0:8])
-		return 0, nil
-	}
 	outBufWritten := uint32(0)
 	log.Printf("device: %s (%d) read input buffer [0:8]: %+v\n", d.path, d.controlCode, outBuf[0:8])
 	err := windows.DeviceIoControl(
@@ -91,10 +80,6 @@ func (d *Control) Read(outBuf []byte) (int, error) {
 }
 
 func (d *Control) Execute(input []byte, outLen int) ([]byte, error) {
-	if d.isDryRun {
-		log.Printf("[dry run] device: %s (%d) execute input buffer [0:8]: %+v\n", d.path, d.controlCode, input[0:8])
-		return make([]byte, outLen), nil
-	}
 	outBuf := make([]byte, 1024)
 	outBufWritten := uint32(0)
 	log.Printf("device: %s (%d) execute input buffer: %+v\n", d.path, d.controlCode, input)

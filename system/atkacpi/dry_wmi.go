@@ -4,8 +4,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"log"
-
-	"github.com/zllovesuki/G14Manager/system/ioctl"
 )
 
 type dryWmi struct{}
@@ -25,9 +23,9 @@ func (d *dryWmi) Evaluate(id Method, args []byte) ([]byte, error) {
 	acpiBuf := make([]byte, 8)
 	binary.LittleEndian.PutUint32(acpiBuf[0:], uint32(id))
 	binary.LittleEndian.PutUint32(acpiBuf[4:], uint32(len(args)))
-	log.Printf("[dry run] device: (%d) execute input buffer [0:8]: %+v\n", ioctl.ATK_ACPI_WMIFUNCTION, acpiBuf)
+	log.Printf("[dry run] wmi: execute input buffer [0:8]: %+v\n", acpiBuf)
 
-	return make([]byte, 1024), nil
+	return make([]byte, 16), nil
 }
 
 func (d *dryWmi) Close() error {

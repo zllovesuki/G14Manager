@@ -48,11 +48,16 @@ func NewHidListener(haltCtx context.Context, eventCh chan uint32) (map[string]us
 		return nil, fmt.Errorf("No devices found")
 	}
 
+	openDevices := make([]usb.Device, 0, 2)
+
 	for _, device := range devicesFound {
 		d, err := device.Open()
 		if err != nil {
 			return nil, err
 		}
+		openDevices = append(openDevices, d)
+	}
+	for _, d := range openDevices {
 		go readDevice(haltCtx, eventCh, d)
 	}
 	return devicesFound, nil

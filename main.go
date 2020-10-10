@@ -52,6 +52,7 @@ func main() {
 	)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	log.Println("Starting supervisor")
 	if err := supervisor.Start(ctx); err != nil {
 		log.Fatal(err)
 	}

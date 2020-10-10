@@ -71,6 +71,9 @@ func NewWMI() (WMI, error) {
 }
 
 func (a *atkWmi) Evaluate(id Method, args []byte) ([]byte, error) {
+	a.Lock()
+	defer a.Unlock()
+
 	if len(args) < 4 {
 		return nil, fmt.Errorf("args should have at least one parameter")
 	}

@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/zllovesuki/G14Manager/system/atkacpi"
-	"github.com/zllovesuki/G14Manager/system/keyboard"
+	kb "github.com/zllovesuki/G14Manager/system/keyboard"
 	"github.com/zllovesuki/G14Manager/system/persist"
 	"github.com/zllovesuki/G14Manager/system/power"
 	"github.com/zllovesuki/G14Manager/system/thermal"
@@ -35,6 +35,8 @@ const (
 	fnVolCtrl               // for mute/unmute microphone
 	fnHwCtrl                // for notifying atkacpi
 	fnBeforeSuspend         // for doing work before suspend
+	fnUtilityKey            // for when ROG Key is pressed
+	fnThermalProfile        // for Fn+F5 to switch between profiles
 )
 
 type Config struct {
@@ -42,7 +44,7 @@ type Config struct {
 	WMI                atkacpi.WMI
 
 	VolumeControl   *volume.Control
-	KeyboardControl *keyboard.Control
+	KeyboardControl *kb.Control
 	Thermal         *thermal.Control
 	Registry        persist.ConfigRegistry
 
@@ -100,7 +102,7 @@ func NewController(conf Config) (*Controller, error) {
 func (c *Controller) initialize(haltCtx context.Context) {
 	// Do we need to lock os thread on any of these?
 
-	devices, err := keyboard.NewHidListener(haltCtx, c.keyCodeCh)
+	devices, err := kb.NewHidListener(haltCtx, c.keyCodeCh)
 	if err != nil {
 		log.Fatalln("controller: error initializing hid listener", err)
 	}
@@ -126,9 +128,8 @@ func (c *Controller) initialize(haltCtx context.Context) {
 	}
 
 	debounceKeys := []uint32{
-		// TODO: define these as constants
-		58,  // ROG Key
-		174, // Fn + F5
+		fnUtilityKey,
+		fnThermalProfile,
 	}
 	for _, key := range debounceKeys {
 		// TODO: make debounce interval configurable for accessbility
@@ -228,40 +229,40 @@ func (c *Controller) handleKeyPress(haltCtx context.Context) {
 		select {
 		case keyCode := <-c.keyCodeCh:
 			switch keyCode {
-			case 56:
+			case kb.KeyROG:
 				log.Println("hid: ROG Key Pressed (debounced)")
-				c.workQueueCh[58].noisy <- struct{}{}
+				c.workQueueCh[fnUtilityKey].noisy <- struct{}{}
 
-			case 174:
+			case kb.KeyFnF5:
 				log.Println("hid: Fn + F5 Pressed (debounced)")
-				c.workQueueCh[174].noisy <- struct{}{}
+				c.workQueueCh[fnThermalProfile].noisy <- struct{}{}
 
-			case 234:
+			case kb.KeyVolDown:
 				log.Println("hid: volume down Pressed")
 
-			case 233:
+			case kb.KeyVolUp:
 				log.Println("hid: volume up Pressed")
 
-			case 124:
+			case kb.KeyMuteMic:
 				log.Println("hid: mute/unmute microphone Pressed")
 				c.workQueueCh[fnVolCtrl].noisy <- struct{}{}
 
-			case 107:
+			case kb.KeyTpadToggle:
 				log.Println("hid: toggle enable/disable touchpad Pressed")
 				c.workQueueCh[fnToggleTouchPad].noisy <- struct{}{}
 
 			case
-				16,  // screen brightness down
-				32,  // screen brightness up
-				108, // sleep
-				136: // RF kill toggle
+				kb.KeyLCDUp,
+				kb.KeyLCDDown,
+				kb.KeySleep,
+				kb.KeyRFKill:
 				c.workQueueCh[fnHwCtrl].noisy <- keyCode
 
 			case
-				178, // Fn + Arrow Left
-				179, // Fn + Arrow Right
-				197, // keyboard brightness down (Fn + Arrow Down)
-				196: // keyboard brightness up (Fn + Arrow Up)
+				kb.KeyFnLeft,
+				kb.KeyFnRight,
+				kb.KeyFnUp,
+				kb.KeyFnDown:
 				c.workQueueCh[fnKbCtrl].noisy <- keyCode
 
 			default:
@@ -313,7 +314,7 @@ func (c *Controller) handleWorkQueue(haltCtx context.Context) {
 	defer runtime.UnlockOSThread()
 	for {
 		select {
-		case ev := <-c.workQueueCh[58].clean:
+		case ev := <-c.workQueueCh[fnUtilityKey].clean:
 			log.Printf("controller: ROG Key pressed %d times\n", ev.Counter)
 			if int(ev.Counter) <= len(c.Config.ROGKey) {
 				if err := run("cmd.exe", "/C", c.Config.ROGKey[ev.Counter-1]); err != nil {
@@ -321,7 +322,7 @@ func (c *Controller) handleWorkQueue(haltCtx context.Context) {
 				}
 			}
 
-		case ev := <-c.workQueueCh[174].clean:
+		case ev := <-c.workQueueCh[fnThermalProfile].clean:
 			log.Printf("controller: Fn + F5 pressed %d times\n", ev.Counter)
 			next, err := c.Config.Thermal.NextProfile(int(ev.Counter))
 			message := fmt.Sprintf("Thermal plan changed to %s", next)
@@ -376,7 +377,7 @@ func (c *Controller) handleWorkQueue(haltCtx context.Context) {
 				log.Println("kbCtrl: Fn + Array Left Pressed")
 				if c.Config.EnableExperimental {
 					log.Println("kbCtrl: (experimental) remapping to PgUp")
-					if err := c.Config.KeyboardControl.EmulateKeyPress(0x49); err != nil {
+					if err := c.Config.KeyboardControl.EmulateKeyPress(kb.KeyPgUp); err != nil {
 						log.Printf("kbCtrl: error remapping: %v\n", err)
 					}
 				}
@@ -384,7 +385,7 @@ func (c *Controller) handleWorkQueue(haltCtx context.Context) {
 				log.Println("kbCtrl: Fn + Array Right Pressed")
 				if c.Config.EnableExperimental {
 					log.Println("kbCtrl: (experimental) remapping to PgDown")
-					if err := c.Config.KeyboardControl.EmulateKeyPress(0x51); err != nil {
+					if err := c.Config.KeyboardControl.EmulateKeyPress(kb.KeyPgDown); err != nil {
 						log.Printf("kbCtrl: error remapping: %v\n", err)
 					}
 				}
@@ -422,7 +423,7 @@ func (c *Controller) handleWorkQueue(haltCtx context.Context) {
 
 		case <-c.workQueueCh[fnBeforeSuspend].clean:
 			log.Println("kbCtrl: turning off keyboard backlight")
-			c.Config.KeyboardControl.SetBrightness(keyboard.OFF)
+			c.Config.KeyboardControl.SetBrightness(kb.OFF)
 
 		case <-haltCtx.Done():
 			log.Println("controller: exiting handleWorkQueue")

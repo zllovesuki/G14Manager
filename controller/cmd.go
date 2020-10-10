@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/zllovesuki/G14Manager/system/atkacpi"
 	"github.com/zllovesuki/G14Manager/system/battery"
 	"github.com/zllovesuki/G14Manager/system/keyboard"
 	"github.com/zllovesuki/G14Manager/system/persist"
@@ -29,7 +30,23 @@ func Run(ctx context.Context, conf RunConfig) error {
 		conf.RogRemap = []string{defaultCommandWithArgs}
 	}
 
-	config, _ := persist.NewRegistryHelper()
+	var wmi atkacpi.WMI
+	var config persist.ConfigRegistry
+	var err error
+
+	if conf.DryRun {
+		wmi, _ = atkacpi.NewDryWMI()
+		config, err = persist.NewDryRegistryHelper()
+		if err != nil {
+			return err
+		}
+	} else {
+		wmi, err = atkacpi.NewWMI()
+		if err != nil {
+			return err
+		}
+		config, _ = persist.NewRegistryHelper()
+	}
 
 	powercfg, err := power.NewCfg()
 	if err != nil {
@@ -38,6 +55,7 @@ func Run(ctx context.Context, conf RunConfig) error {
 
 	// TODO: allow user to specify profiles
 	thermalCfg := thermal.Config{
+		WMI:      wmi,
 		PowerCfg: powercfg,
 		Profiles: thermal.GetDefaultThermalProfiles(),
 	}
@@ -48,7 +66,7 @@ func Run(ctx context.Context, conf RunConfig) error {
 	}
 
 	// TODO: allow user to change the charge limit
-	battery, err := battery.NewChargeLimit()
+	battery, err := battery.NewChargeLimit(wmi)
 	if err != nil {
 		return err
 	}
@@ -70,8 +88,8 @@ func Run(ctx context.Context, conf RunConfig) error {
 	config.Register(kbCtrl)
 
 	control, err := NewController(Config{
+		WMI:                wmi,
 		EnableExperimental: conf.EnableExperimental,
-		DryRun:             conf.DryRun,
 		VolumeControl:      volCtrl,
 		KeyboardControl:    kbCtrl,
 		Thermal:            profile,

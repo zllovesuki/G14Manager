@@ -3,6 +3,7 @@ package atkacpi
 import (
 	"encoding/binary"
 	"fmt"
+	"sync"
 
 	"github.com/zllovesuki/G14Manager/system/device"
 	"github.com/zllovesuki/G14Manager/system/ioctl"
@@ -46,11 +47,14 @@ const devicePath = `\\.\ATKACPI`
 type WMI interface {
 	// Evaluate will pass through the buffer (little endian) to the WMI method
 	Evaluate(id Method, args []byte) ([]byte, error)
+	// Close will close the underlying IO to the hardware
 	Close() error
 }
 
 type atkWmi struct {
-	device *device.Control
+	sync.Mutex
+	alreadyClosed bool
+	device        *device.Control
 }
 
 var _ WMI = &atkWmi{}
@@ -85,5 +89,11 @@ func (a *atkWmi) Evaluate(id Method, args []byte) ([]byte, error) {
 }
 
 func (a *atkWmi) Close() error {
+	a.Lock()
+	defer a.Unlock()
+	if a.alreadyClosed {
+		return nil
+	}
+	a.alreadyClosed = true
 	return a.device.Close()
 }

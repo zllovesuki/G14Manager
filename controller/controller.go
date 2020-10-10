@@ -39,12 +39,12 @@ const (
 
 type Config struct {
 	EnableExperimental bool
-	DryRun             bool
+	WMI                atkacpi.WMI
 
 	VolumeControl   *volume.Control
 	KeyboardControl *keyboard.Control
 	Thermal         *thermal.Control
-	Registry        *persist.RegistryHelper
+	Registry        persist.ConfigRegistry
 
 	ROGKey []string
 }
@@ -64,11 +64,12 @@ type Controller struct {
 	keyCodeCh chan uint32
 	acpiCh    chan uint32
 	powerEvCh chan uint32
-
-	wmi atkacpi.WMI
 }
 
 func NewController(conf Config) (*Controller, error) {
+	if conf.WMI == nil {
+		return nil, errors.New("nil WMI is invalid")
+	}
 	if conf.VolumeControl == nil {
 		return nil, errors.New("nil volume.Control is invalid")
 	}
@@ -117,15 +118,10 @@ func (c *Controller) initialize(haltCtx context.Context) {
 		log.Fatalln("controller: error initializing power event listener", err)
 	}
 
-	c.wmi, err = atkacpi.NewWMI()
-	if err != nil {
-		log.Fatalln("controller: error initializing atk wmi interface", err)
-	}
-
 	// initialize the ATKACPI interface
 	log.Printf("controller: initializing ATKD for acpi events")
 	initBuf := make([]byte, 4)
-	if _, err := c.wmi.Evaluate(atkacpi.INIT, initBuf); err != nil {
+	if _, err := c.Config.WMI.Evaluate(atkacpi.INIT, initBuf); err != nil {
 		log.Fatalln("controller: cannot initialize ATKD")
 	}
 
@@ -342,7 +338,7 @@ func (c *Controller) handleWorkQueue(haltCtx context.Context) {
 		case <-c.workQueueCh[fnCheckCharger].clean:
 			function := make([]byte, 4)
 			binary.LittleEndian.PutUint32(function, atkacpi.DstsCheckCharger)
-			status, err := c.wmi.Evaluate(atkacpi.DSTS, function)
+			status, err := c.Config.WMI.Evaluate(atkacpi.DSTS, function)
 			if err != nil {
 				log.Println("controller: cannot check charger status")
 				continue
@@ -357,9 +353,6 @@ func (c *Controller) handleWorkQueue(haltCtx context.Context) {
 			}
 
 		case <-c.workQueueCh[fnPersistConfigs].clean:
-			if c.Config.DryRun {
-				continue
-			}
 			if err := c.Config.Registry.Save(); err != nil {
 				log.Fatalln("controller: error saving to registry", err)
 			}
@@ -422,7 +415,7 @@ func (c *Controller) handleWorkQueue(haltCtx context.Context) {
 			binary.LittleEndian.PutUint32(args[0:], atkacpi.DevsHardwareCtrl)
 			binary.LittleEndian.PutUint32(args[4:], keyCode)
 
-			_, err := c.wmi.Evaluate(atkacpi.DEVS, args)
+			_, err := c.Config.WMI.Evaluate(atkacpi.DEVS, args)
 			if err != nil {
 				log.Fatalln("hwCtrl: error sending key code to ATKACPI", err)
 			}

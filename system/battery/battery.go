@@ -19,11 +19,7 @@ type ChargeLimit struct {
 }
 
 // NewChargeLimit initializes the control interface and returns an instance of ChargeLimit
-func NewChargeLimit() (*ChargeLimit, error) {
-	wmi, err := atkacpi.NewWMI()
-	if err != nil {
-		return nil, err
-	}
+func NewChargeLimit(wmi atkacpi.WMI) (*ChargeLimit, error) {
 	return &ChargeLimit{
 		wmi:          wmi,
 		currentLimit: 80,

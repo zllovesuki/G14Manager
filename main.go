@@ -44,24 +44,23 @@ func main() {
 	log.Printf("G14Manager version: %s\n", Version)
 	log.Printf("Experimental enabled: %v\n", *enableExperimental)
 
-	control, err := controller.New(controller.RunConfig{
+	controllerConfig := controller.RunConfig{
 		RogRemap:           rogRemap,
 		EnableExperimental: *enableExperimental,
 		DryRun:             os.Getenv("DRY_RUN") != "",
-	})
-	if err != nil {
-		util.SendToastNotification("G14Manager Supervisor", util.Notification{
-			Title:   "G14Manager cannot be started",
-			Message: fmt.Sprintf("Error: %v", err),
-		})
-		log.Fatalf("[supervisor] controller configuration error: %v\n", err)
 	}
 
 	supervisor := oversight.New(
 		oversight.WithRestartStrategy(oversight.OneForOne()),
 		oversight.Process(oversight.ChildProcessSpecification{
-			Name:  "Controller",
-			Start: control.Run,
+			Name: "Controller",
+			Start: func(ctx context.Context) error {
+				control, err := controller.New(controllerConfig)
+				if err != nil {
+					return err
+				}
+				return control.Run(ctx)
+			},
 			Restart: func(err error) bool {
 				if err == nil {
 					return false
@@ -91,12 +90,15 @@ func main() {
 	go func() {
 		log.Println("[supervisor] Monitoring controller")
 		if err := supervisor.Start(ctx); err != nil {
-			log.Fatalln(err)
+			util.SendToastNotification("G14Manager Supervisor", util.Notification{
+				Title:   "G14Manager cannot be started",
+				Message: fmt.Sprintf("Error: %v", err),
+			})
+			log.Fatalf("[supervisor] controller start error: %v\n", err)
 		}
 	}()
 
 	<-sigc
 	cancel()
-	time.Sleep(time.Second * 5) // 5 second for grace period
-	os.Exit(0)
+	time.Sleep(time.Second) // 1 second for grace period
 }

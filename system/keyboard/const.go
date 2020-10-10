@@ -1,5 +1,11 @@
 package keyboard
 
+// Defines the vendorID/productID for NKEY keyboard
+const (
+	VendorID  = 0x0b05
+	ProductID = 0x1866
+)
+
 // Define key codes
 const (
 	KeyROG        uint32 = 56

@@ -10,10 +10,7 @@ var _ ConfigRegistry = &dryRegistryHelper{}
 
 // NewDryRegistryHelper returns a helper to persist config to the Registry but without actual IO to save
 func NewDryRegistryHelper() (ConfigRegistry, error) {
-	helper, err := NewRegistryHelper()
-	if err != nil {
-		return nil, err
-	}
+	helper, _ := NewRegistryHelper()
 	log.Println("[dry run] persist: initializing Registry without save IOs")
 	return &dryRegistryHelper{
 		helper: helper,

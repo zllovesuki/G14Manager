@@ -1,9 +1,6 @@
 package controller
 
 import (
-	"context"
-	"time"
-
 	"github.com/zllovesuki/G14Manager/system/atkacpi"
 	"github.com/zllovesuki/G14Manager/system/battery"
 	"github.com/zllovesuki/G14Manager/system/keyboard"
@@ -23,8 +20,8 @@ type RunConfig struct {
 	DryRun             bool
 }
 
-// Run start the controller daemon
-func Run(ctx context.Context, conf RunConfig) error {
+// New returns a Controller to be ran
+func New(conf RunConfig) (*Controller, error) {
 
 	if len(conf.RogRemap) == 0 {
 		conf.RogRemap = []string{defaultCommandWithArgs}
@@ -32,16 +29,13 @@ func Run(ctx context.Context, conf RunConfig) error {
 
 	wmi, err := atkacpi.NewWMI(conf.DryRun)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	var config persist.ConfigRegistry
 
 	if conf.DryRun {
-		config, err = persist.NewDryRegistryHelper()
-		if err != nil {
-			return err
-		}
+		config, _ = persist.NewDryRegistryHelper()
 	} else {
 		config, _ = persist.NewRegistryHelper()
 	}
@@ -49,7 +43,7 @@ func Run(ctx context.Context, conf RunConfig) error {
 	// TODO: make powercfg dryrun-able as well
 	powercfg, err := power.NewCfg()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// TODO: allow user to specify profiles
@@ -61,23 +55,23 @@ func Run(ctx context.Context, conf RunConfig) error {
 
 	profile, err := thermal.NewControl(thermalCfg)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// TODO: allow user to change the charge limit
 	battery, err := battery.NewChargeLimit(wmi)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	kbCtrl, err := keyboard.NewControl(conf.DryRun)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	volCtrl, err := volume.NewControl(conf.DryRun)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// order powercfg to last
@@ -86,7 +80,7 @@ func Run(ctx context.Context, conf RunConfig) error {
 	config.Register(powercfg)
 	config.Register(kbCtrl)
 
-	control, err := NewController(Config{
+	control, err := newController(Config{
 		WMI:                wmi,
 		EnableExperimental: conf.EnableExperimental,
 		VolumeControl:      volCtrl,
@@ -97,11 +91,8 @@ func Run(ctx context.Context, conf RunConfig) error {
 	})
 
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	control.Run(ctx)
-
-	<-time.After(time.Second)
-	return nil
+	return control, nil
 }

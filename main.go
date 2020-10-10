@@ -3,8 +3,12 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/zllovesuki/G14Manager/controller"
 	"github.com/zllovesuki/G14Manager/util"
@@ -40,20 +44,59 @@ func main() {
 	log.Printf("G14Manager version: %s\n", Version)
 	log.Printf("Experimental enabled: %v\n", *enableExperimental)
 
+	control, err := controller.New(controller.RunConfig{
+		RogRemap:           rogRemap,
+		EnableExperimental: *enableExperimental,
+		DryRun:             os.Getenv("DRY_RUN") != "",
+	})
+	if err != nil {
+		util.SendToastNotification("G14Manager Supervisor", util.Notification{
+			Title:   "G14Manager cannot be started",
+			Message: fmt.Sprintf("Error: %v", err),
+		})
+		log.Fatalf("[supervisor] controller configuration error: %v\n", err)
+	}
+
 	supervisor := oversight.New(
 		oversight.WithRestartStrategy(oversight.OneForOne()),
-		oversight.Processes(func(ctx context.Context) error {
-			return controller.Run(ctx, controller.RunConfig{
-				RogRemap:           rogRemap,
-				EnableExperimental: *enableExperimental,
-				DryRun:             os.Getenv("DRY_RUN") != "",
-			})
+		oversight.Process(oversight.ChildProcessSpecification{
+			Name:  "Controller",
+			Start: control.Run,
+			Restart: func(err error) bool {
+				if err == nil {
+					return false
+				}
+				log.Println("[supervisor] controller returned an error:")
+				log.Printf("%+v\n", err)
+				util.SendToastNotification("G14Manager Supervisor", util.Notification{
+					Title:   "G14Manager will be restarted",
+					Message: fmt.Sprintf("An error has occurred: %s", err),
+				})
+				return true
+			},
 		}),
 	)
+
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	log.Println("Starting supervisor")
-	if err := supervisor.Start(ctx); err != nil {
-		log.Fatal(err)
-	}
+
+	sigc := make(chan os.Signal, 1)
+	signal.Notify(
+		sigc,
+		syscall.SIGHUP,
+		syscall.SIGINT,
+		syscall.SIGTERM,
+		syscall.SIGQUIT,
+	)
+
+	go func() {
+		log.Println("[supervisor] Monitoring controller")
+		if err := supervisor.Start(ctx); err != nil {
+			log.Fatalln(err)
+		}
+	}()
+
+	<-sigc
+	cancel()
+	time.Sleep(time.Second * 5) // 5 second for grace period
+	os.Exit(0)
 }

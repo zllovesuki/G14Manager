@@ -9,12 +9,6 @@ import (
 	"github.com/karalabe/usb"
 )
 
-// Defines the vendorID/productID for NKEY keyboard
-const (
-	VendorID  = 0x0b05
-	ProductID = 0x1866
-)
-
 const (
 	reportBufSize = 6
 	reportID      = 0x5a

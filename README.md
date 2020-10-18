@@ -101,7 +101,7 @@ By default, G14Manager will limit full charge to be 80%. This will be customizab
 
 Use `.\scripts\run.ps1`.
 
-Most keycodes can be found in [reverse_eng/codes.txt](reverse_eng/codes.txt), and the `reverse_eng` folder contains USB and API calls captures for reference.
+Most keycodes can be found in [reverse_eng/codes.txt](https://github.com/zllovesuki/reverse_engineering/blob/master/G14/codes.txt), and the repo contains USB and API calls captures for reference.
 
 ## References:
 
@@ -113,5 +113,5 @@ Most keycodes can be found in [reverse_eng/codes.txt](reverse_eng/codes.txt), an
 - https://code.woboq.org/linux/linux/include/linux/platform_data/x86/asus-wmi.h.html
 - http://gauss.ececs.uc.edu/Courses/c4029/pdf/ACPI_6.0.pdf
 - https://wiki.ubuntu.com/Kernel/Reference/WMI
-- [DSDT Table](./reverse_end/g14-dsdt.dsl)
-- [Reverse Engineering](./reverse_eng)
+- [DSDT Table](https://github.com/zllovesuki/reverse_engineering/blob/master/G14/g14-dsdt.dsl)
+- [Reverse Engineering](https://github.com/zllovesuki/reverse_engineering/tree/master/G14)

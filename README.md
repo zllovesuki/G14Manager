@@ -85,6 +85,21 @@ Use the `Fn + F5` key combo to cycle through all the profiles. Fanless -> Quiet 
 
 The key combo has a time delay. If you press the combo X times, it will apply the the next X profile. For example, if you are currently on "Fanless" profile, pressing `Fn + F5` twice will apply the "Slient" profile.
 
+## Automatic Thermal Profile Switching
+
+For the initial release, it is hardcoded to be:
+
+- On power adapter plugged in: "Performance" Profile
+- On power adapter unplugged: "Silent" Profile
+
+There is a 5 seconds delay before changing the profile upon power source changes.
+
+To enable this feature, pass `-autoThermal` flag to enable it:
+
+```
+.\G14Manager.exe -autoThermal
+```
+
 ## Battery Charge Limit
 
 By default, G14Manager will limit full charge to be 80%. This will be customizable in a later release.

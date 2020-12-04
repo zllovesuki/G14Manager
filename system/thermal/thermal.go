@@ -85,10 +85,17 @@ func (c *Control) CurrentProfile() Profile {
 	return c.Config.Profiles[c.currentProfileIndex]
 }
 
-// NextProfile will cycle to the next profile
-func (c *Control) NextProfile(howMany int) (string, error) {
-	nextIndex := (c.currentProfileIndex + howMany) % len(c.Config.Profiles)
-	nextProfile := c.Config.Profiles[nextIndex]
+func (c *Control) findProfileIndexWithName(name string) int {
+	for i, p := range c.Profiles {
+		if p.Name == name {
+			return i
+		}
+	}
+	return -1
+}
+
+func (c *Control) setProfile(index int) (string, error) {
+	nextProfile := c.Config.Profiles[index]
 
 	// note: always set thermal throttle plan first, then override with user fan curve
 	if err := c.setThrottlePlan(nextProfile); err != nil {
@@ -103,9 +110,26 @@ func (c *Control) NextProfile(howMany int) (string, error) {
 		return "", err
 	}
 
-	c.currentProfileIndex = nextIndex
+	c.currentProfileIndex = index
 
 	return nextProfile.Name, nil
+}
+
+// SwitchToProfile will switch the profile with the given name
+func (c *Control) SwitchToProfile(name string) (string, error) {
+	nextIndex := c.findProfileIndexWithName(name)
+	if nextIndex < 0 {
+		return "", errors.New("Cannot find profile with name: " + name)
+	}
+
+	return c.setProfile(nextIndex)
+}
+
+// NextProfile will cycle to the next profile
+func (c *Control) NextProfile(howMany int) (string, error) {
+	nextIndex := (c.currentProfileIndex + howMany) % len(c.Config.Profiles)
+
+	return c.setProfile(nextIndex)
 }
 
 func (c *Control) setThrottlePlan(profile Profile) error {

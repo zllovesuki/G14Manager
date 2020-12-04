@@ -15,9 +15,9 @@ const defaultCommandWithArgs = "Taskmgr.exe"
 
 // RunConfig contains the start up configuration for the controller
 type RunConfig struct {
-	RogRemap           util.ArrayFlags
-	EnableExperimental bool
-	DryRun             bool
+	RogRemap        util.ArrayFlags
+	DryRun          bool
+	EnabledFeatures Features
 }
 
 // New returns a Controller to be ran
@@ -81,13 +81,15 @@ func New(conf RunConfig) (*Controller, error) {
 	config.Register(kbCtrl)
 
 	control, err := newController(Config{
-		WMI:                wmi,
-		EnableExperimental: conf.EnableExperimental,
-		VolumeControl:      volCtrl,
-		KeyboardControl:    kbCtrl,
-		Thermal:            profile,
-		Registry:           config,
-		ROGKey:             conf.RogRemap,
+		WMI: wmi,
+
+		VolumeControl:   volCtrl,
+		KeyboardControl: kbCtrl,
+		Thermal:         profile,
+		Registry:        config,
+
+		EnabledFeatures: conf.EnabledFeatures,
+		ROGKey:          conf.RogRemap,
 	})
 
 	if err != nil {

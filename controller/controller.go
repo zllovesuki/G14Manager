@@ -19,6 +19,11 @@ import (
 )
 
 const (
+	// AutoThermalDelay defines how long the Controller should wait before changing thermal profile when power source is changed
+	AutoThermalDelay = time.Second * 5
+)
+
+const (
 	appName = "G14Manager"
 )
 
@@ -34,19 +39,38 @@ const (
 	fnAfterSuspend          // for doing work after suspend
 	fnUtilityKey            // for when ROG Key is pressed
 	fnThermalProfile        // for Fn+F5 to switch between profiles
+	fnAutoThermal           // for switching thermal on power source change
 )
+
+type chargerStatus int
+
+const (
+	chargerPluggedIn chargerStatus = iota
+	chargerUnplugged
+)
+
+// https://yourbasic.org/golang/iota/
+func (c chargerStatus) String() string {
+	return [...]string{"Plugged In", "Unplugged"}[c]
+}
+
+// Features contains feature flags
+type Features struct {
+	ExperimentalFnRemap bool
+	AutoThermalProfile  bool
+}
 
 // Config contains the configurations for the controller
 type Config struct {
-	EnableExperimental bool
-	WMI                atkacpi.WMI
+	WMI atkacpi.WMI
 
 	VolumeControl   *volume.Control
 	KeyboardControl *kb.Control
 	Thermal         *thermal.Control
 	Registry        persist.ConfigRegistry
 
-	ROGKey []string
+	EnabledFeatures Features
+	ROGKey          []string
 }
 
 type workQueue struct {
@@ -166,12 +190,22 @@ func (c *Controller) initialize(haltCtx context.Context) error {
 		}
 	}
 
-	workQueueDebounced := []uint32{
-		fnPersistConfigs,
+	workQueueDebounced := []struct {
+		code  uint32
+		delay time.Duration
+	}{
+		{
+			code:  fnPersistConfigs,
+			delay: time.Second,
+		},
+		{
+			code:  fnAutoThermal,
+			delay: AutoThermalDelay,
+		},
 	}
 	for _, work := range workQueueDebounced {
-		in, out := util.Debounce(haltCtx, time.Millisecond*1000)
-		c.workQueueCh[work] = workQueue{
+		in, out := util.Debounce(haltCtx, work.delay)
+		c.workQueueCh[work.code] = workQueue{
 			noisy: in,
 			clean: out,
 		}

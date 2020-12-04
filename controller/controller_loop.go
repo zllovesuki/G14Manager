@@ -132,8 +132,16 @@ func (c *Controller) handleNotify(haltCtx context.Context) {
 }
 
 func (c *Controller) handleWorkQueue(haltCtx context.Context) {
+	defer func() {
+		if r := recover(); r != nil {
+			err := r.(error)
+			c.errorCh <- err
+		}
+	}()
+
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
+
 	for {
 		select {
 		case ev := <-c.workQueueCh[fnUtilityKey].clean:
@@ -168,11 +176,40 @@ func (c *Controller) handleWorkQueue(haltCtx context.Context) {
 			}
 			switch binary.LittleEndian.Uint32(status[0:4]) {
 			case 0x0:
-				log.Printf("[controller] charger is not plugged in")
+				log.Println("[controller] charger is not plugged in")
+				c.workQueueCh[fnAutoThermal].noisy <- chargerUnplugged
 			case 0x10001:
-				log.Printf("[controller] 180W charger plugged in")
+				log.Println("[controller] 180W charger plugged in")
+				c.workQueueCh[fnAutoThermal].noisy <- chargerPluggedIn
 			case 0x10002:
-				log.Printf("[controller] USB-C PD charger plugged in")
+				log.Println("[controller] USB-C PD charger plugged in")
+				c.workQueueCh[fnAutoThermal].noisy <- chargerPluggedIn
+			}
+
+		case ev := <-c.workQueueCh[fnAutoThermal].clean:
+			if c.Config.EnabledFeatures.AutoThermalProfile {
+				pluggedInStatus := ev.Data.(chargerStatus)
+				log.Printf("[controller] automatically switching thermal profile. Charger is: %s\n", pluggedInStatus)
+
+				var next string
+				var err error
+				var message string
+				// TODO: make it configurable
+				if pluggedInStatus == chargerPluggedIn {
+					next, err = c.Config.Thermal.SwitchToProfile("Performance")
+				} else {
+					next, err = c.Config.Thermal.SwitchToProfile("Silent")
+				}
+				if err != nil {
+					log.Println(err)
+					message = err.Error()
+				} else {
+					message = fmt.Sprintf("Thermal plan changed to %s", next)
+				}
+				c.notifyQueueCh <- util.Notification{
+					Title:   "Automatic Thermal Plan Switching: " + pluggedInStatus.String(),
+					Message: message,
+				}
 			}
 
 		case <-c.workQueueCh[fnPersistConfigs].clean:
@@ -200,7 +237,7 @@ func (c *Controller) handleWorkQueue(haltCtx context.Context) {
 			switch ev.Data.(uint32) {
 			case kb.KeyFnLeft:
 				log.Println("kbCtrl: Fn + Arrow Left Pressed")
-				if c.Config.EnableExperimental {
+				if c.Config.EnabledFeatures.ExperimentalFnRemap {
 					log.Println("kbCtrl: (experimental) remapping to PgUp")
 					if err := c.Config.KeyboardControl.EmulateKeyPress(kb.KeyPgUp); err != nil {
 						log.Printf("kbCtrl: error remapping: %v\n", err)
@@ -208,7 +245,7 @@ func (c *Controller) handleWorkQueue(haltCtx context.Context) {
 				}
 			case kb.KeyFnRight:
 				log.Println("kbCtrl: Fn + Arrow Right Pressed")
-				if c.Config.EnableExperimental {
+				if c.Config.EnabledFeatures.ExperimentalFnRemap {
 					log.Println("kbCtrl: (experimental) remapping to PgDown")
 					if err := c.Config.KeyboardControl.EmulateKeyPress(kb.KeyPgDown); err != nil {
 						log.Printf("kbCtrl: error remapping: %v\n", err)

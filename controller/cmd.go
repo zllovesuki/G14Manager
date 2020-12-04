@@ -69,7 +69,7 @@ func New(conf RunConfig) (*Controller, error) {
 		return nil, err
 	}
 
-	volCtrl, err := volume.NewControl(conf.DryRun)
+	volCtrl, err := volume.NewVolumeControl(conf.DryRun)
 	if err != nil {
 		return nil, err
 	}

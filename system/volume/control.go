@@ -1,8 +1,8 @@
 package volume
 
 import (
+	"context"
 	"log"
-	"sync"
 
 	"github.com/moutend/go-wca/pkg/wca"
 	"github.com/scjalliance/comshim"
@@ -11,80 +11,64 @@ import (
 // TODO: document this ole mess
 
 type Control struct {
-	sync.Mutex
-	deferFuncs []func()
-	dryRun     bool
-	isMuted    bool
-	// defaultOutput *wca.IMMDevice
-	defaultInput *wca.IMMDevice
+	dryRun  bool
+	isMuted bool
+	queue   chan task
 }
 
-func NewControl(dryRun bool) (*Control, error) {
+type callbackFn func(defaultInput *wca.IMMDevice) (err error)
+
+type task struct {
+	fn  callbackFn
+	err chan error
+}
+
+func NewVolumeControl(dryRun bool) (*Control, error) {
 	c := &Control{
 		dryRun: dryRun,
-	}
-
-	if err := c.checkMicrophoneMute(); err != nil {
-		return nil, err
+		queue:  make(chan task),
 	}
 
 	return c, nil
 }
 
-func (c *Control) connect() (done func(), err error) {
-	c.deferFuncs = make([]func(), 0, 1)
+func (c *Control) Run(haltCtx context.Context) {
+	log.Println("volCtrl: Starting queue loop")
 
-	comshim.Add(1)
-	defer func() {
-		if err != nil {
-			comshim.Done()
+	for {
+		select {
+		case t := <-c.queue:
+			t.err <- c.inputDevice(t.fn)
+		case <-haltCtx.Done():
+			return
 		}
-	}()
-	c.deferFuncs = append(c.deferFuncs, comshim.Done)
+	}
+}
+
+func (c *Control) inputDevice(fn callbackFn) (err error) {
+	comshim.Add(1)
+	defer comshim.Done()
 
 	var mmde *wca.IMMDeviceEnumerator
 	if err = wca.CoCreateInstance(wca.CLSID_MMDeviceEnumerator, 0, wca.CLSCTX_ALL, wca.IID_IMMDeviceEnumerator, &mmde); err != nil {
 		return
 	}
-	c.deferFuncs = append(c.deferFuncs, func() {
-		mmde.Release()
-	})
+	defer mmde.Release()
 
-	if err = mmde.GetDefaultAudioEndpoint(wca.ECapture, wca.EConsole, &c.defaultInput); err != nil {
+	var defaultInput *wca.IMMDevice
+	if err = mmde.GetDefaultAudioEndpoint(wca.ECapture, wca.EConsole, &defaultInput); err != nil {
 		return
 	}
-	c.deferFuncs = append(c.deferFuncs, func() {
-		c.defaultInput.Release()
-	})
+	defer defaultInput.Release()
 
-	/*if err := mmde.GetDefaultAudioEndpoint(wca.ERender, wca.EConsole, &c.defaultOutput); err != nil {
-		return nil, err
-	}
-	c.deferFuncs = append(c.deferFuncs, func() {
-		c.defaultOutput.Release()
-	})*/
+	err = fn(defaultInput)
 
-	done = func() {
-		for i := len(c.deferFuncs) - 1; i >= 0; i-- {
-			c.deferFuncs[i]()
-		}
-		c.deferFuncs = nil
-	}
 	return
 }
 
-func (c *Control) checkMicrophoneMute() (err error) {
-	c.Lock()
-	defer c.Unlock()
-
-	done, err := c.connect()
-	if err != nil {
-		return
-	}
-	defer done()
-
+func (c *Control) checkMuteFn(defaultInput *wca.IMMDevice) (err error) {
 	var ps *wca.IPropertyStore
-	if err = c.defaultInput.OpenPropertyStore(wca.STGM_READ, &ps); err != nil {
+	if err = defaultInput.OpenPropertyStore(wca.STGM_READ, &ps); err != nil {
 		return
 	}
 	defer ps.Release()
@@ -96,7 +80,7 @@ func (c *Control) checkMicrophoneMute() (err error) {
 	log.Printf("wca: default microphone: %s\n", pv.String())
 
 	var aev *wca.IAudioEndpointVolume
-	if err = c.defaultInput.Activate(wca.IID_IAudioEndpointVolume, wca.CLSCTX_ALL, nil, &aev); err != nil {
+	if err = defaultInput.Activate(wca.IID_IAudioEndpointVolume, wca.CLSCTX_ALL, nil, &aev); err != nil {
 		return
 	}
 	defer aev.Release()
@@ -110,32 +94,39 @@ func (c *Control) checkMicrophoneMute() (err error) {
 	return
 }
 
-func (c *Control) ToggleMicrophoneMute() error {
-	c.Lock()
-	defer c.Unlock()
+func (c *Control) setMuteFn(defaultInput *wca.IMMDevice) (err error) {
+	log.Printf("wca: setting microphone mute to %v\n", !c.isMuted)
+	var aev *wca.IAudioEndpointVolume
+	if err = defaultInput.Activate(wca.IID_IAudioEndpointVolume, wca.CLSCTX_ALL, nil, &aev); err != nil {
+		return
+	}
+	defer aev.Release()
 
+	if err = aev.SetMute(!c.isMuted, nil); err != nil {
+		return
+	}
+	c.isMuted = !c.isMuted
+
+	return
+}
+
+func (c *Control) CheckMicrophoneMute() error {
+	return c.doWork(c.checkMuteFn)
+}
+
+func (c *Control) ToggleMicrophoneMute() error {
 	if c.dryRun {
 		return nil
 	}
 
-	done, err := c.connect()
-	if err != nil {
-		return err
+	return c.doWork(c.setMuteFn)
+}
+
+func (c *Control) doWork(fn callbackFn) error {
+	err := make(chan error)
+	c.queue <- task{
+		fn:  fn,
+		err: err,
 	}
-	defer done()
-
-	log.Printf("wca: setting microphone mute to %v\n", !c.isMuted)
-	var aev *wca.IAudioEndpointVolume
-	if err := c.defaultInput.Activate(wca.IID_IAudioEndpointVolume, wca.CLSCTX_ALL, nil, &aev); err != nil {
-		return err
-	}
-	defer aev.Release()
-
-	if err := aev.SetMute(!c.isMuted, nil); err != nil {
-		return err
-	}
-
-	c.isMuted = !c.isMuted
-
-	return nil
+	return <-err
 }

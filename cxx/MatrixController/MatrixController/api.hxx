@@ -10,13 +10,12 @@
 #define MATRIXCONTROLLER_API __declspec(dllimport)
 #endif
 
-#include "MatrixController.h"
+#include "MatrixController.hxx"
 
 typedef struct _API_WRAPPER {
 	WINUSB_INTERFACE_HANDLE WinusbHandle;
 	HANDLE                  DeviceHandle;
-
-	MatrixController*		mc;
+	MatrixController		*mc;
 	char					devicePath[MAX_PATH + 1];
 } API_WRAPPER, *PAPI_WRAPPER;
 
@@ -24,12 +23,12 @@ typedef struct _API_WRAPPER {
 extern "C" {
 #endif
 
-	MATRIXCONTROLLER_API PAPI_WRAPPER NewController(void);
-	MATRIXCONTROLLER_API void DeleteController(PAPI_WRAPPER w);
+	MATRIXCONTROLLER_API PAPI_WRAPPER fnNewController(void);
+	MATRIXCONTROLLER_API void fnDeleteController(PAPI_WRAPPER w);
 
-	MATRIXCONTROLLER_API int PrepareDraw(PAPI_WRAPPER w, unsigned char* m, size_t len);
-	MATRIXCONTROLLER_API int DrawMatrix(PAPI_WRAPPER w);
-	MATRIXCONTROLLER_API int ClearMatrix(PAPI_WRAPPER w);
+	MATRIXCONTROLLER_API int fnPrepareDraw(PAPI_WRAPPER w, unsigned char* m, size_t len);
+	MATRIXCONTROLLER_API int fnDrawMatrix(PAPI_WRAPPER w);
+	MATRIXCONTROLLER_API int fnClearMatrix(PAPI_WRAPPER w);
 
 #ifdef __cplusplus
 }

@@ -18,19 +18,19 @@
     <None Include="cpp.hint" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="framework.h">
+    <ClInclude Include="framework.hxx">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="MatrixController.h">
+    <ClInclude Include="MatrixController.hxx">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="pch.h">
+    <ClInclude Include="pch.hxx">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="MatrixStatus.h">
+    <ClInclude Include="MatrixStatus.hxx">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="api.h">
+    <ClInclude Include="api.hxx">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

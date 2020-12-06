@@ -1,8 +1,8 @@
 // MatrixController.cpp : Implementations of AniMe Matrix Control
 //
 
-#include "pch.h"
-#include "MatrixController.h"
+#include "pch.hxx"
+#include "MatrixController.hxx"
 
 MatrixController::MatrixController(void)
 {

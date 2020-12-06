@@ -1,8 +1,8 @@
 // api.cpp : Defines the exported functions for the DLL.
 //
 
-#include "pch.h"
-#include "api.h"
+#include "pch.hxx"
+#include "api.hxx"
 
 bool findDevicePath(char* devicePath) {
 	HDEVINFO deviceInfoSet;
@@ -85,7 +85,7 @@ GTFO:
 	return foundInterface;
 }
 
-PAPI_WRAPPER NewController(void) {
+PAPI_WRAPPER fnNewController(void) {
 	PAPI_WRAPPER wrapper = reinterpret_cast<PAPI_WRAPPER>(calloc(sizeof(API_WRAPPER), 1));
 	if (wrapper == NULL) {
 		std::cerr << "MatrixController: calloc() failed for API_WRAPPER" << std::endl;
@@ -141,7 +141,7 @@ PAPI_WRAPPER NewController(void) {
 	return wrapper;
 }
 
-void DeleteController(PAPI_WRAPPER w) {
+void fnDeleteController(PAPI_WRAPPER w) {
 	if (!w || !w->mc) {
 		return;
 	}
@@ -152,7 +152,7 @@ void DeleteController(PAPI_WRAPPER w) {
 	free(w);
 }
 
-int PrepareDraw(PAPI_WRAPPER w, unsigned char* m, size_t len) {
+int fnPrepareDraw(PAPI_WRAPPER w, unsigned char* m, size_t len) {
 	if (!w || !w->mc) {
 		return static_cast<int>(MatrixStatus::NO_CONTROLLER);
 	}
@@ -169,7 +169,7 @@ int PrepareDraw(PAPI_WRAPPER w, unsigned char* m, size_t len) {
 	return static_cast<int>(ret);
 }
 
-int DrawMatrix(PAPI_WRAPPER w) {
+int fnDrawMatrix(PAPI_WRAPPER w) {
 	if (!w || !w->mc) {
 		return static_cast<int>(MatrixStatus::NO_CONTROLLER);
 	}
@@ -178,7 +178,7 @@ int DrawMatrix(PAPI_WRAPPER w) {
 	return static_cast<int>(ret);
 }
 
-int ClearMatrix(PAPI_WRAPPER w) {
+int fnClearMatrix(PAPI_WRAPPER w) {
 	if (!w || !w->mc) {
 		return static_cast<int>(MatrixStatus::NO_CONTROLLER);
 	}

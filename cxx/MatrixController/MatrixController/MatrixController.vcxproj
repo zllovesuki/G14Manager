@@ -61,7 +61,7 @@
       <PreprocessorDefinitions>MATRIXCONTROLLER_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeader>Use</PrecompiledHeader>
-      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+      <PrecompiledHeaderFile>pch.hxx</PrecompiledHeaderFile>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
     </ClCompile>
@@ -81,7 +81,7 @@
       <PreprocessorDefinitions>NDEBUG;MATRIXCONTROLLER_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeader>Use</PrecompiledHeader>
-      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+      <PrecompiledHeaderFile>pch.hxx</PrecompiledHeaderFile>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <ControlFlowGuard>Guard</ControlFlowGuard>
@@ -99,11 +99,11 @@
     <None Include="cpp.hint" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="api.h" />
-    <ClInclude Include="framework.h" />
-    <ClInclude Include="MatrixStatus.h" />
-    <ClInclude Include="MatrixController.h" />
-    <ClInclude Include="pch.h" />
+    <ClInclude Include="api.hxx" />
+    <ClInclude Include="framework.hxx" />
+    <ClInclude Include="MatrixStatus.hxx" />
+    <ClInclude Include="MatrixController.hxx" />
+    <ClInclude Include="pch.hxx" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="api.cpp" />

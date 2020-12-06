@@ -1,4 +1,5 @@
-#include "pch.h"
+#include "pch.hxx"
+
 constexpr auto MATRIXHEIGHT = 55;
 
 typedef std::vector<std::vector<BYTE>> ByteVec2D;

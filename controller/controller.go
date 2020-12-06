@@ -126,8 +126,6 @@ func newController(conf Config) (*Controller, error) {
 func (c *Controller) initialize(haltCtx context.Context) error {
 	// Do we need to lock os thread on any of these?
 
-	go c.VolumeControl.Run(haltCtx)
-
 	if err := c.Config.VolumeControl.CheckMicrophoneMute(); err != nil {
 		return errors.Wrap(err, "[controller] error checking for microphone mute status")
 	}

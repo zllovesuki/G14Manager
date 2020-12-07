@@ -1,0 +1,31 @@
+syntax = "proto3";
+package protocol;
+
+option go_package = "github.com/zllovesuki/G14Manager/rpc/protocol";
+
+import "google/protobuf/empty.proto";
+
+service KeyboardBrightness {
+  rpc GetCurrentLevel(google.protobuf.Empty)
+      returns(KeyboardBrightnessResponse) {}
+  rpc Set(SetKeyboardBrightnessRequest) returns(KeyboardBrightnessResponse) {}
+  rpc Change(ChangeKeyboardBrightnessRequest)
+      returns(KeyboardBrightnessResponse) {}
+}
+
+enum Level { OFF = 0; LOW = 1; MEDIUM = 2; HIGH = 3; }
+
+message ChangeKeyboardBrightnessRequest {
+  enum Step { INCREMENT = 0; DECREMENT = 1; }
+
+  Step Direction = 1;
+}
+
+message SetKeyboardBrightnessRequest { Level Brightness = 1; }
+
+message KeyboardBrightnessResponse {
+  bool Success = 1;
+  Level Brightness = 2;
+
+  string Message = 10;
+}

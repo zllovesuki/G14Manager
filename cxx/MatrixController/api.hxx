@@ -4,11 +4,19 @@
 // that uses this DLL. This way any other project whose source files include this file see
 // MATRIXCONTROLLER_API functions as being imported from a DLL, whereas this DLL sees symbols
 // defined with this macro as being exported.
+// An additional symbol GO_BINDINGS is check for cgo linker. If GO_BINDINGS is defined, then
+// no dllexport/dllimport will be compiled.
+
 #ifdef MATRIXCONTROLLER_EXPORTS
 #define MATRIXCONTROLLER_API __declspec(dllexport)
 #else
+#ifdef GO_BINDINGS
+#define MATRIXCONTROLLER_API
+#else
 #define MATRIXCONTROLLER_API __declspec(dllimport)
 #endif
+#endif
+
 
 #include "MatrixController.hxx"
 

@@ -33,6 +33,9 @@
     <ClInclude Include="api.hxx">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="binding.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="MatrixController.cpp">
@@ -42,6 +45,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="api.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="binding.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

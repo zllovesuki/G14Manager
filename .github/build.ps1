@@ -39,5 +39,5 @@ Invoke-Expression $BUILD_DEBUG
 
 Write-Host "Building DLLs"
 
-$BUILD_MATRIX_RELEASE_DLL = "MSBuild.exe .\cxx\MatrixController\MatrixController.sln /property:Configuration=Release /property:Platform=x64"
+$BUILD_MATRIX_RELEASE_DLL = "MSBuild.exe .\cxx\MatrixController.sln /property:Configuration=Release /property:Platform=x64"
 Invoke-Expression $BUILD_MATRIX_RELEASE_DLL

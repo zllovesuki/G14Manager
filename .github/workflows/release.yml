@@ -19,7 +19,7 @@ jobs:
       - name: test packages
         run: go test .\...
       - name: Build MatrixControl DLL (Debug)
-        run: MSBuild.exe .\cxx\MatrixController\MatrixController.sln /property:Configuration=Debug /property:Platform=x64
+        run: MSBuild.exe .\cxx\MatrixController.sln /property:Configuration=Debug /property:Platform=x64
   publish:
     name: Create release-artifacts
     runs-on: windows-latest
@@ -65,7 +65,7 @@ jobs:
             let files = [];
 
             files.push(await fs.readdir('./build/'))
-            files.push('./cxx/MatrixController/x64/Release/MatrixController.dll')
+            // files.push('./cxx/x64/Release/MatrixController.dll')
 
             for (let file of files) {
               console.log('uploading', file);

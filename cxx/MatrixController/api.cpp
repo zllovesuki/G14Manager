@@ -37,32 +37,31 @@ bool findDevicePath(char* devicePath) {
 		deviceInterfaceData.cbSize = sizeof(SP_DEVICE_INTERFACE_DATA);
 
 		int interfaceMemberIndex = 0;
-		// This step is questionable. Are we getting the actual interface? Or are we just getting the parent device?
 		while (SetupDiEnumDeviceInterfaces(deviceInfoSet, &deviceInfoData, &GUID_DEVINTERFACE_USB_DEVICE, interfaceMemberIndex, &deviceInterfaceData)) {
 			interfaceMemberIndex++;
 			deviceInterfaceData.cbSize = sizeof(deviceInterfaceData);
 
+			// Windows system programming at its finest
 			ULONG requiredSize;
 			SetupDiGetDeviceInterfaceDetailA(deviceInfoSet, &deviceInterfaceData, NULL, 0, &requiredSize, NULL);
+			PSP_DEVICE_INTERFACE_DETAIL_DATA_A pInterfaceDetailData = reinterpret_cast<PSP_DEVICE_INTERFACE_DETAIL_DATA_A>(calloc(requiredSize, sizeof(char)));
 
-			// Windows system programming at its finest
-			PSP_DEVICE_INTERFACE_DETAIL_DATA_A interfaceDetailData = reinterpret_cast<PSP_DEVICE_INTERFACE_DETAIL_DATA_A>(calloc(requiredSize, sizeof(char)));
-			if (interfaceDetailData == NULL) {
+			if (pInterfaceDetailData == NULL) {
 				std::cerr << "MatrixController: calloc() failed for PSP_DEVICE_INTERFACE_DETAIL_DATA_A" << std::endl;
 				goto GTFO;
 			}
-			interfaceDetailData->cbSize = sizeof(SP_DEVICE_INTERFACE_DETAIL_DATA_A);
+			pInterfaceDetailData->cbSize = sizeof(SP_DEVICE_INTERFACE_DETAIL_DATA_A);
 
-			if (SetupDiGetDeviceInterfaceDetailA(deviceInfoSet, &deviceInterfaceData, interfaceDetailData, requiredSize, NULL, NULL)) {
-				std::cout << "MatrixController: Device " << interfaceDetailData->DevicePath << " found" << std::endl;
+			if (SetupDiGetDeviceInterfaceDetailA(deviceInfoSet, &deviceInterfaceData, pInterfaceDetailData, requiredSize, NULL, NULL)) {
+				std::cout << "MatrixController: Device " << pInterfaceDetailData->DevicePath << " found" << std::endl;
 
-				size_t pathLen = std::strlen(interfaceDetailData->DevicePath);
-				std::memcpy(devicePath, interfaceDetailData->DevicePath, pathLen);
+				size_t pathLen = std::strlen(pInterfaceDetailData->DevicePath);
+				std::memcpy(devicePath, pInterfaceDetailData->DevicePath, pathLen);
 
 				foundInterface = true;
 			}
 
-			free(interfaceDetailData);
+			free(pInterfaceDetailData);
 		}
 
 		if (ERROR_NO_MORE_ITEMS != GetLastError()) {
@@ -96,6 +95,7 @@ PAPI_WRAPPER fnNewController(void) {
 
 	if (!findDevicePath(wrapper->devicePath)) {
 		std::cerr << "MatrixController: No AniMe Matrix Device found" << std::endl;
+		free(wrapper);
 		return NULL;
 	}
 

@@ -101,12 +101,14 @@
   <ItemGroup>
     <ClInclude Include="api.hxx" />
     <ClInclude Include="framework.hxx" />
+    <ClInclude Include="binding.h" />
     <ClInclude Include="MatrixStatus.hxx" />
     <ClInclude Include="MatrixController.hxx" />
     <ClInclude Include="pch.hxx" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="api.cpp" />
+    <ClCompile Include="binding.cpp" />
     <ClCompile Include="MatrixController.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>

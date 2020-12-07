@@ -1,16 +1,12 @@
 package power
 
 import (
-	"bytes"
-	"encoding/gob"
 	"errors"
 	"log"
 	"os/exec"
 	"regexp"
 	"strings"
 	"syscall"
-
-	"github.com/zllovesuki/G14Manager/system/persist"
 )
 
 const (
@@ -101,52 +97,6 @@ func (p *Cfg) Set(planName string) (nextPlan string, err error) {
 	log.Printf("windows power plan set to: %s\n", nextPlan)
 
 	return
-}
-
-var _ persist.Registry = &Cfg{}
-
-// Name satisfies persist.Registry
-func (p *Cfg) Name() string {
-	return powerPersistKey
-}
-
-// Value satisfies persist.Registry
-func (p *Cfg) Value() []byte {
-	var buf bytes.Buffer
-	enc := gob.NewEncoder(&buf)
-	if err := enc.Encode(p.activePlan); err != nil {
-		return nil
-	}
-	return buf.Bytes()
-}
-
-// Load satisfies persist.Registry
-func (p *Cfg) Load(v []byte) error {
-	if len(v) == 0 {
-		return nil
-	}
-	activePlan := plan{}
-	buf := bytes.NewBuffer(v)
-	dec := gob.NewDecoder(buf)
-	if err := dec.Decode(&activePlan); err != nil {
-		return err
-	}
-	p.activePlan = activePlan
-	return nil
-}
-
-// Apply satisfies persist.Registry
-func (p *Cfg) Apply() error {
-	if p.activePlan.Name == "" {
-		return nil
-	}
-	_, err := p.Set(p.activePlan.Name)
-	return err
-}
-
-// Close satisfied persist.Registry
-func (p *Cfg) Close() error {
-	return nil
 }
 
 // run will attempt to execute in command line without showing the console window

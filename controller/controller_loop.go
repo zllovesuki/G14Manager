@@ -3,7 +3,6 @@ package controller
 import (
 	"context"
 	"encoding/binary"
-	"fmt"
 	"log"
 	"runtime"
 
@@ -158,17 +157,7 @@ func (c *Controller) handleWorkQueue(haltCtx context.Context) {
 
 		case ev := <-c.workQueueCh[fnThermalProfile].clean:
 			log.Printf("[controller] Fn + F5 pressed %d times\n", ev.Counter)
-			next, err := c.Config.Thermal.NextProfile(int(ev.Counter))
-			message := fmt.Sprintf("Thermal plan changed to %s", next)
-			if err != nil {
-				log.Println(err)
-				message = err.Error()
-			}
-			c.notifyQueueCh <- util.Notification{
-				Title:   "Toggle Thermal Plan",
-				Message: message,
-			}
-			c.workQueueCh[fnPersistConfigs].noisy <- struct{}{}
+			c.notifyPlugins(plugin.EvtSentinelCycleThermalProfile, ev.Counter)
 
 		case ev := <-c.workQueueCh[fnCheckCharger].clean:
 			function := make([]byte, 4)
@@ -198,29 +187,11 @@ func (c *Controller) handleWorkQueue(haltCtx context.Context) {
 			}
 
 		case ev := <-c.workQueueCh[fnAutoThermal].clean:
-			if c.Config.EnabledFeatures.AutoThermalProfile {
-				pluggedInStatus := ev.Data.(chargerStatus)
-				log.Printf("[controller] automatically switching thermal profile. Charger is: %s\n", pluggedInStatus)
-
-				var next string
-				var err error
-				var message string
-				// TODO: make it configurable
-				if pluggedInStatus == chargerPluggedIn {
-					next, err = c.Config.Thermal.SwitchToProfile("Performance")
-				} else {
-					next, err = c.Config.Thermal.SwitchToProfile("Silent")
-				}
-				if err != nil {
-					log.Println(err)
-					message = err.Error()
-				} else {
-					message = fmt.Sprintf("Thermal plan changed to %s", next)
-				}
-				c.notifyQueueCh <- util.Notification{
-					Title:   "Automatic Thermal Plan Switching: " + pluggedInStatus.String(),
-					Message: message,
-				}
+			pluggedInStatus := ev.Data.(chargerStatus)
+			if pluggedInStatus == chargerPluggedIn {
+				c.notifyPlugins(plugin.EvtChargerPluggedIn, nil)
+			} else {
+				c.notifyPlugins(plugin.EvtChargerUnplugged, nil)
 			}
 
 		case <-c.workQueueCh[fnPersistConfigs].clean:
@@ -238,10 +209,6 @@ func (c *Controller) handleWorkQueue(haltCtx context.Context) {
 			if err := c.Config.Registry.Apply(); err != nil {
 				c.errorCh <- errors.Wrap(err, "[controller] error applying configurations")
 				return
-			}
-			c.notifyQueueCh <- util.Notification{
-				Title:   "Settings Loaded from Registry",
-				Message: fmt.Sprintf("Current Thermal Plan: %s", c.Config.Thermal.CurrentProfile().Name),
 			}
 
 		case ev := <-c.workQueueCh[fnHwCtrl].clean:
@@ -286,10 +253,14 @@ func (c *Controller) notifyPlugins(evt plugin.Event, val interface{}) {
 func (c *Controller) handlePluginCallback(haltCtx context.Context) {
 	for {
 		select {
-		case evt := <-c.pluginCbCh:
-			switch evt {
+		case t := <-c.pluginCbCh:
+			switch t.Event {
 			case plugin.CbPersistConfig:
 				c.workQueueCh[fnPersistConfigs].noisy <- struct{}{}
+			case plugin.CbNotifyToast:
+				if n, ok := t.Value.(util.Notification); ok {
+					c.notifyQueueCh <- n
+				}
 			}
 		case <-haltCtx.Done():
 			return

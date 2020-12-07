@@ -12,6 +12,10 @@ const (
 	EvtChargerUnplugged
 	EvtSentinelInitKeyboard
 	EvtSentinelKeyboardBrightnessOff
+	EvtSentinelCycleThermalProfile
+
+	CbPersistConfig
+	CbNotifyToast
 )
 
 func (e Event) String() string {
@@ -23,19 +27,9 @@ func (e Event) String() string {
 		"Event: Charged unplugged",
 		"Event (sentinel): Initializa keyboard",
 		"Event (sentinel): Keyboard backlight off",
+		"Event (sentinel): Cycle thermal profile",
+
+		"Callback: Request to persist config",
+		"Callback: Request to notify user",
 	}[e]
-}
-
-// Callback defines the type of notification from plugins to controller
-type Callback int
-
-// Define all the possible plugin->controller callbacks
-const (
-	CbPersistConfig Callback = iota
-)
-
-func (c Callback) String() string {
-	return [...]string{
-		"Callback: Request to save config",
-	}[c]
 }

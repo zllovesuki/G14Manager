@@ -12,7 +12,6 @@ import (
 	"github.com/zllovesuki/G14Manager/system/persist"
 	"github.com/zllovesuki/G14Manager/system/plugin"
 	"github.com/zllovesuki/G14Manager/system/power"
-	"github.com/zllovesuki/G14Manager/system/thermal"
 	"github.com/zllovesuki/G14Manager/util"
 
 	"github.com/pkg/errors"
@@ -62,7 +61,6 @@ type Config struct {
 	WMI atkacpi.WMI
 
 	Plugins  []plugin.Plugin
-	Thermal  *thermal.Control
 	Registry persist.ConfigRegistry
 
 	EnabledFeatures Features
@@ -91,9 +89,6 @@ type Controller struct {
 func newController(conf Config) (*Controller, error) {
 	if conf.WMI == nil {
 		return nil, errors.New("[controller] nil WMI is invalid")
-	}
-	if conf.Thermal == nil {
-		return nil, errors.New("[controller] nil Thermal is invalid")
 	}
 	if conf.Registry == nil {
 		return nil, errors.New("[controller] nil Registry is invalid")

@@ -51,12 +51,20 @@ func New(conf RunConfig) (*Controller, error) {
 
 	// TODO: allow user to specify profiles
 	thermalCfg := thermal.Config{
-		WMI:      wmi,
-		PowerCfg: powercfg,
-		Profiles: thermal.GetDefaultThermalProfiles(),
+		WMI:         wmi,
+		PowerCfg:    powercfg,
+		Profiles:    thermal.GetDefaultThermalProfiles(),
+		AutoThermal: conf.EnabledFeatures.AutoThermalProfile,
+		AutoThermalConfig: struct {
+			PluggedIn string
+			Unplugged string
+		}{
+			PluggedIn: "Performance",
+			Unplugged: "Silent",
+		},
 	}
 
-	profile, err := thermal.NewControl(thermalCfg)
+	thermal, err := thermal.NewControl(thermalCfg)
 	if err != nil {
 		return nil, err
 	}
@@ -87,8 +95,7 @@ func New(conf RunConfig) (*Controller, error) {
 
 	// order powercfg to last
 	config.Register(battery)
-	config.Register(profile)
-	config.Register(powercfg)
+	config.Register(thermal)
 	config.Register(kbCtrl)
 
 	control, err := newController(Config{
@@ -97,9 +104,9 @@ func New(conf RunConfig) (*Controller, error) {
 		Plugins: []plugin.Plugin{
 			volCtrl,
 			kbCtrl,
+			thermal,
 		},
 
-		Thermal:  profile,
 		Registry: config,
 
 		EnabledFeatures: conf.EnabledFeatures,

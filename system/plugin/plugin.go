@@ -8,6 +8,11 @@ type Notification struct {
 	Value interface{}
 }
 
+type Callback struct {
+	Event Event
+	Value interface{}
+}
+
 // Plugin will receive hardware events from controller
 type Plugin interface {
 	Initialize() error

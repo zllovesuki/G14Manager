@@ -184,10 +184,14 @@ func (c *Control) loop(haltCtx context.Context, cb chan<- plugin.Callback) {
 					c.errChan <- c.toggleTouchPad()
 				case keyboard.KeyFnDown:
 					c.errChan <- c.brightnessDown()
-					cb <- plugin.CbPersistConfig
+					cb <- plugin.Callback{
+						Event: plugin.CbPersistConfig,
+					}
 				case keyboard.KeyFnUp:
 					c.errChan <- c.brightnessUp()
-					cb <- plugin.CbPersistConfig
+					cb <- plugin.Callback{
+						Event: plugin.CbPersistConfig,
+					}
 				case keyboard.KeyFnLeft, keyboard.KeyFnRight:
 					if remap, ok := c.Config.Remap[keycode]; ok {
 						c.emulateKeyPress(remap)

@@ -85,6 +85,12 @@ func (c *Controller) handleKeyPress(haltCtx context.Context) {
 			case kb.KeyVolUp:
 				log.Println("hid: volume up Pressed")
 
+			case kb.KeyFnC:
+				log.Println("hid: Fn + C Pressed")
+
+			case kb.KeyFnV:
+				log.Println("hid: Fn + V Pressed")
+
 			case kb.KeyMuteMic:
 				log.Println("hid: mute/unmute microphone Pressed")
 				c.workQueueCh[fnVolCtrl].noisy <- struct{}{}
@@ -148,7 +154,9 @@ func (c *Controller) handleWorkQueue(haltCtx context.Context) {
 		case ev := <-c.workQueueCh[fnUtilityKey].clean:
 			log.Printf("[controller] ROG Key pressed %d times\n", ev.Counter)
 			if int(ev.Counter) <= len(c.Config.ROGKey) {
-				if err := run("cmd.exe", "/C", c.Config.ROGKey[ev.Counter-1]); err != nil {
+				cmd := c.Config.ROGKey[ev.Counter-1]
+				log.Printf("[controller] Running: %s\n", cmd)
+				if err := run("cmd.exe", "/C", cmd); err != nil {
 					log.Println(err)
 				}
 			}

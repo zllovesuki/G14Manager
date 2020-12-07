@@ -5,17 +5,23 @@ jobs:
     if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
     strategy:
       matrix:
-        go-version: [1.15.x]
+        go-version: [1.15.5]
         os: [windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
-    - name: Install Go
-      uses: actions/setup-go@v2
-      with:
-        go-version: ${{ matrix.go-version }}
-    - name: Checkout code
-      uses: actions/checkout@v2
-    - name: Test
-      run: go test ./...
-    - name: Build
-      run: go build .
+      - name: Install Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: ${{ matrix.go-version }}
+      - name: Add msbuild to PATH
+        uses: microsoft/setup-msbuild@v1.0.2
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Test G14Manager
+        run: go test ./...
+      - name: Build Main G14Manager Binary
+        run: go build .
+      - name: Build MatrixControl DLL (Release)
+        run: MSBuild.exe .\cxx\MatrixController.sln /property:Configuration=Release /property:Platform=x64
+      - name: Build MatrixControl DLL (Debug)
+        run: MSBuild.exe .\cxx\MatrixController.sln /property:Configuration=Debug /property:Platform=x64

@@ -9,6 +9,7 @@ import (
 
 	"github.com/zllovesuki/G14Manager/system/atkacpi"
 	kb "github.com/zllovesuki/G14Manager/system/keyboard"
+	"github.com/zllovesuki/G14Manager/system/plugin"
 	"github.com/zllovesuki/G14Manager/system/power"
 	"github.com/zllovesuki/G14Manager/util"
 
@@ -31,7 +32,7 @@ func (c *Controller) handleACPINotification(haltCtx context.Context) {
 				// there's also this mysterious 207 code, that only pops up when 180W charger is plugged in/unplugged*/
 			case 123:
 				log.Println("acpi: Power input changed")
-				c.workQueueCh[fnCheckCharger].noisy <- struct{}{}
+				c.workQueueCh[fnCheckCharger].noisy <- false // indicating non initial (continuous) check
 			case 233:
 				log.Println("acpi: On Lid Open/Close")
 			default:
@@ -166,7 +167,7 @@ func (c *Controller) handleWorkQueue(haltCtx context.Context) {
 			}
 			c.workQueueCh[fnPersistConfigs].noisy <- struct{}{}
 
-		case <-c.workQueueCh[fnCheckCharger].clean:
+		case ev := <-c.workQueueCh[fnCheckCharger].clean:
 			function := make([]byte, 4)
 			binary.LittleEndian.PutUint32(function, atkacpi.DstsCheckCharger)
 			status, err := c.Config.WMI.Evaluate(atkacpi.DSTS, function)
@@ -174,16 +175,23 @@ func (c *Controller) handleWorkQueue(haltCtx context.Context) {
 				c.errorCh <- errors.New("[controller] cannot check charger status")
 				return
 			}
+			isInitialCheck := ev.Data.(bool)
 			switch binary.LittleEndian.Uint32(status[0:4]) {
 			case 0x0:
 				log.Println("[controller] charger is not plugged in")
-				c.workQueueCh[fnAutoThermal].noisy <- chargerUnplugged
+				if !isInitialCheck {
+					c.workQueueCh[fnAutoThermal].noisy <- chargerUnplugged
+				}
 			case 0x10001:
 				log.Println("[controller] 180W charger plugged in")
-				c.workQueueCh[fnAutoThermal].noisy <- chargerPluggedIn
+				if !isInitialCheck {
+					c.workQueueCh[fnAutoThermal].noisy <- chargerPluggedIn
+				}
 			case 0x10002:
 				log.Println("[controller] USB-C PD charger plugged in")
-				c.workQueueCh[fnAutoThermal].noisy <- chargerPluggedIn
+				if !isInitialCheck {
+					c.workQueueCh[fnAutoThermal].noisy <- chargerPluggedIn
+				}
 			}
 
 		case ev := <-c.workQueueCh[fnAutoThermal].clean:
@@ -239,37 +247,30 @@ func (c *Controller) handleWorkQueue(haltCtx context.Context) {
 				log.Println("kbCtrl: Fn + Arrow Left Pressed")
 				if c.Config.EnabledFeatures.ExperimentalFnRemap {
 					log.Println("kbCtrl: (experimental) remapping to PgUp")
-					if err := c.Config.KeyboardControl.EmulateKeyPress(kb.KeyPgUp); err != nil {
-						log.Printf("kbCtrl: error remapping: %v\n", err)
-					}
+					c.notifyPlugins(plugin.EvtKbEmulateKeyPress, kb.KeyPgUp)
 				}
 			case kb.KeyFnRight:
 				log.Println("kbCtrl: Fn + Arrow Right Pressed")
 				if c.Config.EnabledFeatures.ExperimentalFnRemap {
 					log.Println("kbCtrl: (experimental) remapping to PgDown")
-					if err := c.Config.KeyboardControl.EmulateKeyPress(kb.KeyPgDown); err != nil {
-						log.Printf("kbCtrl: error remapping: %v\n", err)
-					}
+					c.notifyPlugins(plugin.EvtKbEmulateKeyPress, kb.KeyPgDown)
 				}
 			case kb.KeyFnDown:
 				log.Println("kbCtrl: Decrease keyboard backlight")
-				c.Config.KeyboardControl.BrightnessDown()
+				c.notifyPlugins(plugin.EvtKbBrightnessDown, nil)
 				c.workQueueCh[fnPersistConfigs].noisy <- struct{}{}
 
 			case kb.KeyFnUp:
 				log.Println("kbCtrl: Increase keyboard backlight")
-				c.Config.KeyboardControl.BrightnessUp()
+				c.notifyPlugins(plugin.EvtKbBrightnessUp, nil)
 				c.workQueueCh[fnPersistConfigs].noisy <- struct{}{}
 			}
 
 		case <-c.workQueueCh[fnToggleTouchPad].clean:
-			c.Config.KeyboardControl.ToggleTouchPad()
+			c.notifyPlugins(plugin.EvtKbToggleTouchpad, nil)
 
 		case <-c.workQueueCh[fnVolCtrl].clean:
-			if err := c.Config.VolumeControl.ToggleMicrophoneMute(); err != nil {
-				c.errorCh <- errors.Wrap(err, "volCtrl: error toggling mute")
-				return
-			}
+			c.notifyPlugins(plugin.EvtVolToggleMute, nil)
 
 		case ev := <-c.workQueueCh[fnHwCtrl].clean:
 			keyCode := ev.Data.(uint32)
@@ -287,19 +288,26 @@ func (c *Controller) handleWorkQueue(haltCtx context.Context) {
 
 		case <-c.workQueueCh[fnBeforeSuspend].clean:
 			log.Println("kbCtrl: turning off keyboard backlight")
-			c.Config.KeyboardControl.SetBrightness(kb.OFF)
+			c.notifyPlugins(plugin.EvtKbBrightnessOff, nil)
 
 		case <-c.workQueueCh[fnAfterSuspend].clean:
 			log.Println("[controller] reinitialize kbCtrl and apply config")
-			if err := c.Config.KeyboardControl.InitializeInterface(); err != nil {
-				c.errorCh <- errors.Wrap(err, "[controller] error initializing kbCtrl")
-				return
-			}
+			c.notifyPlugins(plugin.EvtKbReInit, nil)
 			c.workQueueCh[fnApplyConfigs].noisy <- struct{}{}
 
 		case <-haltCtx.Done():
 			log.Println("[controller] exiting handleWorkQueue")
 			return
 		}
+	}
+}
+
+func (c Controller) notifyPlugins(evt plugin.Event, val interface{}) {
+	t := plugin.Task{
+		Event: evt,
+		Value: val,
+	}
+	for _, p := range c.Config.Plugins {
+		go p.Notify(t)
 	}
 }

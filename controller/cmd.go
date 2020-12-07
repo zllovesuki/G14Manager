@@ -3,11 +3,13 @@ package controller
 import (
 	"github.com/zllovesuki/G14Manager/system/atkacpi"
 	"github.com/zllovesuki/G14Manager/system/battery"
-	"github.com/zllovesuki/G14Manager/system/keyboard"
 	"github.com/zllovesuki/G14Manager/system/persist"
+	"github.com/zllovesuki/G14Manager/system/plugin"
+	"github.com/zllovesuki/G14Manager/system/plugin/keyboard"
+	"github.com/zllovesuki/G14Manager/system/plugin/volume"
 	"github.com/zllovesuki/G14Manager/system/power"
 	"github.com/zllovesuki/G14Manager/system/thermal"
-	"github.com/zllovesuki/G14Manager/system/volume"
+
 	"github.com/zllovesuki/G14Manager/util"
 )
 
@@ -83,10 +85,13 @@ func New(conf RunConfig) (*Controller, error) {
 	control, err := newController(Config{
 		WMI: wmi,
 
-		VolumeControl:   volCtrl,
-		KeyboardControl: kbCtrl,
-		Thermal:         profile,
-		Registry:        config,
+		Plugins: []plugin.Plugin{
+			volCtrl,
+			kbCtrl,
+		},
+
+		Thermal:  profile,
+		Registry: config,
 
 		EnabledFeatures: conf.EnabledFeatures,
 		ROGKey:          conf.RogRemap,

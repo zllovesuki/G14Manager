@@ -38,20 +38,20 @@ func main() {
 	var rogRemap util.ArrayFlags
 	flag.Var(&rogRemap, "rog", "customize ROG key behavior when pressed multiple times")
 
-	var enableExperimentalFnRemap = flag.Bool("experimental", false, "enable experimental feature for remapping Fn+Left/Right")
+	var enableRemap = flag.Bool("remap", false, "enable remapping Fn+Left/Right to PgUp/PgDown")
 	var enableAutoThermal = flag.Bool("autoThermal", false, "enable automatic thermal profile switching on power source change")
 
 	flag.Parse()
 
 	log.Printf("G14Manager version: %s\n", Version)
-	log.Printf("Experimental Remapping enabled: %v\n", *enableExperimentalFnRemap)
+	log.Printf("Remapping enabled: %v\n", *enableRemap)
 	log.Printf("Automatic Thermal Profile Switching enabled: %v\n", *enableAutoThermal)
 
 	controllerConfig := controller.RunConfig{
 		RogRemap: rogRemap,
 		EnabledFeatures: controller.Features{
-			ExperimentalFnRemap: *enableExperimentalFnRemap,
-			AutoThermalProfile:  *enableAutoThermal,
+			FnRemap:            *enableRemap,
+			AutoThermalProfile: *enableAutoThermal,
 		},
 		DryRun: os.Getenv("DRY_RUN") != "",
 	}

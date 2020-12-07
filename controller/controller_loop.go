@@ -245,14 +245,14 @@ func (c *Controller) handleWorkQueue(haltCtx context.Context) {
 			switch ev.Data.(uint32) {
 			case kb.KeyFnLeft:
 				log.Println("kbCtrl: Fn + Arrow Left Pressed")
-				if c.Config.EnabledFeatures.ExperimentalFnRemap {
-					log.Println("kbCtrl: (experimental) remapping to PgUp")
+				if c.Config.EnabledFeatures.FnRemap {
+					log.Println("kbCtrl: remapping to PgUp")
 					c.notifyPlugins(plugin.EvtKbEmulateKeyPress, kb.KeyPgUp)
 				}
 			case kb.KeyFnRight:
 				log.Println("kbCtrl: Fn + Arrow Right Pressed")
-				if c.Config.EnabledFeatures.ExperimentalFnRemap {
-					log.Println("kbCtrl: (experimental) remapping to PgDown")
+				if c.Config.EnabledFeatures.FnRemap {
+					log.Println("kbCtrl: remapping to PgDown")
 					c.notifyPlugins(plugin.EvtKbEmulateKeyPress, kb.KeyPgDown)
 				}
 			case kb.KeyFnDown:

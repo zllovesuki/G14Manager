@@ -56,8 +56,8 @@ func (c chargerStatus) String() string {
 
 // Features contains feature flags
 type Features struct {
-	ExperimentalFnRemap bool
-	AutoThermalProfile  bool
+	FnRemap            bool
+	AutoThermalProfile bool
 }
 
 // Config contains the configurations for the controller

@@ -89,11 +89,12 @@ const (
 	HIGH         = 0x03
 )
 
-// Control allows you to set the hid related functionalities directly
+// Control allows you to set the hid related functionalities directly.
+// The controller is safe for multiple goroutines.
 type Control struct {
 	Config
 
-	mu                sync.Mutex
+	mu                sync.RWMutex
 	deviceCtrl        *device.Control
 	currentBrightness Level
 
@@ -101,6 +102,9 @@ type Control struct {
 	errChan chan error
 }
 
+// Config defines the behavior of Keyboard Control. If DryRun is set to true,
+// no actual IOs will be performed. Remap defines the key remapping behavior or
+// Fn+ArrowLeft/ArrowRight (see system/keyboard) to standard key scancode.
 type Config struct {
 	DryRun bool
 	Remap  map[uint32]uint16
@@ -142,7 +146,9 @@ func NewControl(config Config) (*Control, error) {
 	}, nil
 }
 
-// Initialize will send initialization buffer to the keyboard control device
+// Initialize will send initialization buffer to the keyboard control device.
+// Note: This should be called prior to calling any control methods, and after
+// ACPI resume.
 func (c *Control) Initialize() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -167,9 +173,6 @@ func (c *Control) loop(haltCtx context.Context, cb chan<- plugin.Callback) {
 		}
 	}()
 
-	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
-
 	for {
 		select {
 		case t := <-c.queue:
@@ -181,20 +184,20 @@ func (c *Control) loop(haltCtx context.Context, cb chan<- plugin.Callback) {
 				}
 				switch keycode {
 				case keyboard.KeyTpadToggle:
-					c.errChan <- c.toggleTouchPad()
+					c.errChan <- c.ToggleTouchPad()
 				case keyboard.KeyFnDown:
-					c.errChan <- c.brightnessDown()
+					c.errChan <- c.BrightnessDown()
 					cb <- plugin.Callback{
 						Event: plugin.CbPersistConfig,
 					}
 				case keyboard.KeyFnUp:
-					c.errChan <- c.brightnessUp()
+					c.errChan <- c.BrightnessUp()
 					cb <- plugin.Callback{
 						Event: plugin.CbPersistConfig,
 					}
 				case keyboard.KeyFnLeft, keyboard.KeyFnRight:
 					if remap, ok := c.Config.Remap[keycode]; ok {
-						c.emulateKeyPress(remap)
+						c.EmulateKeyPress(remap)
 					}
 				}
 			case plugin.EvtACPIResume, plugin.EvtSentinelInitKeyboard:
@@ -202,7 +205,7 @@ func (c *Control) loop(haltCtx context.Context, cb chan<- plugin.Callback) {
 				c.errChan <- c.Initialize()
 			case plugin.EvtACPISuspend, plugin.EvtSentinelKeyboardBrightnessOff:
 				log.Println("kbCtrl: turning off keyboard backlight")
-				c.errChan <- c.setBrightness(OFF)
+				c.errChan <- c.SetBrightness(OFF)
 			}
 		case <-haltCtx.Done():
 			return
@@ -210,6 +213,7 @@ func (c *Control) loop(haltCtx context.Context, cb chan<- plugin.Callback) {
 	}
 }
 
+// Run satifies system/plugin.Plugin
 func (c *Control) Run(haltCtx context.Context, cb chan<- plugin.Callback) <-chan error {
 	log.Println("kbCtrl: Starting queue loop")
 
@@ -218,13 +222,18 @@ func (c *Control) Run(haltCtx context.Context, cb chan<- plugin.Callback) <-chan
 	return c.errChan
 }
 
+// Notify satifies system/plugin.Plugin
 func (c *Control) Notify(t plugin.Notification) {
 	c.queue <- t
 }
 
-func (c *Control) setBrightness(v Level) error {
+// SetBrightness change the keyboard backlight directly
+func (c *Control) SetBrightness(v Level) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
 
 	inputBuf := make([]byte, brightnessControlBufferLength)
 	copy(inputBuf, brightnessControlBuffer)
@@ -240,7 +249,8 @@ func (c *Control) setBrightness(v Level) error {
 	return nil
 }
 
-func (c *Control) brightnessUp() error {
+// BrightnessUp increases the keyboard backlight by one level
+func (c *Control) BrightnessUp() error {
 	var targetLevel Level
 	switch c.currentBrightness {
 	case OFF:
@@ -252,10 +262,11 @@ func (c *Control) brightnessUp() error {
 	default:
 		return nil
 	}
-	return c.setBrightness(targetLevel)
+	return c.SetBrightness(targetLevel)
 }
 
-func (c *Control) brightnessDown() error {
+// BrightnessDown decreases the keyboard backlight by one level
+func (c *Control) BrightnessDown() error {
 	var targetLevel Level
 	switch c.currentBrightness {
 	case HIGH:
@@ -267,12 +278,16 @@ func (c *Control) brightnessDown() error {
 	default:
 		return nil
 	}
-	return c.setBrightness(targetLevel)
+	return c.SetBrightness(targetLevel)
 }
 
-func (c *Control) toggleTouchPad() error {
+// ToggleTouchPad will toggle enabling/disabling the touchpad
+func (c *Control) ToggleTouchPad() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
 
 	inputBuf := make([]byte, touchPadToggleControlBufferLength)
 	copy(inputBuf, touchPadToggleControlBuffer)
@@ -287,7 +302,12 @@ func (c *Control) toggleTouchPad() error {
 	return nil
 }
 
-func (c *Control) emulateKeyPress(keyCode uint16) error {
+// EmulateKeyPress will emulate a keypress via SendInput() scancode.
+// Note: some applications using DirectInput may not register this.
+func (c *Control) EmulateKeyPress(keyCode uint16) error {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+
 	if C.SendKeyPress(C.ushort(keyCode)) != 0 {
 		return fmt.Errorf("kbCtrl: cannot emulate key press")
 	}
@@ -304,8 +324,8 @@ func (c *Control) Name() string {
 
 // Value satisfies persist.Registry
 func (c *Control) Value() []byte {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 
 	buf := make([]byte, 2)
 	binary.LittleEndian.PutUint16(buf, uint16(c.currentBrightness))
@@ -328,7 +348,7 @@ func (c *Control) Load(v []byte) error {
 // Apply satisfies persist.Registry
 func (c *Control) Apply() error {
 	// mutex already in setBrightness
-	return c.setBrightness(c.currentBrightness)
+	return c.SetBrightness(c.currentBrightness)
 }
 
 // Close satisfied persist.Registry

@@ -57,7 +57,7 @@ type Profile struct {
 type Control struct {
 	Config
 
-	mu                  sync.Mutex
+	mu                  sync.RWMutex
 	wmi                 atkacpi.WMI
 	currentProfileIndex int
 
@@ -122,6 +122,9 @@ func (c *Control) findProfileIndexWithName(name string) int {
 func (c *Control) setProfile(index int) (string, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
 
 	nextProfile := c.Config.Profiles[index]
 
@@ -220,6 +223,7 @@ func (c *Control) setFanCurve(profile Profile) error {
 	return nil
 }
 
+// Initialize satisfies system/plugin.Plugin
 func (c *Control) Initialize() error {
 	return nil
 }
@@ -231,9 +235,6 @@ func (c *Control) loop(haltCtx context.Context, cb chan<- plugin.Callback) {
 			c.errorCh <- err.(error)
 		}
 	}()
-
-	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
 
 	for {
 		select {
@@ -292,6 +293,7 @@ func (c *Control) loop(haltCtx context.Context, cb chan<- plugin.Callback) {
 	}
 }
 
+// Run satisfies system/plugin.Plugin
 func (c *Control) Run(haltCtx context.Context, cb chan<- plugin.Callback) <-chan error {
 	log.Println("thermal: Starting queue loop")
 
@@ -300,6 +302,7 @@ func (c *Control) Run(haltCtx context.Context, cb chan<- plugin.Callback) <-chan
 	return c.errorCh
 }
 
+// Notify satisfies system/plugin.Plugin
 func (c *Control) Notify(t plugin.Notification) {
 	c.queue <- t
 }
@@ -313,8 +316,8 @@ func (c *Control) Name() string {
 
 // Value satisfies persist.Registry
 func (c *Control) Value() []byte {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 
 	var buf bytes.Buffer
 	name := c.CurrentProfile().Name

@@ -26,6 +26,8 @@ type Control struct {
 
 var _ plugin.Plugin = &Control{}
 
+// NewVolumeControl returns a controller for toggling default input device's muted status.
+// The controller is safe for multiple goroutines.
 func NewVolumeControl(dryRun bool) (*Control, error) {
 	return &Control{
 		dryRun:  dryRun,
@@ -34,6 +36,7 @@ func NewVolumeControl(dryRun bool) (*Control, error) {
 	}, nil
 }
 
+// Initialize satisfies system/plugin.Plugin
 func (c *Control) Initialize() error {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
@@ -49,16 +52,13 @@ func (c *Control) loop(haltCtx context.Context, cb chan<- plugin.Callback) {
 		}
 	}()
 
-	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
-
 	for {
 		select {
 		case t := <-c.queue:
 			if keycode, ok := t.Value.(uint32); ok {
 				switch keycode {
 				case keyboard.KeyMuteMic:
-					c.errChan <- c.doToggleMute()
+					c.errChan <- c.ToggleMuted()
 				}
 			}
 		case <-haltCtx.Done():
@@ -67,6 +67,7 @@ func (c *Control) loop(haltCtx context.Context, cb chan<- plugin.Callback) {
 	}
 }
 
+// Run satisfies system/plugin.Plugin
 func (c *Control) Run(haltCtx context.Context, cb chan<- plugin.Callback) <-chan error {
 	log.Println("volCtrl: Starting queue loop")
 
@@ -75,6 +76,7 @@ func (c *Control) Run(haltCtx context.Context, cb chan<- plugin.Callback) <-chan
 	return c.errChan
 }
 
+// Notify satisfies system/plugin.Plugin
 func (c *Control) Notify(t plugin.Notification) {
 	if c.dryRun {
 		return
@@ -88,6 +90,9 @@ func (c *Control) Notify(t plugin.Notification) {
 }
 
 func (c *Control) doCheckMute() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	ret := C.SetMicrophoneMute(1, 0)
 	switch ret {
 	case -1:
@@ -99,9 +104,22 @@ func (c *Control) doCheckMute() error {
 	}
 }
 
-func (c *Control) doToggleMute() error {
+// CheckMuted returns the default recording device's muted status
+func (c *Control) CheckMuted() (bool, error) {
+	if err := c.doCheckMute(); err != nil {
+		return false, err
+	}
+	return c.isMuted, nil
+}
+
+// ToggleMuted toggles the default recording device's muted status.
+// Note: This should be called after CheckMuted() has been called once.
+func (c *Control) ToggleMuted() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
 
 	var to int
 	if c.isMuted {

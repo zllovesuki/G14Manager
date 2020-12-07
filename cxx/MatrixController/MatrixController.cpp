@@ -62,16 +62,18 @@ bool MatrixController::initMatrix() {
 
 ByteVec2D* MatrixController::makeVector(unsigned char* m, size_t len) {
 	ByteVec2D* inputMatrix = new ByteVec2D();
+	int colOffset = 0;
+
 	for (int i = 0; i < MATRIXHEIGHT; i++)
 	{
 		std::vector<BYTE> temp;
-		int colOffset = i * MATRIXHEIGHT;
-
 		for (int j = 0; j < ROW_WIDTH[i]; j++)
 		{
 			temp.push_back(*(m + colOffset + j));
 		}
 		inputMatrix->push_back(temp);
+
+		colOffset += 33; // hard-coded, should #define it
 	}
 	return inputMatrix;
 }

@@ -8,11 +8,11 @@ import (
 	"time"
 
 	"github.com/zllovesuki/G14Manager/system/atkacpi"
-	kb "github.com/zllovesuki/G14Manager/system/keyboard"
 	"github.com/zllovesuki/G14Manager/system/persist"
+	"github.com/zllovesuki/G14Manager/system/plugin"
+	"github.com/zllovesuki/G14Manager/system/plugin/keyboard"
 	"github.com/zllovesuki/G14Manager/system/power"
 	"github.com/zllovesuki/G14Manager/system/thermal"
-	"github.com/zllovesuki/G14Manager/system/volume"
 	"github.com/zllovesuki/G14Manager/util"
 
 	"github.com/pkg/errors"
@@ -64,10 +64,9 @@ type Features struct {
 type Config struct {
 	WMI atkacpi.WMI
 
-	VolumeControl   *volume.Control
-	KeyboardControl *kb.Control
-	Thermal         *thermal.Control
-	Registry        persist.ConfigRegistry
+	Plugins  []plugin.Plugin
+	Thermal  *thermal.Control
+	Registry persist.ConfigRegistry
 
 	EnabledFeatures Features
 	ROGKey          []string
@@ -95,12 +94,6 @@ func newController(conf Config) (*Controller, error) {
 	if conf.WMI == nil {
 		return nil, errors.New("[controller] nil WMI is invalid")
 	}
-	if conf.VolumeControl == nil {
-		return nil, errors.New("[controller] nil volume.Control is invalid")
-	}
-	if conf.KeyboardControl == nil {
-		return nil, errors.New("[controller] nil keyboard.Control is invalid")
-	}
 	if conf.Thermal == nil {
 		return nil, errors.New("[controller] nil Thermal is invalid")
 	}
@@ -126,15 +119,13 @@ func newController(conf Config) (*Controller, error) {
 func (c *Controller) initialize(haltCtx context.Context) error {
 	// Do we need to lock os thread on any of these?
 
-	if err := c.Config.VolumeControl.CheckMicrophoneMute(); err != nil {
-		return errors.Wrap(err, "[controller] error checking for microphone mute status")
+	for _, p := range c.Config.Plugins {
+		if err := p.Initialize(); err != nil {
+			return errors.Wrap(err, "[controller] plugin initializtion error")
+		}
 	}
 
-	if err := c.Config.KeyboardControl.InitializeInterface(); err != nil {
-		return errors.Wrap(err, "[controller] error initializing kbCtrl")
-	}
-
-	devices, err := kb.NewHidListener(haltCtx, c.keyCodeCh)
+	devices, err := keyboard.NewHidListener(haltCtx, c.keyCodeCh)
 	if err != nil {
 		return errors.Wrap(err, "[controller] error initializing hid listener")
 	}
@@ -212,9 +203,28 @@ func (c *Controller) initialize(haltCtx context.Context) error {
 	// load and apply configurations
 	c.workQueueCh[fnApplyConfigs].noisy <- struct{}{}
 	// seed the channel so we get the the charger status
-	c.workQueueCh[fnCheckCharger].noisy <- struct{}{}
+	c.workQueueCh[fnCheckCharger].noisy <- true // indicating initial (startup) check
 
 	return nil
+}
+
+func (c *Controller) startPlugins(haltCtx context.Context) {
+	for _, p := range c.Config.Plugins {
+		errChan := p.Run(haltCtx)
+		go func(ch <-chan error) {
+			for {
+				select {
+				case <-haltCtx.Done():
+					return
+				case err := <-ch:
+					if err != nil {
+						log.Printf("Plugin returned error: %v\n", err)
+						c.errorCh <- err
+					}
+				}
+			}
+		}(errChan)
+	}
 }
 
 // Run will start the controller loop and blocked until context cancel, or an error has occurred
@@ -231,6 +241,8 @@ func (c *Controller) Run(haltCtx context.Context) error {
 	if err := c.initialize(ctx); err != nil {
 		return errors.Wrap(err, "[controller] error initializing")
 	}
+
+	c.startPlugins(haltCtx)
 
 	// defined in controller_loop.go
 	go c.handleNotify(ctx)

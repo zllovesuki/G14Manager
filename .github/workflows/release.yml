@@ -64,7 +64,7 @@ jobs:
 
             let files = [];
 
-            files.push(await fs.readdir('./build/'))
+            files.push(...await fs.readdir('./build/'))
             // files.push('./cxx/x64/Release/MatrixController.dll')
 
             for (let file of files) {

@@ -1,4 +1,8 @@
 Copyright (c) 2020 Rachel Chen (@zllovesuki)
+    Changes to G14MatrixControler: added bindings for DLL export
+    and Go/cgo bindings
+
+Copyright (c) 2020 thesacredmoocow
 
                     GNU GENERAL PUBLIC LICENSE
                        Version 3, 29 June 2007

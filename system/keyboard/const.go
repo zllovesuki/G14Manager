@@ -22,6 +22,8 @@ const (
 	KeyFnRight    uint32 = 179
 	KeyFnUp       uint32 = 196
 	KeyFnDown     uint32 = 197
+	KeyFnC        uint32 = 158
+	KeyFnV        uint32 = 138
 
 	KeyPgUp   uint16 = 0x49
 	KeyPgDown uint16 = 0x51

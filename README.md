@@ -57,10 +57,10 @@ Recommend running `G14Manager.exe` on startup in Task Scheduler with "Run with h
 
 ## Remapping Fn+Left/Right to PgUp/PgDown
 
-This feature is currently behind an experimental flag. Pass `-experimental` flag to enable it.
+Pass `-remap` flag to enable it. Note that this is done with ScanCode via `SendInput`. Some applications using DirectInput may not register the emulated keypress.
 
 ```
-.\G14Manager.exe -experimental
+.\G14Manager.exe -remap
 ```
 
 ## Remapping the ROG Key

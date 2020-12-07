@@ -24,6 +24,7 @@ import (
 
 	"github.com/zllovesuki/G14Manager/system/device"
 	"github.com/zllovesuki/G14Manager/system/ioctl"
+	kb "github.com/zllovesuki/G14Manager/system/keyboard"
 	"github.com/zllovesuki/G14Manager/system/persist"
 	"github.com/zllovesuki/G14Manager/system/plugin"
 
@@ -95,16 +96,11 @@ type Control struct {
 	errChan chan error
 }
 
-type task struct {
-	evt plugin.Event
-	val interface{}
-}
-
 var _ plugin.Plugin = &Control{}
 
 // NewControl checks if the computer has the hid control interface, and returns a control interface if it does
 func NewControl(dryRun bool) (*Control, error) {
-	devices, err := usb.EnumerateHid(VendorID, ProductID)
+	devices, err := usb.EnumerateHid(kb.VendorID, kb.ProductID)
 	if err != nil {
 		return nil, err
 	}
@@ -166,10 +162,8 @@ func (c *Control) Run(haltCtx context.Context) <-chan error {
 					c.errChan <- c.brightnessDown()
 				case plugin.EvtKbBrightnessUp:
 					c.errChan <- c.brightnessUp()
-				case plugin.EvtKbBrightnessSet:
-					if v, ok := t.Value.(Level); ok {
-						c.errChan <- c.setBrightness(v)
-					}
+				case plugin.EvtKbBrightnessOff:
+					c.errChan <- c.setBrightness(OFF)
 				case plugin.EvtKbToggleTouchpad:
 					c.errChan <- c.toggleTouchPad()
 				case plugin.EvtKbEmulateKeyPress:

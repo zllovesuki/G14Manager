@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"github.com/zllovesuki/G14Manager/system/atkacpi"
+	"github.com/zllovesuki/G14Manager/system/keyboard"
 	"github.com/zllovesuki/G14Manager/system/persist"
 	"github.com/zllovesuki/G14Manager/system/plugin"
-	"github.com/zllovesuki/G14Manager/system/plugin/keyboard"
 	"github.com/zllovesuki/G14Manager/system/power"
 	"github.com/zllovesuki/G14Manager/system/thermal"
 	"github.com/zllovesuki/G14Manager/util"

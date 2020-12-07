@@ -8,8 +8,8 @@ import (
 	"runtime"
 
 	"github.com/zllovesuki/G14Manager/system/atkacpi"
+	kb "github.com/zllovesuki/G14Manager/system/keyboard"
 	"github.com/zllovesuki/G14Manager/system/plugin"
-	kb "github.com/zllovesuki/G14Manager/system/plugin/keyboard"
 	"github.com/zllovesuki/G14Manager/system/power"
 	"github.com/zllovesuki/G14Manager/util"
 
@@ -288,7 +288,7 @@ func (c *Controller) handleWorkQueue(haltCtx context.Context) {
 
 		case <-c.workQueueCh[fnBeforeSuspend].clean:
 			log.Println("kbCtrl: turning off keyboard backlight")
-			c.notifyPlugins(plugin.EvtKbBrightnessSet, kb.OFF)
+			c.notifyPlugins(plugin.EvtKbBrightnessOff, nil)
 
 		case <-c.workQueueCh[fnAfterSuspend].clean:
 			log.Println("[controller] reinitialize kbCtrl and apply config")

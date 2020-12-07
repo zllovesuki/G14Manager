@@ -7,7 +7,7 @@ const (
 	EvtKbReInit
 	EvtKbBrightnessUp
 	EvtKbBrightnessDown
-	EvtKbBrightnessSet
+	EvtKbBrightnessOff
 	EvtKbToggleTouchpad
 	EvtKbEmulateKeyPress
 )
@@ -18,7 +18,7 @@ func (e Event) String() string {
 		"Event: Keyboard Reinitialization",
 		"Event: Keyboard Brightness Up",
 		"Event: Keyboard Brightness Down",
-		"Event: Keyboard Brightness Explict Set",
+		"Event: Keyboard Brightness Off",
 		"Event: Keyboard Toggle Enable/Disable Touchpad",
 		"Event: Keyboard Emulate KeyPress",
 	}[e]

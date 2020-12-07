@@ -5,8 +5,8 @@ import (
 	"github.com/zllovesuki/G14Manager/system/battery"
 	"github.com/zllovesuki/G14Manager/system/persist"
 	"github.com/zllovesuki/G14Manager/system/plugin"
-	"github.com/zllovesuki/G14Manager/system/plugin/keyboard"
-	"github.com/zllovesuki/G14Manager/system/plugin/volume"
+	"github.com/zllovesuki/G14Manager/cxx/plugin/keyboard"
+	"github.com/zllovesuki/G14Manager/cxx/plugin/volume"
 	"github.com/zllovesuki/G14Manager/system/power"
 	"github.com/zllovesuki/G14Manager/system/thermal"
 

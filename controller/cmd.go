@@ -1,12 +1,13 @@
 package controller
 
 import (
-	"github.com/zllovesuki/G14Manager/system/atkacpi"
-	"github.com/zllovesuki/G14Manager/system/battery"
-	"github.com/zllovesuki/G14Manager/system/persist"
-	"github.com/zllovesuki/G14Manager/system/plugin"
 	"github.com/zllovesuki/G14Manager/cxx/plugin/keyboard"
 	"github.com/zllovesuki/G14Manager/cxx/plugin/volume"
+	"github.com/zllovesuki/G14Manager/system/atkacpi"
+	"github.com/zllovesuki/G14Manager/system/battery"
+	kb "github.com/zllovesuki/G14Manager/system/keyboard"
+	"github.com/zllovesuki/G14Manager/system/persist"
+	"github.com/zllovesuki/G14Manager/system/plugin"
 	"github.com/zllovesuki/G14Manager/system/power"
 	"github.com/zllovesuki/G14Manager/system/thermal"
 
@@ -66,7 +67,15 @@ func New(conf RunConfig) (*Controller, error) {
 		return nil, err
 	}
 
-	kbCtrl, err := keyboard.NewControl(conf.DryRun)
+	remap := make(map[uint32]uint16)
+	if conf.EnabledFeatures.FnRemap {
+		remap[kb.KeyFnLeft] = kb.KeyPgUp
+		remap[kb.KeyFnRight] = kb.KeyPgDown
+	}
+	kbCtrl, err := keyboard.NewControl(keyboard.Config{
+		DryRun: conf.DryRun,
+		Remap:  remap,
+	})
 	if err != nil {
 		return nil, err
 	}

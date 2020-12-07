@@ -21,9 +21,11 @@ import (
 	"log"
 	"runtime"
 	"strings"
+	"sync"
 
 	"github.com/zllovesuki/G14Manager/system/device"
 	"github.com/zllovesuki/G14Manager/system/ioctl"
+	"github.com/zllovesuki/G14Manager/system/keyboard"
 	kb "github.com/zllovesuki/G14Manager/system/keyboard"
 	"github.com/zllovesuki/G14Manager/system/persist"
 	"github.com/zllovesuki/G14Manager/system/plugin"
@@ -89,17 +91,25 @@ const (
 
 // Control allows you to set the hid related functionalities directly
 type Control struct {
+	Config
+
+	mu                sync.Mutex
 	deviceCtrl        *device.Control
 	currentBrightness Level
 
-	queue   chan plugin.Task
+	queue   chan plugin.Notification
 	errChan chan error
+}
+
+type Config struct {
+	DryRun bool
+	Remap  map[uint32]uint16
 }
 
 var _ plugin.Plugin = &Control{}
 
 // NewControl checks if the computer has the hid control interface, and returns a control interface if it does
-func NewControl(dryRun bool) (*Control, error) {
+func NewControl(config Config) (*Control, error) {
 	devices, err := usb.EnumerateHid(kb.VendorID, kb.ProductID)
 	if err != nil {
 		return nil, err
@@ -115,7 +125,7 @@ func NewControl(dryRun bool) (*Control, error) {
 	}
 
 	ctrl, err := device.NewControl(device.Config{
-		DryRun:      dryRun,
+		DryRun:      config.DryRun,
 		Path:        path,
 		ControlCode: ioctl.HID_SET_FEATURE,
 	})
@@ -124,15 +134,19 @@ func NewControl(dryRun bool) (*Control, error) {
 	}
 
 	return &Control{
+		Config:            config,
 		deviceCtrl:        ctrl,
 		currentBrightness: OFF,
-		queue:             make(chan plugin.Task),
+		queue:             make(chan plugin.Notification),
 		errChan:           make(chan error),
 	}, nil
 }
 
 // Initialize will send initialization buffer to the keyboard control device
 func (c *Control) Initialize() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	log.Println("kbCtrl: initializaing hid interface")
 	for _, buf := range initBufs {
 		initBuf := make([]byte, initBufferLength)
@@ -145,46 +159,69 @@ func (c *Control) Initialize() error {
 	return nil
 }
 
-func (c *Control) Run(haltCtx context.Context) <-chan error {
-	log.Println("kbCtrl: Starting queue loop")
-
-	go func() {
-		runtime.LockOSThread()
-		defer runtime.UnlockOSThread()
-
-		for {
-			select {
-			case t := <-c.queue:
-				switch t.Event {
-				case plugin.EvtKbReInit:
-					c.errChan <- c.Initialize()
-				case plugin.EvtKbBrightnessDown:
-					c.errChan <- c.brightnessDown()
-				case plugin.EvtKbBrightnessUp:
-					c.errChan <- c.brightnessUp()
-				case plugin.EvtKbBrightnessOff:
-					c.errChan <- c.setBrightness(OFF)
-				case plugin.EvtKbToggleTouchpad:
-					c.errChan <- c.toggleTouchPad()
-				case plugin.EvtKbEmulateKeyPress:
-					if v, ok := t.Value.(uint16); ok {
-						c.errChan <- c.emulateKeyPress(v)
-					}
-				}
-			case <-haltCtx.Done():
-				return
-			}
+func (c *Control) loop(haltCtx context.Context, cb chan<- plugin.Callback) {
+	defer func() {
+		if err := recover(); err != nil {
+			log.Printf("kbCtrl: loop panic %+v\n", err)
+			c.errChan <- err.(error)
 		}
 	}()
+
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+
+	for {
+		select {
+		case t := <-c.queue:
+			switch t.Event {
+			case plugin.EvtKeyboardFn:
+				keycode, ok := t.Value.(uint32)
+				if !ok {
+					continue
+				}
+				switch keycode {
+				case keyboard.KeyTpadToggle:
+					c.errChan <- c.toggleTouchPad()
+				case keyboard.KeyFnDown:
+					c.errChan <- c.brightnessDown()
+					cb <- plugin.CbPersistConfig
+				case keyboard.KeyFnUp:
+					c.errChan <- c.brightnessUp()
+					cb <- plugin.CbPersistConfig
+				case keyboard.KeyFnLeft, keyboard.KeyFnRight:
+					if remap, ok := c.Config.Remap[keycode]; ok {
+						c.emulateKeyPress(remap)
+					}
+				}
+			case plugin.EvtACPIResume, plugin.EvtSentinelInitKeyboard:
+				log.Println("kbCtrl: reinitialize kbCtrl")
+				c.errChan <- c.Initialize()
+			case plugin.EvtACPISuspend, plugin.EvtSentinelKeyboardBrightnessOff:
+				log.Println("kbCtrl: turning off keyboard backlight")
+				c.errChan <- c.setBrightness(OFF)
+			}
+		case <-haltCtx.Done():
+			return
+		}
+	}
+}
+
+func (c *Control) Run(haltCtx context.Context, cb chan<- plugin.Callback) <-chan error {
+	log.Println("kbCtrl: Starting queue loop")
+
+	go c.loop(haltCtx, cb)
 
 	return c.errChan
 }
 
-func (c *Control) Notify(t plugin.Task) {
+func (c *Control) Notify(t plugin.Notification) {
 	c.queue <- t
 }
 
 func (c *Control) setBrightness(v Level) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	inputBuf := make([]byte, brightnessControlBufferLength)
 	copy(inputBuf, brightnessControlBuffer)
 	inputBuf[brightnessControlByteIndex] = byte(v)
@@ -230,6 +267,9 @@ func (c *Control) brightnessDown() error {
 }
 
 func (c *Control) toggleTouchPad() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	inputBuf := make([]byte, touchPadToggleControlBufferLength)
 	copy(inputBuf, touchPadToggleControlBuffer)
 
@@ -260,6 +300,9 @@ func (c *Control) Name() string {
 
 // Value satisfies persist.Registry
 func (c *Control) Value() []byte {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	buf := make([]byte, 2)
 	binary.LittleEndian.PutUint16(buf, uint16(c.currentBrightness))
 	return buf
@@ -268,6 +311,9 @@ func (c *Control) Value() []byte {
 // Load satisfies persist.Registry
 // TODO: check if the input is actually valid
 func (c *Control) Load(v []byte) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if len(v) == 0 {
 		return nil
 	}
@@ -277,10 +323,14 @@ func (c *Control) Load(v []byte) error {
 
 // Apply satisfies persist.Registry
 func (c *Control) Apply() error {
+	// mutex already in setBrightness
 	return c.setBrightness(c.currentBrightness)
 }
 
 // Close satisfied persist.Registry
 func (c *Control) Close() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	return c.deviceCtrl.Close()
 }

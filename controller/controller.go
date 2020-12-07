@@ -31,9 +31,6 @@ const (
 	fnPersistConfigs = iota // for debouncing persisting to Registry
 	fnCheckCharger          // for debouncing power input change acpi event
 	fnApplyConfigs          // for loading and re-applying configurations
-	fnKbCtrl                // for controlling keyboard behaviors
-	fnToggleTouchPad        // for toggling touchpad enable/disable
-	fnVolCtrl               // for mute/unmute microphone
 	fnHwCtrl                // for notifying atkacpi
 	fnBeforeSuspend         // for doing work before suspend
 	fnAfterSuspend          // for doing work after suspend
@@ -85,9 +82,10 @@ type Controller struct {
 	workQueueCh   map[uint32]workQueue
 	errorCh       chan error
 
-	keyCodeCh chan uint32
-	acpiCh    chan uint32
-	powerEvCh chan uint32
+	keyCodeCh  chan uint32
+	acpiCh     chan uint32
+	powerEvCh  chan uint32
+	pluginCbCh chan plugin.Callback
 }
 
 func newController(conf Config) (*Controller, error) {
@@ -110,9 +108,10 @@ func newController(conf Config) (*Controller, error) {
 		workQueueCh:   make(map[uint32]workQueue, 1),
 		errorCh:       make(chan error),
 
-		keyCodeCh: make(chan uint32, 1),
-		acpiCh:    make(chan uint32, 1),
-		powerEvCh: make(chan uint32, 1),
+		keyCodeCh:  make(chan uint32, 1),
+		acpiCh:     make(chan uint32, 1),
+		powerEvCh:  make(chan uint32, 1),
+		pluginCbCh: make(chan plugin.Callback, 1),
 	}, nil
 }
 
@@ -164,9 +163,6 @@ func (c *Controller) initialize(haltCtx context.Context) error {
 	workQueueImmediate := []uint32{
 		fnCheckCharger,
 		fnApplyConfigs,
-		fnToggleTouchPad,
-		fnKbCtrl,
-		fnVolCtrl,
 		fnHwCtrl,
 		fnBeforeSuspend,
 		fnAfterSuspend,
@@ -210,7 +206,7 @@ func (c *Controller) initialize(haltCtx context.Context) error {
 
 func (c *Controller) startPlugins(haltCtx context.Context) {
 	for _, p := range c.Config.Plugins {
-		errChan := p.Run(haltCtx)
+		errChan := p.Run(haltCtx, c.pluginCbCh)
 		go func(ch <-chan error) {
 			for {
 				select {
@@ -245,6 +241,7 @@ func (c *Controller) Run(haltCtx context.Context) error {
 	c.startPlugins(haltCtx)
 
 	// defined in controller_loop.go
+	go c.handlePluginCallback(ctx)
 	go c.handleNotify(ctx)
 	go c.handleWorkQueue(ctx)
 	go c.handlePowerEvent(ctx)

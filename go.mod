@@ -6,7 +6,6 @@ require (
 	cirello.io/oversight v1.0.3
 	github.com/BurntSushi/toml v0.3.1 // indirect
 	github.com/bi-zone/wmi v1.1.4
-	github.com/go-ole/go-ole v1.2.4
 	github.com/karalabe/usb v0.0.0-20191104083709-911d15fe12a9
 	github.com/nu7hatch/gouuid v0.0.0-20131221200532-179d4d0c4d8d // indirect
 	github.com/pkg/errors v0.9.1

@@ -27,7 +27,7 @@ const (
 
 func TestPersistToRegistry(t *testing.T) {
 	expectedBytes := []byte{1, 2, 3, 4, 5, 6}
-	h := RegistryHelper{
+	h := RegistryConfigHelper{
 		configs: make(map[string]Registry),
 		key:     testRegistryKey,
 		path:    testRegistryPath,
@@ -41,7 +41,7 @@ func TestPersistToRegistry(t *testing.T) {
 	err := h.Save()
 	require.NoError(t, err)
 
-	hL := RegistryHelper{
+	hL := RegistryConfigHelper{
 		configs: make(map[string]Registry),
 		key:     registry.CURRENT_USER,
 		path:    `SOFTWARE/G14ManagerTest`,

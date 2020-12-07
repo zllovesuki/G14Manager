@@ -27,8 +27,13 @@ func GetDefaultThermalProfiles() []Profile {
 			gpuFanCurve:      "20c:0%,50c:0%,55c:0%,60c:0%,65c:34%,70c:51%,75c:61%,98c:61%",
 		},
 		{
-			name:             "Silent",
+			name:             "Power Saver",
 			windowsPowerPlan: "Power saver",
+			throttlePlan:     throttlePlanSilent,
+		},
+		{
+			name:             "Silent Performance",
+			windowsPowerPlan: "High performance",
 			throttlePlan:     throttlePlanSilent,
 		},
 		{

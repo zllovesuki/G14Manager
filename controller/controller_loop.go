@@ -212,9 +212,9 @@ func (c *Controller) handleWorkQueue(haltCtx context.Context) {
 				var message string
 				// TODO: make it configurable
 				if pluggedInStatus == chargerPluggedIn {
-					next, err = c.Config.Thermal.SwitchToProfile("Performance")
+					next, err = c.Config.Thermal.SwitchToProfile("Silent Performance")
 				} else {
-					next, err = c.Config.Thermal.SwitchToProfile("Silent")
+					next, err = c.Config.Thermal.SwitchToProfile("Power Saver")
 				}
 				if err != nil {
 					log.Println(err)

@@ -5,6 +5,8 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"syscall"
@@ -104,7 +106,15 @@ func main() {
 		}
 	}()
 
+	srv := &http.Server{Addr: "127.0.0.1:9969"}
+	go func() {
+		log.Println("[supervisor] pprof at 127.0.0.1:9969/debug/pprof")
+		log.Println(srv.ListenAndServe())
+	}()
+
 	<-sigc
+
+	srv.Shutdown(context.TODO())
 	cancel()
 	time.Sleep(time.Second) // 1 second for grace period
 }

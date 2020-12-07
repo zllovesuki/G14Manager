@@ -39,7 +39,7 @@ func New(conf RunConfig) (*Controller, error) {
 	if conf.DryRun {
 		config, _ = persist.NewDryRegistryHelper()
 	} else {
-		config, _ = persist.NewRegistryHelper()
+		config, _ = persist.NewRegistryConfigHelper()
 	}
 
 	// TODO: make powercfg dryrun-able as well
@@ -76,11 +76,9 @@ func New(conf RunConfig) (*Controller, error) {
 		return nil, err
 	}
 
-	// order powercfg to last
 	config.Register(battery)
-	config.Register(profile)
-	config.Register(powercfg)
 	config.Register(kbCtrl)
+	config.Register(profile)
 
 	control, err := newController(Config{
 		WMI: wmi,

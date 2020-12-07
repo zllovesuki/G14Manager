@@ -40,4 +40,7 @@ func main() {
 		panic(err)
 	}
 
+	fmt.Println("freeing controller")
+	controller.Close()
+
 }

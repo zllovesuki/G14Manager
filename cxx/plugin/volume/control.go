@@ -55,11 +55,13 @@ func (c *Control) loop(haltCtx context.Context, cb chan<- plugin.Callback) {
 	for {
 		select {
 		case t := <-c.queue:
-			if keycode, ok := t.Value.(uint32); ok {
-				switch keycode {
-				case keyboard.KeyMuteMic:
-					c.errChan <- c.ToggleMuted()
-				}
+			keycode, ok := t.Value.(uint32)
+			if !ok {
+				continue
+			}
+			switch keycode {
+			case keyboard.KeyMuteMic:
+				c.errChan <- c.ToggleMuted()
 			}
 		case <-haltCtx.Done():
 			return

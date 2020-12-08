@@ -200,10 +200,10 @@ func (c *Control) loop(haltCtx context.Context, cb chan<- plugin.Callback) {
 						c.EmulateKeyPress(remap)
 					}
 				}
-			case plugin.EvtACPIResume, plugin.EvtSentinelInitKeyboard:
+			case plugin.EvtACPIResume:
 				log.Println("kbCtrl: reinitialize kbCtrl")
 				c.errChan <- c.Initialize()
-			case plugin.EvtACPISuspend, plugin.EvtSentinelKeyboardBrightnessOff:
+			case plugin.EvtACPISuspend:
 				log.Println("kbCtrl: turning off keyboard backlight")
 				c.errChan <- c.SetBrightness(OFF)
 			}

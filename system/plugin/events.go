@@ -10,8 +10,6 @@ const (
 	EvtACPIResume
 	EvtChargerPluggedIn
 	EvtChargerUnplugged
-	EvtSentinelInitKeyboard
-	EvtSentinelKeyboardBrightnessOff
 	EvtSentinelCycleThermalProfile
 
 	CbPersistConfig
@@ -25,8 +23,6 @@ func (e Event) String() string {
 		"Event: ACPI Resume",
 		"Event: Charged plugged in",
 		"Event: Charged unplugged",
-		"Event (sentinel): Initializa keyboard",
-		"Event (sentinel): Keyboard backlight off",
 		"Event (sentinel): Cycle thermal profile",
 
 		"Callback: Request to persist config",

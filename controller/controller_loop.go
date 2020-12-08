@@ -210,10 +210,6 @@ func (c *Controller) handleWorkQueue(haltCtx context.Context) {
 				c.errorCh <- errors.Wrap(err, "[controller] error applying configurations")
 				return
 			}
-			c.notifyQueueCh <- util.Notification{
-				Title:   "Settings Loaded from Registry",
-				Message: "Enjoy your bloat-free G14",
-			}
 
 		case ev := <-c.workQueueCh[fnHwCtrl].clean:
 			keyCode := ev.Data.(uint32)
@@ -267,6 +263,7 @@ func (c *Controller) handlePluginCallback(haltCtx context.Context) {
 				}
 			}
 		case <-haltCtx.Done():
+			log.Println("[controller] exiting handlePluginCallback")
 			return
 		}
 	}

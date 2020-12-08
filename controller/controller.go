@@ -196,6 +196,11 @@ func (c *Controller) initialize(haltCtx context.Context) error {
 	// seed the channel so we get the the charger status
 	c.workQueueCh[fnCheckCharger].noisy <- true // indicating initial (startup) check
 
+	c.notifyQueueCh <- util.Notification{
+		Title:   "Settings Loaded from Registry",
+		Message: "Enjoy your bloat-free G14",
+	}
+
 	return nil
 }
 

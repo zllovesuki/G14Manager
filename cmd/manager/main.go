@@ -87,16 +87,30 @@ func main() {
 		DryRun: os.Getenv("DRY_RUN") != "",
 	}
 
+	reload := make(chan controller.GRPCConfig, 1)
+	grpcServer, err := controller.NewGRPCServer(reload)
+	if err != nil {
+		log.Fatalf("[supervisor] cannot start gRPCServer: %+v\n", err)
+	}
+
 	supervisor := oversight.New(
 		oversight.WithRestartStrategy(oversight.OneForOne()),
 		oversight.Process(oversight.ChildProcessSpecification{
+			Name: "gRPCServer",
+			Start: func(ctx context.Context) error {
+				return grpcServer.Run(ctx)
+			},
+		}),
+		oversight.Process(oversight.ChildProcessSpecification{
 			Name: "Controller",
 			Start: func(ctx context.Context) error {
-				control, err := controller.New(controllerConfig)
+				runner, err := controller.New(controllerConfig)
 				if err != nil {
 					return err
 				}
-				return control.Run(ctx)
+				reload <- runner.GRPCConfig
+
+				return runner.Controller.Run(ctx)
 			},
 			Restart: func(err error) bool {
 				if err == nil {
@@ -126,6 +140,7 @@ func main() {
 
 	go func() {
 		log.Println("[supervisor] Monitoring controller")
+		log.Println("[supervisor] Monitoring grpc")
 		if err := supervisor.Start(ctx); err != nil {
 			util.SendToastNotification("G14Manager Supervisor", util.Notification{
 				Title:   "G14Manager cannot be started",
@@ -137,8 +152,8 @@ func main() {
 
 	srv := &http.Server{Addr: "127.0.0.1:9969"}
 	go func() {
-		log.Println("[supervisor] pprof at 127.0.0.1:9969/debug/pprof")
-		log.Println(srv.ListenAndServe())
+		log.Printf("[supervisor] pprof at 127.0.0.1:9969/debug/pprof\n")
+		log.Printf("[supervisor] pprof exit: %+v\n", srv.ListenAndServe())
 	}()
 
 	<-sigc

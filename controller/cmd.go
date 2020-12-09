@@ -10,7 +10,6 @@ import (
 	"github.com/zllovesuki/G14Manager/system/plugin"
 	"github.com/zllovesuki/G14Manager/system/power"
 	"github.com/zllovesuki/G14Manager/system/thermal"
-
 	"github.com/zllovesuki/G14Manager/util"
 )
 
@@ -24,8 +23,13 @@ type RunConfig struct {
 	LogoPath        string
 }
 
+type Runner struct {
+	Controller *Controller
+	GRPCConfig GRPCConfig
+}
+
 // New returns a Controller to be ran
-func New(conf RunConfig) (*Controller, error) {
+func New(conf RunConfig) (*Runner, error) {
 
 	if len(conf.RogRemap) == 0 {
 		conf.RogRemap = []string{defaultCommandWithArgs}
@@ -98,6 +102,11 @@ func New(conf RunConfig) (*Controller, error) {
 	config.Register(thermal)
 	config.Register(kbCtrl)
 
+	grpcConf := GRPCConfig{
+		KeyboardControl: kbCtrl,
+		BatteryControl:  battery,
+	}
+
 	control, err := newController(Config{
 		WMI: wmi,
 
@@ -117,5 +126,8 @@ func New(conf RunConfig) (*Controller, error) {
 		return nil, err
 	}
 
-	return control, nil
+	return &Runner{
+		Controller: control,
+		GRPCConfig: grpcConf,
+	}, nil
 }

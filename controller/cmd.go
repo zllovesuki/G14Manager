@@ -21,6 +21,7 @@ type RunConfig struct {
 	RogRemap        util.ArrayFlags
 	DryRun          bool
 	EnabledFeatures Features
+	LogoPath        string
 }
 
 // New returns a Controller to be ran
@@ -106,9 +107,9 @@ func New(conf RunConfig) (*Controller, error) {
 			kbCtrl,
 			thermal,
 		},
-
 		Registry: config,
 
+		LogoPath:        conf.LogoPath,
 		EnabledFeatures: conf.EnabledFeatures,
 		ROGKey:          conf.RogRemap,
 	})

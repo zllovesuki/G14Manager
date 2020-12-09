@@ -26,6 +26,11 @@ Invoke-Expression $RSRC
 $MOD = "go mod download"
 Invoke-Expression $MOD 2>&1
 
+Write-Host "Packing static assets"
+
+$PACKED = "go run .\packed"
+Invoke-Expression $PACKED
+
 Write-Host "Building prod release"
 
 # $BUILD = "go build -tags 'use_cgo' -ldflags='-H=windowsgui -s -w' ."

@@ -63,6 +63,7 @@ type Config struct {
 	Plugins  []plugin.Plugin
 	Registry persist.ConfigRegistry
 
+	LogoPath        string
 	EnabledFeatures Features
 	ROGKey          []string
 }

@@ -122,6 +122,7 @@ func (c *Controller) handleNotify(haltCtx context.Context) {
 	for {
 		select {
 		case msg := <-c.notifyQueueCh:
+			msg.Icon = c.LogoPath
 			if err := util.SendToastNotification(appName, msg); err != nil {
 				log.Printf("Error sending toast notification: %s\n", err)
 			}

@@ -24,7 +24,7 @@ jobs:
       - name: Test G14Manager
         run: go test ./...
       - name: Build Main G14Manager Binary
-        run: go build .
+        run: go build -o build\G14Manager.exe .\cmd\manager
       - name: Build MatrixControl DLL (Release)
         run: MSBuild.exe .\cxx\MatrixController.sln /property:Configuration=Release /property:Platform=x64
       - name: Build MatrixControl DLL (Debug)

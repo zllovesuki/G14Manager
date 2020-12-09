@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	_ "net/http/pprof"
@@ -12,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/zllovesuki/G14Manager/box"
 	"github.com/zllovesuki/G14Manager/controller"
 	"github.com/zllovesuki/G14Manager/util"
 
@@ -19,15 +21,17 @@ import (
 	"gopkg.in/natefinch/lumberjack.v2"
 )
 
+// Compile time injected variables
 var (
 	Version = "dev"
+	IsDebug = "yes"
 )
 
 var defaultCommandWithArgs = "Taskmgr.exe"
 
 func main() {
 
-	if Version != "dev" {
+	if IsDebug == "no" {
 		log.SetOutput(&lumberjack.Logger{
 			Filename:   `C:\Logs\G14Manager.log`,
 			MaxSize:    5,
@@ -49,7 +53,32 @@ func main() {
 	log.Printf("Remapping enabled: %v\n", *enableRemap)
 	log.Printf("Automatic Thermal Profile Switching enabled: %v\n", *enableAutoThermal)
 
+	var logoPath string
+	logoPng := box.Get("/Logo.png")
+	if logoPng != nil {
+		logoFile, err := ioutil.TempFile(os.TempDir(), "G14Manager-")
+		if err != nil {
+			log.Fatal("[supervisor] Cannot create temporary file for logo", err)
+		}
+		defer func() {
+			time.Sleep(time.Second)
+			os.Remove(logoFile.Name())
+		}()
+
+		if _, err = logoFile.Write(logoPng); err != nil {
+			log.Fatal("[supervisor] Failed to write to temporary file for logo", err)
+		}
+
+		if err := logoFile.Close(); err != nil {
+			log.Fatal(err)
+		}
+
+		logoPath = logoFile.Name()
+		log.Printf("[supervisor] Logo extracted to %s\n", logoPath)
+	}
+
 	controllerConfig := controller.RunConfig{
+		LogoPath: logoPath,
 		RogRemap: rogRemap,
 		EnabledFeatures: controller.Features{
 			FnRemap:            *enableRemap,

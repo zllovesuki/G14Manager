@@ -6,6 +6,7 @@ import "gopkg.in/toast.v1"
 type Notification struct {
 	Title   string
 	Message string
+	Icon    string
 }
 
 // SendToastNotification will notify the user via toast
@@ -14,6 +15,7 @@ func SendToastNotification(appName string, n Notification) error {
 		AppID:    appName,
 		Title:    n.Title,
 		Message:  n.Message,
+		Icon:     n.Icon,
 		Duration: toast.Short,
 		Audio:    "silent",
 	}

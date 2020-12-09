@@ -15,15 +15,21 @@ device 0x25 in profile 0x2 has fan curve [20 50 55 60 65 70 75 98 25 28 34 40 44
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"encoding/gob"
 	"errors"
+	"fmt"
 	"log"
+	"runtime"
+	"sync"
 	"time"
 
 	"github.com/zllovesuki/G14Manager/system/atkacpi"
 	"github.com/zllovesuki/G14Manager/system/persist"
+	"github.com/zllovesuki/G14Manager/system/plugin"
 	"github.com/zllovesuki/G14Manager/system/power"
+	"github.com/zllovesuki/G14Manager/util"
 )
 
 const (
@@ -49,17 +55,29 @@ type Profile struct {
 
 // Control defines contains the Windows Power Option and list of thermal profiles
 type Control struct {
+	Config
+
+	mu                  sync.RWMutex
 	wmi                 atkacpi.WMI
 	currentProfileIndex int
-	Config
+
+	errorCh chan error
+	queue   chan plugin.Notification
 }
 
 // Config defines the entry point for Windows Power Option and a list of thermal profiles
 type Config struct {
-	WMI      atkacpi.WMI
-	PowerCfg *power.Cfg
-	Profiles []Profile
+	WMI               atkacpi.WMI
+	PowerCfg          *power.Cfg
+	Profiles          []Profile
+	AutoThermal       bool
+	AutoThermalConfig struct {
+		PluggedIn string
+		Unplugged string
+	}
 }
+
+var _ plugin.Plugin = &Control{}
 
 // NewControl allows you to cycle to the next thermal profile
 func NewControl(conf Config) (*Control, error) {
@@ -72,11 +90,18 @@ func NewControl(conf Config) (*Control, error) {
 	if len(conf.Profiles) == 0 {
 		return nil, errors.New("empty Profiles is invalid")
 	}
+	if conf.AutoThermal {
+		if len(conf.AutoThermalConfig.PluggedIn) == 0 || len(conf.AutoThermalConfig.Unplugged) == 0 {
+			return nil, errors.New("must specify auto thermal profiles if enabled")
+		}
+	}
 
 	return &Control{
+		Config:              conf,
 		wmi:                 conf.WMI,
 		currentProfileIndex: 0,
-		Config:              conf,
+		errorCh:             make(chan error),
+		queue:               make(chan plugin.Notification),
 	}, nil
 }
 
@@ -95,6 +120,12 @@ func (c *Control) findProfileIndexWithName(name string) int {
 }
 
 func (c *Control) setProfile(index int) (string, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+
 	nextProfile := c.Config.Profiles[index]
 
 	// note: always set thermal throttle plan first, then override with user fan curve
@@ -192,6 +223,90 @@ func (c *Control) setFanCurve(profile Profile) error {
 	return nil
 }
 
+// Initialize satisfies system/plugin.Plugin
+func (c *Control) Initialize() error {
+	return nil
+}
+
+func (c *Control) loop(haltCtx context.Context, cb chan<- plugin.Callback) {
+	defer func() {
+		if err := recover(); err != nil {
+			log.Printf("thermal: loop panic %+v\n", err)
+			c.errorCh <- err.(error)
+		}
+	}()
+
+	for {
+		select {
+		case t := <-c.queue:
+			switch t.Event {
+			case plugin.EvtSentinelCycleThermalProfile:
+				counter := t.Value.(int64)
+				name, err := c.NextProfile(int(counter))
+				message := fmt.Sprintf("Thermal plan changed to %s", name)
+				if err != nil {
+					log.Println(err)
+					message = err.Error()
+				}
+				cb <- plugin.Callback{
+					Event: plugin.CbNotifyToast,
+					Value: util.Notification{
+						Title:   "Toggle Thermal Plan",
+						Message: message,
+					},
+				}
+				cb <- plugin.Callback{
+					Event: plugin.CbPersistConfig,
+				}
+			case plugin.EvtChargerPluggedIn, plugin.EvtChargerUnplugged:
+				if !c.Config.AutoThermal {
+					continue
+				}
+				var next string
+				var err error
+				var message string
+				switch t.Event {
+				case plugin.EvtChargerPluggedIn:
+					next, err = c.SwitchToProfile(c.AutoThermalConfig.PluggedIn)
+				case plugin.EvtChargerUnplugged:
+					next, err = c.SwitchToProfile(c.AutoThermalConfig.Unplugged)
+				default:
+					continue
+				}
+				if err != nil {
+					log.Println(err)
+					message = err.Error()
+				} else {
+					message = fmt.Sprintf("Thermal plan changed to %s", next)
+				}
+				cb <- plugin.Callback{
+					Event: plugin.CbNotifyToast,
+					Value: util.Notification{
+						Title:   "Automatic Thermal Plan Switching",
+						Message: message,
+					},
+				}
+			}
+		case <-haltCtx.Done():
+			return
+		}
+	}
+}
+
+// Run satisfies system/plugin.Plugin
+func (c *Control) Run(haltCtx context.Context, cb chan<- plugin.Callback) <-chan error {
+	log.Println("thermal: Starting queue loop")
+
+	go c.loop(haltCtx, cb)
+
+	return c.errorCh
+}
+
+// Notify satisfies system/plugin.Plugin
+func (c *Control) Notify(t plugin.Notification) {
+	c.queue <- t
+}
+
 var _ persist.Registry = &Control{}
 
 // Name satisfies persist.Registry
@@ -201,6 +316,9 @@ func (c *Control) Name() string {
 
 // Value satisfies persist.Registry
 func (c *Control) Value() []byte {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
 	var buf bytes.Buffer
 	name := c.CurrentProfile().Name
 	enc := gob.NewEncoder(&buf)
@@ -212,6 +330,9 @@ func (c *Control) Value() []byte {
 
 // Load staisfies persist.Registry
 func (c *Control) Load(v []byte) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if len(v) == 0 {
 		return nil
 	}
@@ -239,5 +360,8 @@ func (c *Control) Apply() error {
 
 // Close satisfied persist.Registry
 func (c *Control) Close() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	return c.wmi.Close()
 }

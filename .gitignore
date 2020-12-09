@@ -4,6 +4,7 @@ Session.vim
 build/
 rnd/
 .vscode
+box/blob.go
 
 *.rsuser
 *.suo

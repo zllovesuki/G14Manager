@@ -12,7 +12,6 @@ import (
 	"github.com/zllovesuki/G14Manager/system/persist"
 	"github.com/zllovesuki/G14Manager/system/plugin"
 	"github.com/zllovesuki/G14Manager/system/power"
-	"github.com/zllovesuki/G14Manager/system/thermal"
 	"github.com/zllovesuki/G14Manager/util"
 
 	"github.com/pkg/errors"
@@ -31,9 +30,6 @@ const (
 	fnPersistConfigs = iota // for debouncing persisting to Registry
 	fnCheckCharger          // for debouncing power input change acpi event
 	fnApplyConfigs          // for loading and re-applying configurations
-	fnKbCtrl                // for controlling keyboard behaviors
-	fnToggleTouchPad        // for toggling touchpad enable/disable
-	fnVolCtrl               // for mute/unmute microphone
 	fnHwCtrl                // for notifying atkacpi
 	fnBeforeSuspend         // for doing work before suspend
 	fnAfterSuspend          // for doing work after suspend
@@ -65,9 +61,9 @@ type Config struct {
 	WMI atkacpi.WMI
 
 	Plugins  []plugin.Plugin
-	Thermal  *thermal.Control
 	Registry persist.ConfigRegistry
 
+	LogoPath        string
 	EnabledFeatures Features
 	ROGKey          []string
 }
@@ -85,17 +81,15 @@ type Controller struct {
 	workQueueCh   map[uint32]workQueue
 	errorCh       chan error
 
-	keyCodeCh chan uint32
-	acpiCh    chan uint32
-	powerEvCh chan uint32
+	keyCodeCh  chan uint32
+	acpiCh     chan uint32
+	powerEvCh  chan uint32
+	pluginCbCh chan plugin.Callback
 }
 
 func newController(conf Config) (*Controller, error) {
 	if conf.WMI == nil {
 		return nil, errors.New("[controller] nil WMI is invalid")
-	}
-	if conf.Thermal == nil {
-		return nil, errors.New("[controller] nil Thermal is invalid")
 	}
 	if conf.Registry == nil {
 		return nil, errors.New("[controller] nil Registry is invalid")
@@ -110,9 +104,10 @@ func newController(conf Config) (*Controller, error) {
 		workQueueCh:   make(map[uint32]workQueue, 1),
 		errorCh:       make(chan error),
 
-		keyCodeCh: make(chan uint32, 1),
-		acpiCh:    make(chan uint32, 1),
-		powerEvCh: make(chan uint32, 1),
+		keyCodeCh:  make(chan uint32, 1),
+		acpiCh:     make(chan uint32, 1),
+		powerEvCh:  make(chan uint32, 1),
+		pluginCbCh: make(chan plugin.Callback, 1),
 	}, nil
 }
 
@@ -164,9 +159,6 @@ func (c *Controller) initialize(haltCtx context.Context) error {
 	workQueueImmediate := []uint32{
 		fnCheckCharger,
 		fnApplyConfigs,
-		fnToggleTouchPad,
-		fnKbCtrl,
-		fnVolCtrl,
 		fnHwCtrl,
 		fnBeforeSuspend,
 		fnAfterSuspend,
@@ -205,12 +197,17 @@ func (c *Controller) initialize(haltCtx context.Context) error {
 	// seed the channel so we get the the charger status
 	c.workQueueCh[fnCheckCharger].noisy <- true // indicating initial (startup) check
 
+	c.notifyQueueCh <- util.Notification{
+		Title:   "Settings Loaded from Registry",
+		Message: "Enjoy your bloat-free G14",
+	}
+
 	return nil
 }
 
 func (c *Controller) startPlugins(haltCtx context.Context) {
 	for _, p := range c.Config.Plugins {
-		errChan := p.Run(haltCtx)
+		errChan := p.Run(haltCtx, c.pluginCbCh)
 		go func(ch <-chan error) {
 			for {
 				select {
@@ -245,6 +242,7 @@ func (c *Controller) Run(haltCtx context.Context) error {
 	c.startPlugins(haltCtx)
 
 	// defined in controller_loop.go
+	go c.handlePluginCallback(ctx)
 	go c.handleNotify(ctx)
 	go c.handleWorkQueue(ctx)
 	go c.handlePowerEvent(ctx)

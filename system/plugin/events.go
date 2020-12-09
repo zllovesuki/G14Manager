@@ -1,25 +1,31 @@
 package plugin
 
+// Event defines the type of notification from controller to plugins
 type Event int
 
+// Define all the possible controller->plugin notifications
 const (
-	EvtVolToggleMute Event = iota
-	EvtKbReInit
-	EvtKbBrightnessUp
-	EvtKbBrightnessDown
-	EvtKbBrightnessOff
-	EvtKbToggleTouchpad
-	EvtKbEmulateKeyPress
+	EvtKeyboardFn Event = iota
+	EvtACPISuspend
+	EvtACPIResume
+	EvtChargerPluggedIn
+	EvtChargerUnplugged
+	EvtSentinelCycleThermalProfile
+
+	CbPersistConfig
+	CbNotifyToast
 )
 
 func (e Event) String() string {
 	return [...]string{
-		"Event: Toggling Mute",
-		"Event: Keyboard Reinitialization",
-		"Event: Keyboard Brightness Up",
-		"Event: Keyboard Brightness Down",
-		"Event: Keyboard Brightness Off",
-		"Event: Keyboard Toggle Enable/Disable Touchpad",
-		"Event: Keyboard Emulate KeyPress",
+		"Event: Keyboard hardware function",
+		"Event: ACPI Suspend",
+		"Event: ACPI Resume",
+		"Event: Charged plugged in",
+		"Event: Charged unplugged",
+		"Event (sentinel): Cycle thermal profile",
+
+		"Callback: Request to persist config",
+		"Callback: Request to notify user",
 	}[e]
 }

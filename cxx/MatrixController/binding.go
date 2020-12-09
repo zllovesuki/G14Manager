@@ -1,7 +1,7 @@
 package matrix
 
 // #cgo CXXFLAGS: -std=c++17 -DGO_BINDINGS
-// #cgo LDFLAGS: -lsetupapi -lhid -lwinusb
+// #cgo LDFLAGS: -lsetupapi -lhid -lwinusb -static-libgcc -static-libstdc++ -Wl,-Bstatic -lstdc++ -lpthread -Wl,-Bdynamic
 // #include "binding.h"
 import "C"
 import (

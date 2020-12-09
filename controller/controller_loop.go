@@ -3,7 +3,6 @@ package controller
 import (
 	"context"
 	"encoding/binary"
-	"fmt"
 	"log"
 	"runtime"
 
@@ -91,14 +90,6 @@ func (c *Controller) handleKeyPress(haltCtx context.Context) {
 			case kb.KeyFnV:
 				log.Println("hid: Fn + V Pressed")
 
-			case kb.KeyMuteMic:
-				log.Println("hid: mute/unmute microphone Pressed")
-				c.workQueueCh[fnVolCtrl].noisy <- struct{}{}
-
-			case kb.KeyTpadToggle:
-				log.Println("hid: toggle enable/disable touchpad Pressed")
-				c.workQueueCh[fnToggleTouchPad].noisy <- struct{}{}
-
 			case
 				kb.KeyLCDUp,
 				kb.KeyLCDDown,
@@ -107,11 +98,14 @@ func (c *Controller) handleKeyPress(haltCtx context.Context) {
 				c.workQueueCh[fnHwCtrl].noisy <- keyCode
 
 			case
+				kb.KeyMuteMic,
+				kb.KeyTpadToggle,
 				kb.KeyFnLeft,
 				kb.KeyFnRight,
 				kb.KeyFnUp,
 				kb.KeyFnDown:
-				c.workQueueCh[fnKbCtrl].noisy <- keyCode
+				log.Printf("hid: keyboard hardware function %+v\n", keyCode)
+				c.notifyPlugins(plugin.EvtKeyboardFn, keyCode)
 
 			default:
 				log.Printf("hid: Unknown %d\n", keyCode)
@@ -128,6 +122,7 @@ func (c *Controller) handleNotify(haltCtx context.Context) {
 	for {
 		select {
 		case msg := <-c.notifyQueueCh:
+			msg.Icon = c.LogoPath
 			if err := util.SendToastNotification(appName, msg); err != nil {
 				log.Printf("Error sending toast notification: %s\n", err)
 			}
@@ -163,17 +158,7 @@ func (c *Controller) handleWorkQueue(haltCtx context.Context) {
 
 		case ev := <-c.workQueueCh[fnThermalProfile].clean:
 			log.Printf("[controller] Fn + F5 pressed %d times\n", ev.Counter)
-			next, err := c.Config.Thermal.NextProfile(int(ev.Counter))
-			message := fmt.Sprintf("Thermal plan changed to %s", next)
-			if err != nil {
-				log.Println(err)
-				message = err.Error()
-			}
-			c.notifyQueueCh <- util.Notification{
-				Title:   "Toggle Thermal Plan",
-				Message: message,
-			}
-			c.workQueueCh[fnPersistConfigs].noisy <- struct{}{}
+			c.notifyPlugins(plugin.EvtSentinelCycleThermalProfile, ev.Counter)
 
 		case ev := <-c.workQueueCh[fnCheckCharger].clean:
 			function := make([]byte, 4)
@@ -203,29 +188,11 @@ func (c *Controller) handleWorkQueue(haltCtx context.Context) {
 			}
 
 		case ev := <-c.workQueueCh[fnAutoThermal].clean:
-			if c.Config.EnabledFeatures.AutoThermalProfile {
-				pluggedInStatus := ev.Data.(chargerStatus)
-				log.Printf("[controller] automatically switching thermal profile. Charger is: %s\n", pluggedInStatus)
-
-				var next string
-				var err error
-				var message string
-				// TODO: make it configurable
-				if pluggedInStatus == chargerPluggedIn {
-					next, err = c.Config.Thermal.SwitchToProfile("Silent Performance")
-				} else {
-					next, err = c.Config.Thermal.SwitchToProfile("Power Saver")
-				}
-				if err != nil {
-					log.Println(err)
-					message = err.Error()
-				} else {
-					message = fmt.Sprintf("Thermal plan changed to %s", next)
-				}
-				c.notifyQueueCh <- util.Notification{
-					Title:   "Automatic Thermal Plan Switching: " + pluggedInStatus.String(),
-					Message: message,
-				}
+			pluggedInStatus := ev.Data.(chargerStatus)
+			if pluggedInStatus == chargerPluggedIn {
+				c.notifyPlugins(plugin.EvtChargerPluggedIn, nil)
+			} else {
+				c.notifyPlugins(plugin.EvtChargerUnplugged, nil)
 			}
 
 		case <-c.workQueueCh[fnPersistConfigs].clean:
@@ -244,41 +211,6 @@ func (c *Controller) handleWorkQueue(haltCtx context.Context) {
 				c.errorCh <- errors.Wrap(err, "[controller] error applying configurations")
 				return
 			}
-			c.notifyQueueCh <- util.Notification{
-				Title:   "Settings Loaded from Registry",
-				Message: fmt.Sprintf("Current Thermal Plan: %s", c.Config.Thermal.CurrentProfile().Name),
-			}
-
-		case ev := <-c.workQueueCh[fnKbCtrl].clean:
-			switch ev.Data.(uint32) {
-			case kb.KeyFnLeft:
-				log.Println("kbCtrl: Fn + Arrow Left Pressed")
-				if c.Config.EnabledFeatures.FnRemap {
-					log.Println("kbCtrl: remapping to PgUp")
-					c.notifyPlugins(plugin.EvtKbEmulateKeyPress, kb.KeyPgUp)
-				}
-			case kb.KeyFnRight:
-				log.Println("kbCtrl: Fn + Arrow Right Pressed")
-				if c.Config.EnabledFeatures.FnRemap {
-					log.Println("kbCtrl: remapping to PgDown")
-					c.notifyPlugins(plugin.EvtKbEmulateKeyPress, kb.KeyPgDown)
-				}
-			case kb.KeyFnDown:
-				log.Println("kbCtrl: Decrease keyboard backlight")
-				c.notifyPlugins(plugin.EvtKbBrightnessDown, nil)
-				c.workQueueCh[fnPersistConfigs].noisy <- struct{}{}
-
-			case kb.KeyFnUp:
-				log.Println("kbCtrl: Increase keyboard backlight")
-				c.notifyPlugins(plugin.EvtKbBrightnessUp, nil)
-				c.workQueueCh[fnPersistConfigs].noisy <- struct{}{}
-			}
-
-		case <-c.workQueueCh[fnToggleTouchPad].clean:
-			c.notifyPlugins(plugin.EvtKbToggleTouchpad, nil)
-
-		case <-c.workQueueCh[fnVolCtrl].clean:
-			c.notifyPlugins(plugin.EvtVolToggleMute, nil)
 
 		case ev := <-c.workQueueCh[fnHwCtrl].clean:
 			keyCode := ev.Data.(uint32)
@@ -295,12 +227,11 @@ func (c *Controller) handleWorkQueue(haltCtx context.Context) {
 			}
 
 		case <-c.workQueueCh[fnBeforeSuspend].clean:
-			log.Println("kbCtrl: turning off keyboard backlight")
-			c.notifyPlugins(plugin.EvtKbBrightnessOff, nil)
+			c.notifyPlugins(plugin.EvtACPISuspend, nil)
 
 		case <-c.workQueueCh[fnAfterSuspend].clean:
-			log.Println("[controller] reinitialize kbCtrl and apply config")
-			c.notifyPlugins(plugin.EvtKbReInit, nil)
+			log.Println("[controller] re-apply config")
+			c.notifyPlugins(plugin.EvtACPIResume, nil)
 			c.workQueueCh[fnApplyConfigs].noisy <- struct{}{}
 
 		case <-haltCtx.Done():
@@ -310,12 +241,31 @@ func (c *Controller) handleWorkQueue(haltCtx context.Context) {
 	}
 }
 
-func (c Controller) notifyPlugins(evt plugin.Event, val interface{}) {
-	t := plugin.Task{
+func (c *Controller) notifyPlugins(evt plugin.Event, val interface{}) {
+	t := plugin.Notification{
 		Event: evt,
 		Value: val,
 	}
 	for _, p := range c.Config.Plugins {
 		go p.Notify(t)
+	}
+}
+
+func (c *Controller) handlePluginCallback(haltCtx context.Context) {
+	for {
+		select {
+		case t := <-c.pluginCbCh:
+			switch t.Event {
+			case plugin.CbPersistConfig:
+				c.workQueueCh[fnPersistConfigs].noisy <- struct{}{}
+			case plugin.CbNotifyToast:
+				if n, ok := t.Value.(util.Notification); ok {
+					c.notifyQueueCh <- n
+				}
+			}
+		case <-haltCtx.Done():
+			log.Println("[controller] exiting handlePluginCallback")
+			return
+		}
 	}
 }

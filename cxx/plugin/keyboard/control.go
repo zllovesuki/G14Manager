@@ -227,6 +227,14 @@ func (c *Control) Notify(t plugin.Notification) {
 	c.queue <- t
 }
 
+// CurrentBrightness returns current brightness Level
+func (c *Control) CurrentBrightness() Level {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	return c.currentBrightness
+}
+
 // SetBrightness change the keyboard backlight directly
 func (c *Control) SetBrightness(v Level) error {
 	c.mu.Lock()

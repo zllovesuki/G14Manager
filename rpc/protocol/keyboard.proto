@@ -6,7 +6,7 @@ option go_package = "github.com/zllovesuki/G14Manager/rpc/protocol";
 import "google/protobuf/empty.proto";
 
 service KeyboardBrightness {
-  rpc GetCurrentLevel(google.protobuf.Empty)
+  rpc GetCurrentBrightness(google.protobuf.Empty)
       returns(KeyboardBrightnessResponse) {}
   rpc Set(SetKeyboardBrightnessRequest) returns(KeyboardBrightnessResponse) {}
   rpc Change(ChangeKeyboardBrightnessRequest)

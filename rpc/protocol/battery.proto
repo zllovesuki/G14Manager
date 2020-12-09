@@ -6,7 +6,7 @@ option go_package = "github.com/zllovesuki/G14Manager/rpc/protocol";
 import "google/protobuf/empty.proto";
 
 service BatteryChargeLimit {
-  rpc GetCurrentLevel(google.protobuf.Empty)
+  rpc GetCurrentLimit(google.protobuf.Empty)
       returns(BatteryChargeLimitResponse) {}
   rpc Set(SetBatteryLimitRequest) returns(BatteryChargeLimitResponse) {}
 }
@@ -17,5 +17,5 @@ message BatteryChargeLimitResponse {
   bool Success = 1;
   fixed32 Percentage = 2;
 
-  string message = 10;
+  string Message = 10;
 }

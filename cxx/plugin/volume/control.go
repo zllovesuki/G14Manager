@@ -100,7 +100,7 @@ func (c *Control) doCheckMute() error {
 	case -1:
 		return fmt.Errorf("Cannot check microphone muted status")
 	default:
-		c.isMuted = ret == 0
+		c.isMuted = ret == 1
 		log.Printf("wca: current microphone mute is %v\n", c.isMuted)
 		return nil
 	}

@@ -26,9 +26,9 @@ Invoke-Expression $RSRC
 $MOD = "go mod download"
 Invoke-Expression $MOD 2>&1
 
-Write-Host "Packing static assets"
+Write-Host "Generating static assets"
 
-$PACKED = "go run .\cmd\generator"
+$PACKED = "go generate .\..."
 Invoke-Expression $PACKED
 
 Write-Host "Building prod release"

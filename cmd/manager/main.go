@@ -52,7 +52,7 @@ func main() {
 	log.Printf("Automatic Thermal Profile Switching enabled: %v\n", *enableAutoThermal)
 
 	var logoPath string
-	logoPng := box.Get("static/Logo.png")
+	logoPng := box.Get("/Logo.png")
 	if logoPng != nil {
 		logoFile, err := ioutil.TempFile(os.TempDir(), "G14Manager-")
 		if err != nil {

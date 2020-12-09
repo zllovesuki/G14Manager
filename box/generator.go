@@ -1,3 +1,5 @@
+//+build ignore
+
 package main
 
 // https://dev.to/koddr/the-easiest-way-to-embed-static-files-into-a-binary-file-in-your-golang-app-no-external-dependencies-43pc
@@ -15,8 +17,8 @@ import (
 )
 
 const (
-	blobFileName string = "./box/blob.go"
-	embedFolder  string = "./static"
+	blobFileName string = "blob.go"
+	embedFolder  string = "..\\static"
 )
 
 // Define vars for build template
@@ -61,7 +63,7 @@ func main() {
 			return nil
 		} else {
 			// If element is a simple file, embed
-			log.Println(path, "is a file, packing in...")
+			log.Printf("%s is a file, packing in as %s...\n", path, relativePath)
 
 			b, err := ioutil.ReadFile(path)
 			if err != nil {

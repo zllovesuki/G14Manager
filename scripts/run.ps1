@@ -6,4 +6,4 @@ $env:GOARCH = "amd64"
 $env:GOHOSTARCH = "amd64"
 $env:CGO_ENABLED = "1"
 
-go run .
+go run .\cmd\manager

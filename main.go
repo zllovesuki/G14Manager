@@ -22,7 +22,7 @@ import (
 // Compile time injected variables
 var (
 	Version = "dev"
-	IsDebug = "no"
+	IsDebug = "yes"
 )
 
 var defaultCommandWithArgs = "Taskmgr.exe"

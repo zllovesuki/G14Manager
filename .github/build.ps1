@@ -39,7 +39,7 @@ Invoke-Expression $BUILD
 
 Write-Host "Building debug release"
 
-$BUILD_DEBUG = "go build -ldflags=`"-X 'main.Version=$env:GITHUB_REF'`" -o build/G14Manager.debug.exe ."
+$BUILD_DEBUG = "go build -ldflags=`"-X 'main.Version=$env:GITHUB_REF' -X 'main.IsDebug=yes'`" -o build/G14Manager.debug.exe ."
 Invoke-Expression $BUILD_DEBUG
 
 Write-Host "Building DLLs"

@@ -19,15 +19,17 @@ import (
 	"gopkg.in/natefinch/lumberjack.v2"
 )
 
+// Compile time injected variables
 var (
 	Version = "dev"
+	IsDebug = "no"
 )
 
 var defaultCommandWithArgs = "Taskmgr.exe"
 
 func main() {
 
-	if Version != "dev" {
+	if IsDebug == "no" {
 		log.SetOutput(&lumberjack.Logger{
 			Filename:   `C:\Logs\G14Manager.log`,
 			MaxSize:    5,
@@ -70,6 +72,7 @@ func main() {
 		}
 
 		logoPath = logoFile.Name()
+		log.Printf("[supervisor] Logo extracted to %s\n", logoPath)
 	}
 
 	controllerConfig := controller.RunConfig{

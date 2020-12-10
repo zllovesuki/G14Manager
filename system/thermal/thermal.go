@@ -26,7 +26,7 @@ import (
 	"time"
 
 	"github.com/zllovesuki/G14Manager/rpc/annoucement"
-	"github.com/zllovesuki/G14Manager/shared"
+	"github.com/zllovesuki/G14Manager/system/shared"
 	"github.com/zllovesuki/G14Manager/system/atkacpi"
 	"github.com/zllovesuki/G14Manager/system/persist"
 	"github.com/zllovesuki/G14Manager/system/plugin"

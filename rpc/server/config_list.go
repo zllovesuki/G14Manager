@@ -10,7 +10,7 @@ import (
 
 	"github.com/zllovesuki/G14Manager/rpc/annoucement"
 	"github.com/zllovesuki/G14Manager/rpc/protocol"
-	"github.com/zllovesuki/G14Manager/shared"
+	"github.com/zllovesuki/G14Manager/system/shared"
 	"github.com/zllovesuki/G14Manager/system/keyboard"
 	"github.com/zllovesuki/G14Manager/system/persist"
 	"github.com/zllovesuki/G14Manager/system/thermal"

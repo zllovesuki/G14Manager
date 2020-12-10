@@ -26,7 +26,7 @@ import (
 	"syscall"
 
 	"github.com/zllovesuki/G14Manager/rpc/annoucement"
-	"github.com/zllovesuki/G14Manager/shared"
+	"github.com/zllovesuki/G14Manager/system/shared"
 	"github.com/zllovesuki/G14Manager/system/device"
 	"github.com/zllovesuki/G14Manager/system/ioctl"
 	"github.com/zllovesuki/G14Manager/system/keyboard"

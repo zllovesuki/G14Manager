@@ -21,7 +21,6 @@ type servers struct {
 }
 
 type Server struct {
-	errorCh      chan error
 	server       *grpc.Server
 	servers      servers
 	startErrorCh chan error
@@ -44,8 +43,7 @@ func NewGRPCServer(conf GRPCRunConfig) (*Server, chan error, error) {
 
 	startErrorCh := make(chan error)
 	server := &Server{
-		errorCh: make(chan error),
-		server:  s,
+		server: s,
 		servers: servers{
 			Keyboard: server.RegisterKeyboardServer(s, conf.Dependencies.Keyboard),
 			Battery:  server.RegisterBatteryChargeLimitServer(s, conf.Dependencies.Battery),
@@ -61,30 +59,26 @@ func NewGRPCServer(conf GRPCRunConfig) (*Server, chan error, error) {
 	return server, startErrorCh, nil
 }
 
-func (s *Server) loop(haltCtx context.Context) {
-	for {
-		select {
-		case err := <-s.errorCh:
-			log.Printf("[grpc] grpc error: %+v\n", err)
-			return
-		case <-haltCtx.Done():
-			log.Printf("[grpc] stopping grpc server\n")
-			s.server.GracefulStop()
-			return
-		}
-	}
-}
-
 func (s *Server) Serve(haltCtx context.Context) error {
 	lis, err := net.Listen("tcp", "127.0.0.1:9963")
 	if err != nil {
-		log.Printf("[grpc] Failed to listen for connections: %+v\n", err)
+		log.Printf("[gRPCServer] Failed to listen for connections: %+v\n", err)
 		s.startErrorCh <- err
 		return suture.ErrDoNotRestart
 	}
 
-	go s.loop(haltCtx)
-	log.Printf("[grpc] grpc server available at 127.0.0.1:9963\n")
+	go func() {
+		for {
+			select {
+			case <-haltCtx.Done():
+				log.Printf("[gRPCServer] stopping grpc server\n")
+				s.server.GracefulStop()
+				log.Printf("[gRPCServer] server stopped\n")
+				return
+			}
+		}
+	}()
+	log.Printf("[gRPCServer] grpc server available at 127.0.0.1:9963\n")
 
 	return s.server.Serve(lis)
 }

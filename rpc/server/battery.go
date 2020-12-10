@@ -74,7 +74,7 @@ func (b *BatteryServer) HotReload(ctrl *battery.ChargeLimit) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	log.Println("[grpc] hot reloading battery server")
+	log.Println("[gRPCServer] hot reloading battery server")
 
 	b.control = ctrl
 }

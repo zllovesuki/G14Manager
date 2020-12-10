@@ -27,7 +27,14 @@ func (m *ManagerResponderOption) HasSupervisor() *suture.Supervisor {
 	return m.Supervisor
 }
 
+func (m *ManagerResponderOption) String() string {
+	return "ManagerResponder"
+}
+
 func (m *ManagerResponderOption) Serve(haltCtx context.Context) error {
+
+	log.Println("[gRPCSupervisor] starting responder loop")
+
 	for {
 		select {
 		case s := <-m.ManagerReqCh:
@@ -52,9 +59,15 @@ func (m *ManagerResponderOption) Serve(haltCtx context.Context) error {
 					}
 				}
 
+			case server.RequestSaveConfig:
+				err := m.Dependencies.ConfigRegistry.Save()
+				s.Response <- server.ManagerSupervisorResponse{
+					Error: err,
+				}
+
 			}
 		case <-haltCtx.Done():
-			log.Println("[supervisor] exiting grpcManagerResponder")
+			log.Println("[gRPCSupervisor] exiting ManagerResponder")
 			return nil
 		}
 	}

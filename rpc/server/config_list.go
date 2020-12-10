@@ -194,11 +194,11 @@ func (f *ConfigListServer) Set(ctx context.Context, req *protocol.SetConfigsRequ
 	}
 
 	if newFeatures != nil {
-		fmt.Println("[grpc] updating features config")
+		fmt.Println("[gRPCServer] updating features config")
 		f.features = *newFeatures
 	}
 	if len(newProfiles) > 0 {
-		fmt.Println("[grpc] updating profiles config")
+		fmt.Println("[gRPCServer] updating profiles config")
 		f.profiles = newProfiles
 	}
 
@@ -220,9 +220,9 @@ func (f *ConfigListServer) announceConfigs() {
 		Config: f.profiles,
 	}
 	for _, updatable := range f.updatable {
-		log.Printf("[grpc] notifying \"%s\" about features update", updatable.Name())
+		log.Printf("[gRPCServer] notifying \"%s\" about features update", updatable.Name())
 		go updatable.ConfigUpdate(featsUpdate)
-		log.Printf("[grpc] notifying \"%s\" about profiles update", updatable.Name())
+		log.Printf("[gRPCServer] notifying \"%s\" about profiles update", updatable.Name())
 		go updatable.ConfigUpdate(profilesUpdate)
 	}
 }
@@ -231,7 +231,7 @@ func (f *ConfigListServer) HotReload(u []announcement.Updatable) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
-	log.Println("[grpc] hot reloading features server")
+	log.Println("[gRPCServer] hot reloading configs server")
 
 	f.updatable = u
 	f.announceConfigs()

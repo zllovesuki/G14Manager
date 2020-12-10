@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
+	"log"
 	"sync"
 
 	"github.com/zllovesuki/G14Manager/rpc/protocol"
@@ -18,12 +19,15 @@ const (
 	managerPersistName = "Manager"
 )
 
+var once sync.Once
+
 type ManagerRequestType int
 
 const (
 	RequestCheckState ManagerRequestType = iota
 	RequestStartController
 	RequestStopController
+	RequestSaveConfig
 )
 
 type ManagerSupervisorRequest struct {
@@ -53,6 +57,41 @@ func RegisterManagerServer(s *grpc.Server, ctrl chan ManagerSupervisorRequest) *
 	}
 	protocol.RegisterManagerControlServer(s, server)
 	return server
+}
+
+func (m *ManagerServer) GetCurrentAutoStart(ctx context.Context, req *emptypb.Empty) (*protocol.ManagerAutoStartResponse, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	return &protocol.ManagerAutoStartResponse{
+		Success:   true,
+		AutoStart: m.autoStart,
+	}, nil
+}
+
+func (m *ManagerServer) SetAutoStart(ctx context.Context, req *protocol.ManagerAutoStartRequest) (*protocol.ManagerAutoStartResponse, error) {
+	if req == nil {
+		return nil, fmt.Errorf("nil request is invalid")
+	}
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.autoStart = req.GetAutoStart()
+
+	go func() {
+		respChan := make(chan ManagerSupervisorResponse)
+		m.control <- ManagerSupervisorRequest{
+			Request:  RequestSaveConfig,
+			Response: respChan,
+		}
+		<-respChan
+	}()
+
+	return &protocol.ManagerAutoStartResponse{
+		Success:   true,
+		AutoStart: m.autoStart,
+	}, nil
 }
 
 func (m *ManagerServer) GetCurrentState(ctx context.Context, req *emptypb.Empty) (*protocol.ManagerControlResponse, error) {
@@ -130,6 +169,25 @@ func (m *ManagerServer) Load(v []byte) error {
 	}
 
 	m.autoStart = autoStart
+
+	go once.Do(func() {
+		if !m.autoStart {
+			log.Println("[gRPCServer] not auto starting controller")
+			return
+		}
+		respChan := make(chan ManagerSupervisorResponse)
+		supervisorReq := ManagerSupervisorRequest{
+			Request:  RequestStartController,
+			Response: respChan,
+		}
+		m.control <- supervisorReq
+		resp := <-respChan
+		if resp.Error != nil {
+			log.Printf("[gRPCServer] cannot auto start controller: %+v\n", resp.Error)
+		} else {
+			log.Println("[gRPCServer] controller started")
+		}
+	})
 
 	return nil
 }

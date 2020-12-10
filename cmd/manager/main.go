@@ -102,14 +102,14 @@ func main() {
 
 
 		                               rootSupervisor
-		                               /---    ----\
-		                        /------             -------\
-		                    ----                            ----
-		            gRPCSupervisor                       backgroundSupervisor
-		             /--  |    --\                               |
-		         /---     |       ---\                           |
-		      ---         |           --                         |
-		 gRPCServer       |     ManagerResponder           versionChecker
+		                               /---    ---\
+		                        /------           -------\
+		                    ----                          ----
+		            gRPCSupervisor                     backgroundSupervisor
+		             /--  |    --\                             |
+		         /---     |       ---\                         |
+		      ---         |           --                       |
+		 gRPCServer       |     ManagerResponder         versionChecker
 		                  |
 		                  |
 		         controllerSupervisor

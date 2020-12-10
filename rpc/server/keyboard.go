@@ -105,7 +105,7 @@ func (k *KeyboardServer) HotReload(ctrl *keyboard.Control) {
 	k.mu.Lock()
 	defer k.mu.Unlock()
 
-	log.Println("[grpc] hot reloading keyboard server")
+	log.Println("[gRPCServer] hot reloading keyboard server")
 
 	k.control = ctrl
 }

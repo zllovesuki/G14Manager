@@ -6,16 +6,15 @@ import (
 	"log"
 	"time"
 
-	"github.com/zllovesuki/G14Manager/rpc/protocol"
 	"github.com/zllovesuki/G14Manager/controller"
+	"github.com/zllovesuki/G14Manager/rpc/protocol"
 	"github.com/zllovesuki/G14Manager/rpc/server"
 
-	"github.com/thejerf/suture"
+	suture "github.com/thejerf/suture/v4"
 )
 
 type ManagerResponderOption struct {
 	Supervisor       *suture.Supervisor
-	ReloadCh         chan *controller.Dependencies
 	Dependencies     *controller.Dependencies
 	ManagerReqCh     chan server.ManagerSupervisorRequest
 	ControllerConfig controller.RunConfig
@@ -24,20 +23,24 @@ type ManagerResponderOption struct {
 	controllerRunning bool
 }
 
-func ManagerResponder(haltCtx context.Context, opt ManagerResponderOption) {
+func (m *ManagerResponderOption) HasSupervisor() *suture.Supervisor {
+	return m.Supervisor
+}
+
+func (m *ManagerResponderOption) Serve(haltCtx context.Context) error {
 	for {
 		select {
-		case s := <-opt.ManagerReqCh:
+		case s := <-m.ManagerReqCh:
 			switch s.Request {
 
 			case server.RequestStartController:
-				doStartController(s, &opt)
+				m.doStartController(s)
 
 			case server.RequestStopController:
-				doStopController(s, &opt)
+				m.doStopController(s)
 
 			case server.RequestCheckState:
-				if opt.controllerRunning {
+				if m.controllerRunning {
 					s.Response <- server.ManagerSupervisorResponse{
 						Error: nil,
 						State: protocol.ManagerControlResponse_RUNNING,
@@ -52,13 +55,13 @@ func ManagerResponder(haltCtx context.Context, opt ManagerResponderOption) {
 			}
 		case <-haltCtx.Done():
 			log.Println("[supervisor] exiting grpcManagerResponder")
-			return
+			return nil
 		}
 	}
 }
 
-func doStartController(s server.ManagerSupervisorRequest, opt *ManagerResponderOption) {
-	if opt.controllerRunning {
+func (m *ManagerResponderOption) doStartController(s server.ManagerSupervisorRequest) {
+	if m.controllerRunning {
 		s.Response <- server.ManagerSupervisorResponse{
 			Error: fmt.Errorf("Controller is already running"),
 			State: protocol.ManagerControlResponse_RUNNING,
@@ -66,7 +69,7 @@ func doStartController(s server.ManagerSupervisorRequest, opt *ManagerResponderO
 		return
 	}
 
-	control, controllerStartErrCh, err := controller.New(opt.ControllerConfig, opt.Dependencies)
+	control, controllerStartErrCh, err := controller.New(m.ControllerConfig, m.Dependencies)
 	if err != nil {
 		s.Response <- server.ManagerSupervisorResponse{
 			Error: err,
@@ -75,9 +78,9 @@ func doStartController(s server.ManagerSupervisorRequest, opt *ManagerResponderO
 		return
 	}
 
-	controllerSupervisor := suture.New("Controller", suture.Spec{})
+	controllerSupervisor := suture.New("controllerSupervisor", suture.Spec{})
 	controllerSupervisor.Add(control)
-	opt.childToken = opt.Supervisor.Add(controllerSupervisor)
+	m.childToken = m.Supervisor.Add(controllerSupervisor)
 
 	select {
 	case controllerStartErr := <-controllerStartErrCh:
@@ -87,7 +90,7 @@ func doStartController(s server.ManagerSupervisorRequest, opt *ManagerResponderO
 		}
 		return
 	case <-time.After(time.Second * 2):
-		opt.controllerRunning = true
+		m.controllerRunning = true
 		s.Response <- server.ManagerSupervisorResponse{
 			Error: nil,
 			State: protocol.ManagerControlResponse_RUNNING,
@@ -95,17 +98,16 @@ func doStartController(s server.ManagerSupervisorRequest, opt *ManagerResponderO
 	}
 }
 
-func doStopController(s server.ManagerSupervisorRequest, opt *ManagerResponderOption) {
-
-	if opt.controllerRunning {
-		err := opt.Supervisor.Remove(opt.childToken)
+func (m *ManagerResponderOption) doStopController(s server.ManagerSupervisorRequest) {
+	if m.controllerRunning {
+		err := m.Supervisor.Remove(m.childToken)
 		if err != nil {
 			s.Response <- server.ManagerSupervisorResponse{
 				Error: err,
 				State: protocol.ManagerControlResponse_STOPPED,
 			}
 		} else {
-			opt.controllerRunning = false
+			m.controllerRunning = false
 			s.Response <- server.ManagerSupervisorResponse{
 				Error: nil,
 				State: protocol.ManagerControlResponse_STOPPED,

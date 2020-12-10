@@ -6,6 +6,7 @@ import (
 	"log"
 	"net"
 
+	"github.com/thejerf/suture/v4"
 	"github.com/zllovesuki/G14Manager/controller"
 	"github.com/zllovesuki/G14Manager/rpc/server"
 
@@ -20,57 +21,53 @@ type servers struct {
 }
 
 type Server struct {
-	reload        <-chan *controller.Dependencies
-	errorCh       chan error
-	server        *grpc.Server
-	servers       servers
-	ctx           context.Context
-	cancelFn      context.CancelFunc
-	startErrorCh  chan error
-	unrecoverable bool
+	errorCh      chan error
+	server       *grpc.Server
+	servers      servers
+	startErrorCh chan error
 }
 
 type GRPCRunConfig struct {
-	ReloadCh     <-chan *controller.Dependencies
 	ManagerReqCh chan server.ManagerSupervisorRequest
+	Dependencies *controller.Dependencies
 }
 
 func NewGRPCServer(conf GRPCRunConfig) (*Server, chan error, error) {
-	if conf.ReloadCh == nil {
-		return nil, nil, fmt.Errorf("nil reload channel is invalid")
-	}
 	if conf.ManagerReqCh == nil {
 		return nil, nil, fmt.Errorf("nil manager request channel is invalid")
+	}
+	if conf.Dependencies == nil {
+		return nil, nil, fmt.Errorf("nil dependencies is invalid")
 	}
 
 	s := grpc.NewServer()
 
 	startErrorCh := make(chan error)
-	return &Server{
-		reload:  conf.ReloadCh,
+	server := &Server{
 		errorCh: make(chan error),
 		server:  s,
 		servers: servers{
-			Keyboard: server.RegisterKeyboardServer(s, nil),
-			Battery:  server.RegisterBatteryChargeLimitServer(s, nil),
-			Configs:  server.RegisterConfigListServer(s, nil),
+			Keyboard: server.RegisterKeyboardServer(s, conf.Dependencies.Keyboard),
+			Battery:  server.RegisterBatteryChargeLimitServer(s, conf.Dependencies.Battery),
+			Configs:  server.RegisterConfigListServer(s, conf.Dependencies.Updatable),
 			Manager:  server.RegisterManagerServer(s, conf.ManagerReqCh),
 		},
 		startErrorCh: startErrorCh,
-	}, startErrorCh, nil
+	}
+
+	conf.Dependencies.ConfigRegistry.Register(server.servers.Configs)
+	conf.Dependencies.ConfigRegistry.Register(server.servers.Manager)
+
+	return server, startErrorCh, nil
 }
 
-func (s *Server) loop() {
+func (s *Server) loop(haltCtx context.Context) {
 	for {
 		select {
-		case dep := <-s.reload:
-			log.Printf("[grpc] hot reloading control interfaces\n")
-			s.hotReload(dep)
 		case err := <-s.errorCh:
 			log.Printf("[grpc] grpc error: %+v\n", err)
-			s.cancelFn()
 			return
-		case <-s.ctx.Done():
+		case <-haltCtx.Done():
 			log.Printf("[grpc] stopping grpc server\n")
 			s.server.GracefulStop()
 			return
@@ -78,33 +75,22 @@ func (s *Server) loop() {
 	}
 }
 
-func (s *Server) Serve() {
-	s.ctx, s.cancelFn = context.WithCancel(context.Background())
-	defer s.cancelFn()
-
+func (s *Server) Serve(haltCtx context.Context) error {
 	lis, err := net.Listen("tcp", "127.0.0.1:9963")
 	if err != nil {
 		log.Printf("[grpc] Failed to listen for connections: %+v\n", err)
-		s.unrecoverable = true
 		s.startErrorCh <- err
-		return
+		return suture.ErrDoNotRestart
 	}
 
-	go s.loop()
-	go func() {
-		log.Printf("[grpc] grpc server available at 127.0.0.1:9963\n")
-		s.errorCh <- s.server.Serve(lis)
-	}()
+	go s.loop(haltCtx)
+	log.Printf("[grpc] grpc server available at 127.0.0.1:9963\n")
 
-	<-s.ctx.Done()
+	return s.server.Serve(lis)
 }
 
-func (s *Server) IsCompletable() bool {
-	return !s.unrecoverable
-}
-
-func (s *Server) Stop() {
-	s.cancelFn()
+func (s *Server) String() string {
+	return "gRPCServer"
 }
 
 func (s *Server) hotReload(dep *controller.Dependencies) {

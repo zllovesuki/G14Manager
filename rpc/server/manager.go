@@ -1,13 +1,21 @@
 package server
 
 import (
+	"bytes"
 	"context"
+	"encoding/binary"
 	"fmt"
+	"sync"
 
 	"github.com/zllovesuki/G14Manager/rpc/protocol"
+	"github.com/zllovesuki/G14Manager/system/persist"
 
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
+)
+
+const (
+	managerPersistName = "Manager"
 )
 
 type ManagerRequestType int
@@ -32,6 +40,9 @@ type ManagerServer struct {
 	protocol.UnimplementedManagerControlServer
 
 	control chan ManagerSupervisorRequest
+
+	mu        sync.RWMutex
+	autoStart bool
 }
 
 var _ protocol.ManagerControlServer = &ManagerServer{}
@@ -84,4 +95,49 @@ func (m *ManagerServer) Control(ctx context.Context, req *protocol.ManagerContro
 		Success: true,
 		State:   resp.State,
 	}, nil
+}
+
+var _ persist.Registry = &ManagerServer{}
+
+func (m *ManagerServer) Name() string {
+	return managerPersistName
+}
+
+func (m *ManagerServer) Value() []byte {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	buf := new(bytes.Buffer)
+	if err := binary.Write(buf, binary.LittleEndian, m.autoStart); err != nil {
+		return nil
+	}
+
+	return buf.Bytes()
+}
+
+func (m *ManagerServer) Load(v []byte) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if len(v) == 0 {
+		return nil
+	}
+
+	var autoStart bool
+	buf := bytes.NewReader(v)
+	if err := binary.Read(buf, binary.BigEndian, &autoStart); err != nil {
+		return err
+	}
+
+	m.autoStart = autoStart
+
+	return nil
+}
+
+func (m *ManagerServer) Apply() error {
+	return nil
+}
+
+func (m *ManagerServer) Close() error {
+	return nil
 }

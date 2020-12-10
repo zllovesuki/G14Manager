@@ -13,6 +13,7 @@ import (
 	"github.com/zllovesuki/G14Manager/util"
 
 	"github.com/pkg/errors"
+	suture "github.com/thejerf/suture/v4"
 )
 
 const (
@@ -71,15 +72,11 @@ type Controller struct {
 	workQueueCh   map[uint32]workQueue
 	errorCh       chan error
 	startErrorCh  chan error
-	unrecoverable bool
 
 	keyCodeCh  chan uint32
 	acpiCh     chan uint32
 	powerEvCh  chan uint32
 	pluginCbCh chan plugin.Callback
-
-	ctx      context.Context
-	cancelFn context.CancelFunc
 }
 
 func (c *Controller) initialize(haltCtx context.Context) error {
@@ -191,49 +188,41 @@ func (c *Controller) startPlugins(haltCtx context.Context) {
 	}
 }
 
-func (c *Controller) Serve() {
-
-	c.ctx, c.cancelFn = context.WithCancel(context.Background())
-	defer c.cancelFn()
+func (c *Controller) Serve(haltCtx context.Context) error {
 
 	log.Println("[controller] Starting controller loop")
 
-	if err := c.initialize(c.ctx); err != nil {
+	if err := c.initialize(haltCtx); err != nil {
 		log.Printf("[controller] error initializing: %+v\n", err)
-		c.unrecoverable = true
 		c.startErrorCh <- err
-		return
+		return suture.ErrDoNotRestart
 	}
 
-	c.startPlugins(c.ctx)
+	c.startPlugins(haltCtx)
 
 	// defined in controller_loop.go
-	go c.handlePluginCallback(c.ctx)
-	go c.handleNotify(c.ctx)
-	go c.handleWorkQueue(c.ctx)
-	go c.handlePowerEvent(c.ctx)
-	go c.handleACPINotification(c.ctx)
-	go c.handleKeyPress(c.ctx)
+	go c.handlePluginCallback(haltCtx)
+	go c.handleNotify(haltCtx)
+	go c.handleWorkQueue(haltCtx)
+	go c.handlePowerEvent(haltCtx)
+	go c.handleACPINotification(haltCtx)
+	go c.handleKeyPress(haltCtx)
 
 	for {
 		select {
-		case <-c.ctx.Done():
+		case <-haltCtx.Done():
 			if err := c.Registry.Save(); err != nil {
 				log.Printf("[controller] unable to save to config registry: %+v\n", err)
 			}
 			log.Println("[controller] exiting Run loop")
-			return
+			return nil
 		case err := <-c.errorCh:
 			log.Printf("[controller] Recoverable error in controller loop: %v\n", err)
-			return
+			return err
 		}
 	}
 }
 
-func (c *Controller) IsCompletable() bool {
-	return !c.unrecoverable
-}
-
-func (c *Controller) Stop() {
-	c.cancelFn()
+func (c *Controller) String() string {
+	return "Controller"
 }

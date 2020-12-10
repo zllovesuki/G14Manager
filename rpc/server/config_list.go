@@ -282,6 +282,8 @@ func (f *ConfigListServer) Load(v []byte) error {
 	f.features = p.Features
 	f.profiles = p.Profiles
 
+	f.announceConfigs()
+
 	return nil
 }
 

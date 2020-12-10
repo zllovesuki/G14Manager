@@ -16,7 +16,7 @@ import (
 	"github.com/zllovesuki/G14Manager/controller/supervisor"
 	"github.com/zllovesuki/G14Manager/rpc/server"
 
-	"github.com/thejerf/suture"
+	suture "github.com/thejerf/suture/v4"
 	"gopkg.in/natefinch/lumberjack.v2"
 )
 
@@ -74,60 +74,67 @@ func main() {
 		log.Fatalf("[supervisor] cannot get dependencies\n")
 	}
 
-	reload := make(chan *controller.Dependencies, 1)
 	managerCtrl := make(chan server.ManagerSupervisorRequest, 1)
 
 	grpcServer, grpcStartErrCh, err := supervisor.NewGRPCServer(supervisor.GRPCRunConfig{
-		ReloadCh:     reload,
 		ManagerReqCh: managerCtrl,
+		Dependencies: dep,
 	})
 	if err != nil {
 		log.Fatalf("[supervisor] cannot start gRPCServer: %+v\n", err)
 	}
 
-	rootSupervisor := suture.New("gRPCServer", suture.Spec{
-		Log: func(msg string) {
-			log.Printf("[supervisor] %s\n", msg)
-		},
-	})
-	rootSupervisor.Add(grpcServer)
+	grpcSupervisor := suture.New("gRPCSupervisor", suture.Spec{})
+	managerResponder := &supervisor.ManagerResponderOption{
+		Supervisor:       grpcSupervisor,
+		Dependencies:     dep,
+		ManagerReqCh:     managerCtrl,
+		ControllerConfig: controllerConfig,
+	}
+	grpcSupervisor.Add(grpcServer)
+	grpcSupervisor.Add(managerResponder)
 
 	ctx, cancel := context.WithCancel(context.Background())
 
 	/*
 		How the supervisor tree is structured:
+		(gRPCSupervisor: controller/supervisor)
 
-		rootSupervisor -> gRPCServer
-							\-> Controller
+
+		                               rootSupervisor
+		                               /---    ----\
+		                        /------             -------\
+		                    ----                            ----
+		            gRPCSupervisor                       backgroundSupervisor
+		             /--  |    --\                               |
+		         /---     |       ---\                           |
+		      ---         |           --                         |
+		 gRPCServer       |     ManagerResponder           versionChecker
+		                  |
+		                  |
+		         controllerSupervisor
+		                  |
+		                  |
+		                  |
+		             Controller (runs plugins, etc)
 
 		Since the gRPCServer can control the lifecycle of the Controller,
-		we need a two-way communication between the Supervisor tree and
+		we need a two-way communication between the gRPCSupervisor and
 		the gRPC Manager Server (RequestCh).
 
-		Since the Controller initializes the hardware control functions,
-		gRPCServer managing the hardware functions neeed fresh instances
-		of those Controls, we will forward Dependencies to gRPCServer
-		for hot reloading (ReloadCh).
 	*/
 
-	rootSupervisor.ServeBackground()
+	rootSupervisor := suture.New("Supervisor", suture.Spec{})
+	rootSupervisor.Add(grpcSupervisor)
+
+	rootSupervisor.ServeBackground(ctx)
 
 	select {
 	case grpcStartErr := <-grpcStartErrCh:
 		log.Fatalf("[supervisor] Cannot start gRPC Server: %+v\n", grpcStartErr)
 	case <-time.After(time.Second * 2):
-		dep.ConfigRegistry.Load() // this is to load configurations from config registry
-		time.Sleep(time.Millisecond * 500)
-		reload <- dep // this will annouce configurations to annoucement.Updatable's
+		dep.ConfigRegistry.Load()
 	}
-
-	go supervisor.ManagerResponder(ctx, supervisor.ManagerResponderOption{
-		Supervisor:       rootSupervisor,
-		ReloadCh:         reload,
-		Dependencies:     dep,
-		ManagerReqCh:     managerCtrl,
-		ControllerConfig: controllerConfig,
-	})
 
 	srv := &http.Server{Addr: "127.0.0.1:9969"}
 	go func() {
@@ -147,7 +154,6 @@ func main() {
 	<-sigc
 
 	cancel()
-	rootSupervisor.Stop()
 	srv.Shutdown(context.Background())
 	dep.ConfigRegistry.Close()
 	time.Sleep(time.Second) // 1 second for grace period

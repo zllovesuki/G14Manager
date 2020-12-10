@@ -66,6 +66,9 @@ type Config struct {
 	LogoPath        string
 	EnabledFeatures Features
 	ROGKey          []string
+
+	Context  context.Context
+	cancelFn context.CancelFunc
 }
 
 type workQueue struct {
@@ -80,40 +83,19 @@ type Controller struct {
 	notifyQueueCh chan util.Notification
 	workQueueCh   map[uint32]workQueue
 	errorCh       chan error
+	startErrorCh  chan error
+	unrecoverable bool
 
 	keyCodeCh  chan uint32
 	acpiCh     chan uint32
 	powerEvCh  chan uint32
 	pluginCbCh chan plugin.Callback
-}
 
-func newController(conf Config) (*Controller, error) {
-	if conf.WMI == nil {
-		return nil, errors.New("[controller] nil WMI is invalid")
-	}
-	if conf.Registry == nil {
-		return nil, errors.New("[controller] nil Registry is invalid")
-	}
-	if len(conf.ROGKey) == 0 {
-		return nil, errors.New("[controller] empty key remap is invalid")
-	}
-	return &Controller{
-		Config: conf,
-
-		notifyQueueCh: make(chan util.Notification, 10),
-		workQueueCh:   make(map[uint32]workQueue, 1),
-		errorCh:       make(chan error),
-
-		keyCodeCh:  make(chan uint32, 1),
-		acpiCh:     make(chan uint32, 1),
-		powerEvCh:  make(chan uint32, 1),
-		pluginCbCh: make(chan plugin.Callback, 1),
-	}, nil
+	ctx      context.Context
+	cancelFn context.CancelFunc
 }
 
 func (c *Controller) initialize(haltCtx context.Context) error {
-	// Do we need to lock os thread on any of these?
-
 	for _, p := range c.Config.Plugins {
 		if err := p.Initialize(); err != nil {
 			return errors.Wrap(err, "[controller] plugin initializtion error")
@@ -126,13 +108,12 @@ func (c *Controller) initialize(haltCtx context.Context) error {
 	}
 	log.Printf("hid devices: %+v\n", devices)
 
-	// This is a bit buggy, as Windows seems to time out our connection to WMI
-	// TODO: Find a better way os listening from atk wmi events
 	err = atkacpi.NewACPIListener(haltCtx, c.acpiCh)
 	if err != nil {
 		return errors.Wrap(err, "[controller] error initializing atkacpi wmi listener")
 	}
 
+	// TODO: Unregister when we are done
 	err = power.NewEventListener(c.powerEvCh)
 	if err != nil {
 		return errors.Wrap(err, "[controller] error initializing power event listener")
@@ -224,37 +205,48 @@ func (c *Controller) startPlugins(haltCtx context.Context) {
 	}
 }
 
-// Run will start the controller loop and blocked until context cancel, or an error has occurred
-func (c *Controller) Run(haltCtx context.Context) error {
+func (c *Controller) Serve() {
 
-	ctx, cancel := context.WithCancel(haltCtx)
-	defer cancel()
+	c.ctx, c.cancelFn = context.WithCancel(context.Background())
+	defer c.cancelFn()
 
 	log.Println("[controller] Starting controller loop")
 
-	if err := c.initialize(ctx); err != nil {
-		return errors.Wrap(err, "[controller] error initializing")
+	if err := c.initialize(c.ctx); err != nil {
+		log.Printf("[controller] error initializing: %+v\n", err)
+		c.unrecoverable = true
+		c.startErrorCh <- err
+		return
 	}
 
-	c.startPlugins(haltCtx)
+	c.startPlugins(c.ctx)
 
 	// defined in controller_loop.go
-	go c.handlePluginCallback(ctx)
-	go c.handleNotify(ctx)
-	go c.handleWorkQueue(ctx)
-	go c.handlePowerEvent(ctx)
-	go c.handleACPINotification(ctx)
-	go c.handleKeyPress(ctx)
+	go c.handlePluginCallback(c.ctx)
+	go c.handleNotify(c.ctx)
+	go c.handleWorkQueue(c.ctx)
+	go c.handlePowerEvent(c.ctx)
+	go c.handleACPINotification(c.ctx)
+	go c.handleKeyPress(c.ctx)
 
 	for {
 		select {
-		case <-ctx.Done():
-			return nil
+		case <-c.ctx.Done():
+			log.Println("[controller] exiting Run loop")
+			return
 		case err := <-c.errorCh:
-			log.Printf("[controller] Unrecoverable error in controller loop: %v\n", err)
-			return err
+			log.Printf("[controller] Recoverable error in controller loop: %v\n", err)
+			return
 		}
 	}
+}
+
+func (c *Controller) IsCompletable() bool {
+	return !c.unrecoverable
+}
+
+func (c *Controller) Stop() {
+	c.cancelFn()
 }
 
 func run(commands ...string) error {

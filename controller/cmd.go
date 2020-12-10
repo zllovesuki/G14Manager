@@ -3,6 +3,7 @@ package controller
 import (
 	"fmt"
 
+	"github.com/pkg/errors"
 	"github.com/zllovesuki/G14Manager/cxx/plugin/keyboard"
 	"github.com/zllovesuki/G14Manager/cxx/plugin/volume"
 	"github.com/zllovesuki/G14Manager/system/atkacpi"
@@ -114,34 +115,50 @@ func GetDependencies(conf RunConfig) (*Dependencies, error) {
 }
 
 // New returns a Controller to be ran
-func New(conf RunConfig, dep *Dependencies) (*Controller, error) {
+func New(conf RunConfig, dep *Dependencies) (*Controller, chan error, error) {
 
 	if dep == nil {
-		return nil, fmt.Errorf("nil Dependencies is invalid")
+		return nil, nil, fmt.Errorf("nil Dependencies is invalid")
 	}
 
 	if len(conf.RogRemap) == 0 {
 		conf.RogRemap = []string{defaultCommandWithArgs}
 	}
 
-	control, err := newController(Config{
-		WMI: dep.WMI,
-
-		Plugins: []plugin.Plugin{
-			dep.Keyboard,
-			dep.Volume,
-			dep.Thermal,
-		},
-		Registry: dep.ConfigRegistry,
-
-		LogoPath:        conf.LogoPath,
-		EnabledFeatures: conf.EnabledFeatures,
-		ROGKey:          conf.RogRemap,
-	})
-
-	if err != nil {
-		return nil, err
+	if dep.WMI == nil {
+		return nil, nil, errors.New("[controller] nil WMI is invalid")
+	}
+	if dep.ConfigRegistry == nil {
+		return nil, nil, errors.New("[controller] nil Registry is invalid")
 	}
 
-	return control, nil
+	startErrorCh := make(chan error, 1)
+	control := &Controller{
+		Config: Config{
+			WMI: dep.WMI,
+
+			Plugins: []plugin.Plugin{
+				dep.Keyboard,
+				dep.Volume,
+				dep.Thermal,
+			},
+			Registry: dep.ConfigRegistry,
+
+			LogoPath:        conf.LogoPath,
+			EnabledFeatures: conf.EnabledFeatures,
+			ROGKey:          conf.RogRemap,
+		},
+
+		notifyQueueCh: make(chan util.Notification, 10),
+		workQueueCh:   make(map[uint32]workQueue, 1),
+		errorCh:       make(chan error),
+		startErrorCh:  startErrorCh,
+
+		keyCodeCh:  make(chan uint32, 1),
+		acpiCh:     make(chan uint32, 1),
+		powerEvCh:  make(chan uint32, 1),
+		pluginCbCh: make(chan plugin.Callback, 1),
+	}
+
+	return control, startErrorCh, nil
 }

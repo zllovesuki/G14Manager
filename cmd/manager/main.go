@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"flag"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -15,7 +14,6 @@ import (
 	"github.com/zllovesuki/G14Manager/box"
 	"github.com/zllovesuki/G14Manager/controller"
 	"github.com/zllovesuki/G14Manager/rpc/server"
-	"github.com/zllovesuki/G14Manager/util"
 
 	"github.com/thejerf/suture"
 	"gopkg.in/natefinch/lumberjack.v2"
@@ -26,8 +24,6 @@ var (
 	Version = "dev"
 	IsDebug = "yes"
 )
-
-var defaultCommandWithArgs = "Taskmgr.exe"
 
 func main() {
 
@@ -41,21 +37,7 @@ func main() {
 		})
 	}
 
-	var rogRemap util.ArrayFlags
-	flag.Var(&rogRemap, "rog", "customize ROG key behavior when pressed multiple times")
-
-	var enableRemap = flag.Bool("remap", false, "enable remapping Fn+Left/Right to PgUp/PgDown")
-	var enableAutoThermal = flag.Bool("autoThermal", false, "enable automatic thermal profile switching on power source change")
-
-	flag.Parse()
-
-	if len(rogRemap) == 0 {
-		rogRemap = append(rogRemap, "Taskmgr.exe")
-	}
-
 	log.Printf("G14Manager version: %s\n", Version)
-	log.Printf("Remapping enabled: %v\n", *enableRemap)
-	log.Printf("Automatic Thermal Profile Switching enabled: %v\n", *enableAutoThermal)
 
 	var logoPath string
 	logoPng := box.Get("/Logo.png")

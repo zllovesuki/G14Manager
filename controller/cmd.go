@@ -25,12 +25,6 @@ type RunConfig struct {
 	LogoPath        string
 }
 
-type Runner struct {
-	Controller     *Controller
-	GRPCConfig     GRPCConfig
-	ConfigRegistry persist.ConfigRegistry
-}
-
 type Dependencies struct {
 	WMI            atkacpi.WMI
 	Keyboard       *keyboard.Control

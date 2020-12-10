@@ -208,6 +208,7 @@ func (c *Control) loop(haltCtx context.Context, cb chan<- plugin.Callback) {
 				c.errChan <- c.SetBrightness(OFF)
 			}
 		case <-haltCtx.Done():
+			log.Println("kbCtrl: exiting Plugin run loop")
 			return
 		}
 	}

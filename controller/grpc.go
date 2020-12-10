@@ -18,31 +18,40 @@ type GRPCConfig struct {
 	BatteryControl  *battery.ChargeLimit
 }
 
-type Server struct {
-	reload  <-chan GRPCConfig
-	errorCh chan error
-	server  *grpc.Server
-	servers struct {
-		Keyboard *server.KeyboardServer
-		Battery  *server.BatteryServer
-	}
+type servers struct {
+	Keyboard *server.KeyboardServer
+	Battery  *server.BatteryServer
+	Manager  *server.ManagerServer
 }
 
-func NewGRPCServer(reload <-chan GRPCConfig) (*Server, error) {
-	if reload == nil {
+type Server struct {
+	reload  <-chan *Dependencies
+	errorCh chan error
+	server  *grpc.Server
+	servers servers
+}
+
+type GRPCRunConfig struct {
+	ReloadCh  <-chan *Dependencies
+	RequestCh chan server.SupervisorRequest
+}
+
+func NewGRPCServer(conf GRPCRunConfig) (*Server, error) {
+	if conf.ReloadCh == nil {
 		return nil, fmt.Errorf("nil reload channel is invalid")
+	}
+	if conf.RequestCh == nil {
+		return nil, fmt.Errorf("nil control channel is invalid")
 	}
 	s := grpc.NewServer()
 	return &Server{
-		reload:  reload,
+		reload:  conf.ReloadCh,
 		errorCh: make(chan error),
 		server:  s,
-		servers: struct {
-			Keyboard *server.KeyboardServer
-			Battery  *server.BatteryServer
-		}{
+		servers: servers{
 			Keyboard: server.RegisterKeyboardServer(s, nil),
 			Battery:  server.RegisterBatteryChargeLimitServer(s, nil),
+			Manager:  server.RegisterManagerServer(s, conf.RequestCh),
 		},
 	}, nil
 }
@@ -50,9 +59,9 @@ func NewGRPCServer(reload <-chan GRPCConfig) (*Server, error) {
 func (s *Server) loop(haltCtx context.Context) {
 	for {
 		select {
-		case conf := <-s.reload:
+		case dep := <-s.reload:
 			log.Printf("[grpc] hot reloading control interfaces\n")
-			s.hotReload(conf)
+			s.hotReload(dep)
 		case <-haltCtx.Done():
 			log.Printf("[grpc] stopping grpc server\n")
 			s.server.GracefulStop()
@@ -77,7 +86,7 @@ func (s *Server) Run(haltCtx context.Context) error {
 	return <-s.errorCh
 }
 
-func (s *Server) hotReload(conf GRPCConfig) {
-	s.servers.Battery.HotReload(conf.BatteryControl)
-	s.servers.Keyboard.HotReload(conf.KeyboardControl)
+func (s *Server) hotReload(dep *Dependencies) {
+	s.servers.Battery.HotReload(dep.Battery)
+	s.servers.Keyboard.HotReload(dep.Keyboard)
 }

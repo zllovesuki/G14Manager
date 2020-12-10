@@ -60,6 +60,7 @@ func (b *BatteryServer) Set(ctx context.Context, req *protocol.SetBatteryLimitRe
 	err := b.control.Set(uint8(req.GetPercentage()))
 	if err != nil {
 		resp.Success = false
+		resp.Percentage = uint32(b.control.CurrentLimit())
 		resp.Message = err.Error()
 	} else {
 		resp.Success = true

@@ -288,6 +288,7 @@ func (c *Control) loop(haltCtx context.Context, cb chan<- plugin.Callback) {
 				}
 			}
 		case <-haltCtx.Done():
+			log.Println("thermal: exiting Plugin run loop")
 			return
 		}
 	}

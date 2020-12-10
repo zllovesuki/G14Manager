@@ -1,6 +1,8 @@
 package controller
 
 import (
+	"fmt"
+
 	"github.com/zllovesuki/G14Manager/cxx/plugin/keyboard"
 	"github.com/zllovesuki/G14Manager/cxx/plugin/volume"
 	"github.com/zllovesuki/G14Manager/system/atkacpi"
@@ -24,16 +26,21 @@ type RunConfig struct {
 }
 
 type Runner struct {
-	Controller *Controller
-	GRPCConfig GRPCConfig
+	Controller     *Controller
+	GRPCConfig     GRPCConfig
+	ConfigRegistry persist.ConfigRegistry
 }
 
-// New returns a Controller to be ran
-func New(conf RunConfig) (*Runner, error) {
+type Dependencies struct {
+	WMI            atkacpi.WMI
+	Keyboard       *keyboard.Control
+	Battery        *battery.ChargeLimit
+	Volume         *volume.Control
+	Thermal        *thermal.Control
+	ConfigRegistry persist.ConfigRegistry
+}
 
-	if len(conf.RogRemap) == 0 {
-		conf.RogRemap = []string{defaultCommandWithArgs}
-	}
+func GetDependencies(conf RunConfig) (*Dependencies, error) {
 
 	wmi, err := atkacpi.NewWMI(conf.DryRun)
 	if err != nil {
@@ -102,20 +109,36 @@ func New(conf RunConfig) (*Runner, error) {
 	config.Register(thermal)
 	config.Register(kbCtrl)
 
-	grpcConf := GRPCConfig{
-		KeyboardControl: kbCtrl,
-		BatteryControl:  battery,
+	return &Dependencies{
+		WMI:            wmi,
+		Keyboard:       kbCtrl,
+		Battery:        battery,
+		Volume:         volCtrl,
+		Thermal:        thermal,
+		ConfigRegistry: config,
+	}, nil
+}
+
+// New returns a Controller to be ran
+func New(conf RunConfig, dep *Dependencies) (*Controller, error) {
+
+	if dep == nil {
+		return nil, fmt.Errorf("nil Dependencies is invalid")
+	}
+
+	if len(conf.RogRemap) == 0 {
+		conf.RogRemap = []string{defaultCommandWithArgs}
 	}
 
 	control, err := newController(Config{
-		WMI: wmi,
+		WMI: dep.WMI,
 
 		Plugins: []plugin.Plugin{
-			volCtrl,
-			kbCtrl,
-			thermal,
+			dep.Keyboard,
+			dep.Volume,
+			dep.Thermal,
 		},
-		Registry: config,
+		Registry: dep.ConfigRegistry,
 
 		LogoPath:        conf.LogoPath,
 		EnabledFeatures: conf.EnabledFeatures,
@@ -126,8 +149,5 @@ func New(conf RunConfig) (*Runner, error) {
 		return nil, err
 	}
 
-	return &Runner{
-		Controller: control,
-		GRPCConfig: grpcConf,
-	}, nil
+	return control, nil
 }

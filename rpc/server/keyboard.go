@@ -61,6 +61,7 @@ func (k *KeyboardServer) Set(ctx context.Context, req *protocol.SetKeyboardBrigh
 	setError := k.control.SetBrightness(level)
 	if setError != nil {
 		resp.Success = false
+		resp.Brightness = toProtoLevel(k.control.CurrentBrightness())
 		resp.Message = setError.Error()
 	} else {
 		resp.Success = true
@@ -90,6 +91,7 @@ func (k *KeyboardServer) Change(ctx context.Context, req *protocol.ChangeKeyboar
 	resp := &protocol.KeyboardBrightnessResponse{}
 	if changeErr != nil {
 		resp.Success = false
+		resp.Brightness = toProtoLevel(k.control.CurrentBrightness())
 		resp.Message = changeErr.Error()
 	} else {
 		resp.Success = true

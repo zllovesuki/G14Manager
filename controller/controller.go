@@ -228,10 +228,7 @@ func (c *Controller) startPlugins(haltCtx context.Context) {
 func (c *Controller) Run(haltCtx context.Context) error {
 
 	ctx, cancel := context.WithCancel(haltCtx)
-	defer func() {
-		c.Config.Registry.Close()
-		cancel()
-	}()
+	defer cancel()
 
 	log.Println("[controller] Starting controller loop")
 

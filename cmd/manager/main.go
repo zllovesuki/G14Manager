@@ -15,6 +15,8 @@ import (
 
 	"github.com/zllovesuki/G14Manager/box"
 	"github.com/zllovesuki/G14Manager/controller"
+	"github.com/zllovesuki/G14Manager/rpc/protocol"
+	"github.com/zllovesuki/G14Manager/rpc/server"
 	"github.com/zllovesuki/G14Manager/util"
 
 	"cirello.io/oversight"
@@ -87,60 +89,55 @@ func main() {
 		DryRun: os.Getenv("DRY_RUN") != "",
 	}
 
-	reload := make(chan controller.GRPCConfig, 1)
-	grpcServer, err := controller.NewGRPCServer(reload)
+	dep, err := controller.GetDependencies(controllerConfig)
+	if err != nil {
+		log.Fatalf("[supervisor] cannot get dependencies\n")
+	}
+
+	reload := make(chan *controller.Dependencies, 1)
+	control := make(chan server.SupervisorRequest)
+	reload <- dep
+
+	grpcServer, err := controller.NewGRPCServer(controller.GRPCRunConfig{
+		ReloadCh:  reload,
+		RequestCh: control,
+	})
 	if err != nil {
 		log.Fatalf("[supervisor] cannot start gRPCServer: %+v\n", err)
 	}
 
-	supervisor := oversight.New(
-		oversight.WithRestartStrategy(oversight.OneForOne()),
-		oversight.Process(oversight.ChildProcessSpecification{
-			Name: "gRPCServer",
-			Start: func(ctx context.Context) error {
-				return grpcServer.Run(ctx)
-			},
-		}),
-		oversight.Process(oversight.ChildProcessSpecification{
-			Name: "Controller",
-			Start: func(ctx context.Context) error {
-				runner, err := controller.New(controllerConfig)
-				if err != nil {
-					return err
-				}
-				reload <- runner.GRPCConfig
-
-				return runner.Controller.Run(ctx)
-			},
-			Restart: func(err error) bool {
-				if err == nil {
-					return false
-				}
-				log.Println("[supervisor] controller returned an error:")
-				log.Printf("%+v\n", err)
-				util.SendToastNotification("G14Manager Supervisor", util.Notification{
-					Title:   "G14Manager will be restarted",
-					Message: fmt.Sprintf("An error has occurred: %s", err),
-				})
-				return true
-			},
-		}),
-	)
-
 	ctx, cancel := context.WithCancel(context.Background())
 
-	sigc := make(chan os.Signal, 1)
-	signal.Notify(
-		sigc,
-		syscall.SIGHUP,
-		syscall.SIGINT,
-		syscall.SIGTERM,
-		syscall.SIGQUIT,
+	/*
+		How the supervisor tree is structured:
+
+		root -> gRPCServer
+			\-> Controller
+
+		Since the gRPCServer controls the lifecycle of the Controller,
+		we need a two-way communication between the Supervisor tree and
+		the gRPC Manager Server (RequestCh).
+
+		Since the Controller initializes the hardware control functions,
+		gRPCServer managing the hardware functions neeed fresh instances
+		of those Controls, we will forward GPRCConfig from controller to
+		gRPCServer for hot reloading (ReloadCh).
+	*/
+
+	grpcTree := oversight.New(oversight.Process(getGRPCSpec(grpcServer)))
+	supervisor := oversight.New(
+		oversight.WithRestartStrategy(oversight.OneForOne()),
+		oversight.WithTree(grpcTree),
 	)
+	go grpcManagerResponder(ctx, grpcResponderOption{
+		Tree:             grpcTree,
+		ReloadCh:         reload,
+		RequestCh:        control,
+		ControllerConfig: controllerConfig,
+		Dependencies:     dep,
+	})
 
 	go func() {
-		log.Println("[supervisor] Monitoring controller")
-		log.Println("[supervisor] Monitoring grpc")
 		if err := supervisor.Start(ctx); err != nil {
 			util.SendToastNotification("G14Manager Supervisor", util.Notification{
 				Title:   "G14Manager cannot be started",
@@ -156,9 +153,86 @@ func main() {
 		log.Printf("[supervisor] pprof exit: %+v\n", srv.ListenAndServe())
 	}()
 
+	sigc := make(chan os.Signal, 1)
+	signal.Notify(
+		sigc,
+		syscall.SIGHUP,
+		syscall.SIGINT,
+		syscall.SIGTERM,
+		syscall.SIGQUIT,
+	)
+
 	<-sigc
 
-	srv.Shutdown(context.TODO())
+	srv.Shutdown(context.Background())
 	cancel()
+	dep.ConfigRegistry.Close()
 	time.Sleep(time.Second) // 1 second for grace period
+}
+
+func isControllerRunning(tree *oversight.Tree) bool {
+	for _, p := range tree.Children() {
+		if p.Name == controllerChildName && p.State == oversight.Running {
+			return true
+		}
+	}
+	return false
+}
+
+type grpcResponderOption struct {
+	Tree             *oversight.Tree
+	ReloadCh         chan *controller.Dependencies
+	RequestCh        chan server.SupervisorRequest
+	ControllerConfig controller.RunConfig
+	Dependencies     *controller.Dependencies
+}
+
+func grpcManagerResponder(haltCtx context.Context, opt grpcResponderOption) {
+	for {
+		select {
+		case s := <-opt.RequestCh:
+			switch s.Request {
+
+			case server.RequestStartController:
+				if isControllerRunning(opt.Tree) {
+					s.Response <- server.SupervisorResponse{
+						Error: fmt.Errorf("Controller is already running"),
+						State: protocol.ManagerControlResponse_RUNNING,
+					}
+					continue
+				}
+				controllerSpec := getControllerSpec(s, opt.ControllerConfig, opt.Dependencies)
+				opt.Tree.Add(controllerSpec)
+
+			case server.RequestStopController:
+				if isControllerRunning(opt.Tree) {
+					opt.Tree.Delete(controllerChildName)
+					s.Response <- server.SupervisorResponse{
+						Error: nil,
+						State: protocol.ManagerControlResponse_STOPPED,
+					}
+				} else {
+					s.Response <- server.SupervisorResponse{
+						Error: fmt.Errorf("Controller is not running"),
+						State: protocol.ManagerControlResponse_STOPPED,
+					}
+				}
+			case server.RequestCheckState:
+				if isControllerRunning(opt.Tree) {
+					s.Response <- server.SupervisorResponse{
+						Error: nil,
+						State: protocol.ManagerControlResponse_RUNNING,
+					}
+				} else {
+					s.Response <- server.SupervisorResponse{
+						Error: nil,
+						State: protocol.ManagerControlResponse_STOPPED,
+					}
+				}
+			}
+		case <-haltCtx.Done():
+			log.Println("[supervisor] exiting grpcManagerResponder")
+			return
+		}
+	}
 }

@@ -1,0 +1,25 @@
+syntax = "proto3";
+package protocol;
+
+option go_package = "github.com/zllovesuki/G14Manager/rpc/protocol";
+
+import "google/protobuf/empty.proto";
+
+service ManagerControl {
+  rpc GetCurrentState(google.protobuf.Empty) returns(ManagerControlResponse) {}
+  rpc Control(ManagerControlRequest) returns(ManagerControlResponse) {}
+}
+
+message ManagerControlRequest {
+  enum RequestState { STOP = 0; START = 1; }
+
+  RequestState State = 1;
+}
+
+message ManagerControlResponse {
+  enum CurrentState { STOPPED = 0; RUNNING = 1; }
+  bool Success = 1;
+  CurrentState State = 2;
+
+  string Message = 10;
+}

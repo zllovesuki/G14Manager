@@ -116,10 +116,6 @@ func main() {
 	case grpcStartErr := <-grpcStartErrCh:
 		log.Fatalf("[supervisor] Cannot start gRPC Server: %+v\n", grpcStartErr)
 	case <-time.After(time.Second * 2):
-		// This requires some explaination
-
-		reload <- dep // the first reload is to populate gRPC servers dependencies
-		time.Sleep(time.Millisecond * 500)
 		dep.ConfigRegistry.Load() // this is to load configurations from config registry
 		time.Sleep(time.Millisecond * 500)
 		reload <- dep // this will annouce configurations to annoucement.Updatable's

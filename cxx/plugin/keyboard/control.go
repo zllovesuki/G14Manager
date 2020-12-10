@@ -25,7 +25,7 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/zllovesuki/G14Manager/rpc/annoucement"
+	"github.com/zllovesuki/G14Manager/rpc/announcement"
 	"github.com/zllovesuki/G14Manager/system/shared"
 	"github.com/zllovesuki/G14Manager/system/device"
 	"github.com/zllovesuki/G14Manager/system/ioctl"
@@ -342,10 +342,10 @@ func (c *Control) EmulateKeyPress(keyCode uint16) error {
 	return nil
 }
 
-var _ annoucement.Updatable = &Control{}
+var _ announcement.Updatable = &Control{}
 
-func (c *Control) ConfigUpdate(u annoucement.Update) {
-	if u.Type != annoucement.FeaturesUpdate {
+func (c *Control) ConfigUpdate(u announcement.Update) {
+	if u.Type != announcement.FeaturesUpdate {
 		return
 	}
 

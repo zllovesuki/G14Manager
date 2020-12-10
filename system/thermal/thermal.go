@@ -25,12 +25,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/zllovesuki/G14Manager/rpc/annoucement"
-	"github.com/zllovesuki/G14Manager/system/shared"
+	"github.com/zllovesuki/G14Manager/rpc/announcement"
 	"github.com/zllovesuki/G14Manager/system/atkacpi"
 	"github.com/zllovesuki/G14Manager/system/persist"
 	"github.com/zllovesuki/G14Manager/system/plugin"
 	"github.com/zllovesuki/G14Manager/system/power"
+	"github.com/zllovesuki/G14Manager/system/shared"
 	"github.com/zllovesuki/G14Manager/util"
 )
 
@@ -369,22 +369,29 @@ func (c *Control) Close() error {
 	return c.wmi.Close()
 }
 
-var _ annoucement.Updatable = &Control{}
+var _ announcement.Updatable = &Control{}
 
-func (c *Control) ConfigUpdate(u annoucement.Update) {
-	if u.Type != annoucement.FeaturesUpdate {
-		return
-	}
-
+func (c *Control) ConfigUpdate(u announcement.Update) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	feats, ok := u.Config.(shared.Features)
-	if !ok {
-		return
+	switch u.Type {
+	case announcement.FeaturesUpdate:
+		feats, ok := u.Config.(shared.Features)
+		if !ok {
+			return
+		}
+
+		c.AutoThermal = feats.AutoThermal.Enabled
+		c.AutoThermalConfig.PluggedIn = feats.AutoThermal.PluggedIn
+		c.AutoThermalConfig.Unplugged = feats.AutoThermal.Unplugged
+	case announcement.ProfilesUpdate:
+		profiles, ok := u.Config.([]Profile)
+		if !ok {
+			return
+		}
+
+		c.Profiles = profiles
 	}
 
-	c.AutoThermal = feats.AutoThermal.Enabled
-	c.AutoThermalConfig.PluggedIn = feats.AutoThermal.PluggedIn
-	c.AutoThermalConfig.Unplugged = feats.AutoThermal.Unplugged
 }

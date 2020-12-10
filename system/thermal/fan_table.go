@@ -52,6 +52,9 @@ func NewFanTable(curve string) (*FanTable, error) {
 
 // Bytes returns the binary representation of the table
 func (f *FanTable) Bytes() []byte {
+	if f == nil {
+		return nil
+	}
 	b := make([]byte, 16)
 	copy(b, f.ByteTable)
 	return b
@@ -59,6 +62,9 @@ func (f *FanTable) Bytes() []byte {
 
 // String() returns the original fan curve in string reprensentation
 func (f *FanTable) String() string {
+	if f == nil {
+		return ""
+	}
 	b := f.ByteTable
 	return fmt.Sprintf("%dc:%d%%,%dc:%d%%,%dc:%d%%,%dc:%d%%,%dc:%d%%,%dc:%d%%,%dc:%d%%,%dc:%d%%",
 		b[0],

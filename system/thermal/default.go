@@ -1,7 +1,5 @@
 package thermal
 
-import "strings"
-
 // GetDefaultThermalProfiles will return the default list of Profiles
 func GetDefaultThermalProfiles() []Profile {
 	defaultProfiles := make([]Profile, 0, 3)
@@ -53,7 +51,7 @@ func GetDefaultThermalProfiles() []Profile {
 		profile := Profile{
 			Name:             d.name,
 			ThrottlePlan:     d.throttlePlan,
-			WindowsPowerPlan: strings.ToLower(d.windowsPowerPlan),
+			WindowsPowerPlan: d.windowsPowerPlan,
 		}
 		if d.cpuFanCurve != "" {
 			cpuTable, err = NewFanTable(d.cpuFanCurve)

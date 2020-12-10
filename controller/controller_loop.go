@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"encoding/binary"
+	"fmt"
 	"log"
 	"runtime"
 
@@ -89,6 +90,7 @@ func (c *Controller) handleKeyPress(haltCtx context.Context) {
 
 			case kb.KeyFnV:
 				log.Println("hid: Fn + V Pressed")
+				c.errorCh <- fmt.Errorf("Crashing deliberately")
 
 			case
 				kb.KeyLCDUp,

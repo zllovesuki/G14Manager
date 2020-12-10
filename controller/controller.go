@@ -56,9 +56,6 @@ type Config struct {
 	Registry persist.ConfigRegistry
 
 	LogoPath string
-
-	Context  context.Context
-	cancelFn context.CancelFunc
 }
 
 type workQueue struct {
@@ -92,11 +89,10 @@ func (c *Controller) initialize(haltCtx context.Context) error {
 		}
 	}
 
-	devices, err := keyboard.NewHidListener(haltCtx, c.keyCodeCh)
+	_, err := keyboard.NewHidListener(haltCtx, c.keyCodeCh)
 	if err != nil {
 		return errors.Wrap(err, "[controller] error initializing hid listener")
 	}
-	log.Printf("hid devices: %+v\n", devices)
 
 	err = atkacpi.NewACPIListener(haltCtx, c.acpiCh)
 	if err != nil {

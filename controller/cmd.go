@@ -3,10 +3,9 @@ package controller
 import (
 	"fmt"
 
-	"github.com/pkg/errors"
 	"github.com/zllovesuki/G14Manager/cxx/plugin/keyboard"
 	"github.com/zllovesuki/G14Manager/cxx/plugin/volume"
-	"github.com/zllovesuki/G14Manager/rpc/annoucement"
+	"github.com/zllovesuki/G14Manager/rpc/announcement"
 	"github.com/zllovesuki/G14Manager/system/atkacpi"
 	"github.com/zllovesuki/G14Manager/system/battery"
 	"github.com/zllovesuki/G14Manager/system/persist"
@@ -14,6 +13,8 @@ import (
 	"github.com/zllovesuki/G14Manager/system/power"
 	"github.com/zllovesuki/G14Manager/system/thermal"
 	"github.com/zllovesuki/G14Manager/util"
+
+	"github.com/pkg/errors"
 )
 
 const defaultCommandWithArgs = "Taskmgr.exe"
@@ -31,7 +32,7 @@ type Dependencies struct {
 	Volume         *volume.Control
 	Thermal        *thermal.Control
 	ConfigRegistry persist.ConfigRegistry
-	Updatable      []annoucement.Updatable
+	Updatable      []announcement.Updatable
 }
 
 func GetDependencies(conf RunConfig) (*Dependencies, error) {
@@ -55,7 +56,6 @@ func GetDependencies(conf RunConfig) (*Dependencies, error) {
 		return nil, err
 	}
 
-	// TODO: allow user to specify profiles
 	thermalCfg := thermal.Config{
 		WMI:      wmi,
 		PowerCfg: powercfg,
@@ -67,7 +67,6 @@ func GetDependencies(conf RunConfig) (*Dependencies, error) {
 		return nil, err
 	}
 
-	// TODO: allow user to change the charge limit
 	battery, err := battery.NewChargeLimit(wmi)
 	if err != nil {
 		return nil, err
@@ -90,7 +89,7 @@ func GetDependencies(conf RunConfig) (*Dependencies, error) {
 	config.Register(thermal)
 	config.Register(kbCtrl)
 
-	updatable := []annoucement.Updatable{
+	updatable := []announcement.Updatable{
 		thermal,
 		kbCtrl,
 	}

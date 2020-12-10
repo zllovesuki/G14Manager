@@ -104,7 +104,6 @@ func (s *Server) IsCompletable() bool {
 }
 
 func (s *Server) Stop() {
-	log.Println("[grpc] stopper grpc server")
 	s.cancelFn()
 }
 

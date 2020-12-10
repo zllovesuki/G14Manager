@@ -8,7 +8,7 @@ import (
 	"log"
 	"sync"
 
-	"github.com/zllovesuki/G14Manager/rpc/annoucement"
+	"github.com/zllovesuki/G14Manager/rpc/announcement"
 	"github.com/zllovesuki/G14Manager/rpc/protocol"
 	"github.com/zllovesuki/G14Manager/system/keyboard"
 	"github.com/zllovesuki/G14Manager/system/persist"
@@ -20,21 +20,21 @@ import (
 )
 
 const (
-	featuresPersistName = "Features"
+	featuresPersistName = "Configs"
 )
 
 type ConfigListServer struct {
 	protocol.UnimplementedConfigListServer
 
 	mu        sync.RWMutex
-	updatable []annoucement.Updatable
+	updatable []announcement.Updatable
 	features  shared.Features
 	profiles  []thermal.Profile
 }
 
 var _ protocol.ConfigListServer = &ConfigListServer{}
 
-func RegisterConfigListServer(s *grpc.Server, u []annoucement.Updatable) *ConfigListServer {
+func RegisterConfigListServer(s *grpc.Server, u []announcement.Updatable) *ConfigListServer {
 	server := &ConfigListServer{
 		updatable: u,
 		// sensible defaults
@@ -54,7 +54,7 @@ func RegisterConfigListServer(s *grpc.Server, u []annoucement.Updatable) *Config
 	return server
 }
 
-func (f *ConfigListServer) GetCurrentList(ctx context.Context, req *emptypb.Empty) (*protocol.SetConfigsResponse, error) {
+func (f *ConfigListServer) GetCurrentConfigs(ctx context.Context, req *emptypb.Empty) (*protocol.SetConfigsResponse, error) {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
 
@@ -194,9 +194,11 @@ func (f *ConfigListServer) Set(ctx context.Context, req *protocol.SetConfigsRequ
 	}
 
 	if newFeatures != nil {
+		fmt.Println("[grpc] updating features config")
 		f.features = *newFeatures
 	}
 	if len(newProfiles) > 0 {
+		fmt.Println("[grpc] updating profiles config")
 		f.profiles = newProfiles
 	}
 
@@ -209,12 +211,12 @@ func (f *ConfigListServer) Set(ctx context.Context, req *protocol.SetConfigsRequ
 }
 
 func (f *ConfigListServer) annouceConfigs() {
-	featsUpdate := annoucement.Update{
-		Type:   annoucement.FeaturesUpdate,
+	featsUpdate := announcement.Update{
+		Type:   announcement.FeaturesUpdate,
 		Config: f.features,
 	}
-	profilesUpdate := annoucement.Update{
-		Type:   annoucement.ProfilesUpdate,
+	profilesUpdate := announcement.Update{
+		Type:   announcement.ProfilesUpdate,
 		Config: f.profiles,
 	}
 	for _, updatable := range f.updatable {
@@ -225,7 +227,7 @@ func (f *ConfigListServer) annouceConfigs() {
 	}
 }
 
-func (f *ConfigListServer) HotReload(u []annoucement.Updatable) {
+func (f *ConfigListServer) HotReload(u []announcement.Updatable) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
@@ -241,13 +243,21 @@ func (f *ConfigListServer) Name() string {
 	return featuresPersistName
 }
 
+type persistMap struct {
+	Features shared.Features
+	Profiles []thermal.Profile
+}
+
 func (f *ConfigListServer) Value() []byte {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
 
 	var buf bytes.Buffer
 	enc := gob.NewEncoder(&buf)
-	if err := enc.Encode(f.features); err != nil {
+	if err := enc.Encode(persistMap{
+		Features: f.features,
+		Profiles: f.profiles,
+	}); err != nil {
 		return nil
 	}
 
@@ -262,14 +272,15 @@ func (f *ConfigListServer) Load(v []byte) error {
 		return nil
 	}
 
-	var feat shared.Features
+	var p persistMap
 	buf := bytes.NewBuffer(v)
 	dec := gob.NewDecoder(buf)
-	if err := dec.Decode(&feat); err != nil {
+	if err := dec.Decode(&p); err != nil {
 		return err
 	}
 
-	f.features = feat
+	f.features = p.Features
+	f.profiles = p.Profiles
 
 	return nil
 }

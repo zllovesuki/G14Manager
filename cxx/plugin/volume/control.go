@@ -64,6 +64,7 @@ func (c *Control) loop(haltCtx context.Context, cb chan<- plugin.Callback) {
 				c.errChan <- c.ToggleMuted()
 			}
 		case <-haltCtx.Done():
+			log.Println("volCtrl: exiting Plugin run loop")
 			return
 		}
 	}
@@ -100,7 +101,7 @@ func (c *Control) doCheckMute() error {
 	case -1:
 		return fmt.Errorf("Cannot check microphone muted status")
 	default:
-		c.isMuted = ret == 1
+		c.isMuted = int(ret) == 1
 		log.Printf("wca: current microphone mute is %v\n", c.isMuted)
 		return nil
 	}
@@ -124,10 +125,10 @@ func (c *Control) ToggleMuted() error {
 	defer runtime.UnlockOSThread()
 
 	var to int
-	if c.isMuted {
+	if !c.isMuted {
 		to = 1
 	}
-	log.Printf("wca: setting microphone mute to %t\n", c.isMuted)
+	log.Printf("wca: setting microphone mute to %t\n", to == 1)
 	ret := C.SetMicrophoneMute(0, C.int(to))
 	switch ret {
 	case -1:

@@ -21,8 +21,9 @@ const defaultCommandWithArgs = "Taskmgr.exe"
 
 // RunConfig contains the start up configuration for the controller
 type RunConfig struct {
-	DryRun   bool
-	LogoPath string
+	DryRun     bool
+	LogoPath   string
+	NotifierCh chan util.Notification
 }
 
 type Dependencies struct {
@@ -112,10 +113,13 @@ func New(conf RunConfig, dep *Dependencies) (*Controller, chan error, error) {
 		return nil, nil, fmt.Errorf("nil Dependencies is invalid")
 	}
 	if dep.WMI == nil {
-		return nil, nil, errors.New("[controller] nil WMI is invalid")
+		return nil, nil, errors.New("nil WMI is invalid")
 	}
 	if dep.ConfigRegistry == nil {
-		return nil, nil, errors.New("[controller] nil Registry is invalid")
+		return nil, nil, errors.New("nil Registry is invalid")
+	}
+	if conf.NotifierCh == nil {
+		return nil, nil, errors.New("nil NotifierCh is invalid")
 	}
 
 	startErrorCh := make(chan error, 1)
@@ -131,12 +135,12 @@ func New(conf RunConfig, dep *Dependencies) (*Controller, chan error, error) {
 			Registry: dep.ConfigRegistry,
 
 			LogoPath: conf.LogoPath,
+			Notifier: conf.NotifierCh,
 		},
 
-		notifyQueueCh: make(chan util.Notification, 10),
-		workQueueCh:   make(map[uint32]workQueue, 1),
-		errorCh:       make(chan error),
-		startErrorCh:  startErrorCh,
+		workQueueCh:  make(map[uint32]workQueue, 1),
+		errorCh:      make(chan error),
+		startErrorCh: startErrorCh,
 
 		keyCodeCh:  make(chan uint32, 1),
 		acpiCh:     make(chan uint32, 1),

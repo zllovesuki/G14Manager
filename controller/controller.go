@@ -22,10 +22,6 @@ const (
 )
 
 const (
-	appName = "G14Manager"
-)
-
-const (
 	fnPersistConfigs = iota // for debouncing persisting to Registry
 	fnCheckCharger          // for debouncing power input change acpi event
 	fnApplyConfigs          // for loading and re-applying configurations
@@ -57,6 +53,7 @@ type Config struct {
 	Registry persist.ConfigRegistry
 
 	LogoPath string
+	Notifier chan<- util.Notification
 }
 
 type workQueue struct {
@@ -68,10 +65,9 @@ type workQueue struct {
 type Controller struct {
 	Config
 
-	notifyQueueCh chan util.Notification
-	workQueueCh   map[uint32]workQueue
-	errorCh       chan error
-	startErrorCh  chan error
+	workQueueCh  map[uint32]workQueue
+	errorCh      chan error
+	startErrorCh chan error
 
 	keyCodeCh  chan uint32
 	acpiCh     chan uint32
@@ -202,7 +198,6 @@ func (c *Controller) Serve(haltCtx context.Context) error {
 
 	// defined in controller_loop.go
 	go c.handlePluginCallback(haltCtx)
-	go c.handleNotify(haltCtx)
 	go c.handleWorkQueue(haltCtx)
 	go c.handlePowerEvent(haltCtx)
 	go c.handleACPINotification(haltCtx)

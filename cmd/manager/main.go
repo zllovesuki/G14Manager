@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"io/ioutil"
 	"log"
 	"net/http"
 	_ "net/http/pprof"
@@ -11,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/zllovesuki/G14Manager/background"
 	"github.com/zllovesuki/G14Manager/box"
 	"github.com/zllovesuki/G14Manager/controller"
 	"github.com/zllovesuki/G14Manager/controller/supervisor"
@@ -22,7 +22,7 @@ import (
 
 // Compile time injected variables
 var (
-	Version = "dev"
+	Version = "v0.0.0-dev"
 	IsDebug = "yes"
 )
 
@@ -40,33 +40,24 @@ func main() {
 
 	log.Printf("G14Manager version: %s\n", Version)
 
-	var logoPath string
-	logoPng := box.Get("/Logo.png")
-	if logoPng != nil {
-		logoFile, err := ioutil.TempFile(os.TempDir(), "G14Manager-")
-		if err != nil {
-			log.Fatal("[supervisor] Cannot create temporary file for logo", err)
-		}
-		defer func() {
-			time.Sleep(time.Second)
-			os.Remove(logoFile.Name())
-		}()
+	asset := box.GetAssetExtractor()
+	defer asset.Close()
 
-		if _, err = logoFile.Write(logoPng); err != nil {
-			log.Fatal("[supervisor] Failed to write to temporary file for logo", err)
-		}
+	notifier := background.NewNotifier()
 
-		if err := logoFile.Close(); err != nil {
-			log.Fatal(err)
-		}
-
-		logoPath = logoFile.Name()
-		log.Printf("[supervisor] Logo extracted to %s\n", logoPath)
+	versionChecker, err := background.NewVersionCheck(Version, "zllovesuki/G14Manager", notifier.C)
+	if err != nil {
+		log.Fatalf("[supervisor] cannot get version checker")
 	}
 
+	backgroundSupervisor := suture.New("backgroundSupervisor", suture.Spec{})
+	backgroundSupervisor.Add(versionChecker)
+	backgroundSupervisor.Add(notifier)
+
 	controllerConfig := controller.RunConfig{
-		LogoPath: logoPath,
-		DryRun:   os.Getenv("DRY_RUN") != "",
+		LogoPath:   asset.Get("/Logo.png"),
+		DryRun:     os.Getenv("DRY_RUN") != "",
+		NotifierCh: notifier.C,
 	}
 
 	dep, err := controller.GetDependencies(controllerConfig)
@@ -81,7 +72,7 @@ func main() {
 		Dependencies: dep,
 	})
 	if err != nil {
-		log.Fatalf("[supervisor] cannot start gRPCServer: %+v\n", err)
+		log.Fatalf("[supervisor] cannot create gRPCServer: %+v\n", err)
 	}
 
 	grpcSupervisor := suture.New("gRPCSupervisor", suture.Spec{})
@@ -100,32 +91,39 @@ func main() {
 		How the supervisor tree is structured:
 		(gRPCSupervisor: controller/supervisor)
 
-
-		                               rootSupervisor
-		                               /---    ---\
-		                        /------           -------\
-		                    ----                          ----
-		            gRPCSupervisor                     backgroundSupervisor
-		             /--  |    --\                             |
-		         /---     |       ---\                         |
-		      ---         |           --                       |
-		 gRPCServer       |     ManagerResponder         versionChecker
-		                  |
-		                  |
-		         controllerSupervisor
-		                  |
-		                  |
-		                  |
-		             Controller (runs plugins, etc)
+								rootSupervisor
+									+    +
+									|    |
+									|    |
+				gRPCSupervisor  +---+    +---+   backgroundSupervisor
+				+ + +                            + +
+				| | |                            | |
+				| | +-> gRPCServer               | +-> versionChecker
+				| |                              |
+				| |                              |
+				| +---> ManagerResponder         +---> toastNotifier
+				|
+				|
+				+-----> controllerSupervisor
+							+
+							|
+							+-> Controller
 
 		Since the gRPCServer can control the lifecycle of the Controller,
 		we need a two-way communication between the gRPCSupervisor and
-		the gRPC Manager Server (RequestCh).
+		the gRPC Manager Server (ManagerReqCh).
 
 	*/
 
-	rootSupervisor := suture.New("Supervisor", suture.Spec{})
+	evtHook := &supervisor.EventHook{
+		Notifier: notifier.C,
+	}
+
+	rootSupervisor := suture.New("Supervisor", suture.Spec{
+		EventHook: evtHook.Event,
+	})
 	rootSupervisor.Add(grpcSupervisor)
+	rootSupervisor.Add(backgroundSupervisor)
 
 	rootSupervisor.ServeBackground(ctx)
 

@@ -5,6 +5,7 @@ build/
 rnd/
 .vscode
 box/blob.go
+s/
 
 *.rsuser
 *.suo

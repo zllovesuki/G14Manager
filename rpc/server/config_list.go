@@ -202,7 +202,7 @@ func (f *ConfigListServer) Set(ctx context.Context, req *protocol.SetConfigsRequ
 		f.profiles = newProfiles
 	}
 
-	f.annouceConfigs()
+	f.announceConfigs()
 
 	return &protocol.SetConfigsResponse{
 		Success: true,
@@ -210,7 +210,7 @@ func (f *ConfigListServer) Set(ctx context.Context, req *protocol.SetConfigsRequ
 	}, nil
 }
 
-func (f *ConfigListServer) annouceConfigs() {
+func (f *ConfigListServer) announceConfigs() {
 	featsUpdate := announcement.Update{
 		Type:   announcement.FeaturesUpdate,
 		Config: f.features,
@@ -234,7 +234,7 @@ func (f *ConfigListServer) HotReload(u []announcement.Updatable) {
 	log.Println("[grpc] hot reloading features server")
 
 	f.updatable = u
-	f.annouceConfigs()
+	f.announceConfigs()
 }
 
 var _ persist.Registry = &ConfigListServer{}
@@ -289,7 +289,7 @@ func (f *ConfigListServer) Apply() error {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
 
-	f.annouceConfigs()
+	f.announceConfigs()
 
 	return nil
 }

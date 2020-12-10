@@ -1,4 +1,4 @@
-package controller
+package supervisor
 
 import (
 	"context"
@@ -6,17 +6,19 @@ import (
 	"log"
 	"time"
 
-	"github.com/thejerf/suture"
 	"github.com/zllovesuki/G14Manager/rpc/protocol"
+	"github.com/zllovesuki/G14Manager/controller"
 	"github.com/zllovesuki/G14Manager/rpc/server"
+
+	"github.com/thejerf/suture"
 )
 
 type ManagerResponderOption struct {
 	Supervisor       *suture.Supervisor
-	ReloadCh         chan *Dependencies
-	Dependencies     *Dependencies
+	ReloadCh         chan *controller.Dependencies
+	Dependencies     *controller.Dependencies
 	ManagerReqCh     chan server.ManagerSupervisorRequest
-	ControllerConfig RunConfig
+	ControllerConfig controller.RunConfig
 
 	childToken        suture.ServiceToken
 	controllerRunning bool
@@ -64,7 +66,7 @@ func doStartController(s server.ManagerSupervisorRequest, opt *ManagerResponderO
 		return
 	}
 
-	control, controllerStartErrCh, err := New(opt.ControllerConfig, opt.Dependencies)
+	control, controllerStartErrCh, err := controller.New(opt.ControllerConfig, opt.Dependencies)
 	if err != nil {
 		s.Response <- server.ManagerSupervisorResponse{
 			Error: err,

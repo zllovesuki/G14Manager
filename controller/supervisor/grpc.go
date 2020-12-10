@@ -1,4 +1,4 @@
-package controller
+package supervisor
 
 import (
 	"context"
@@ -6,6 +6,7 @@ import (
 	"log"
 	"net"
 
+	"github.com/zllovesuki/G14Manager/controller"
 	"github.com/zllovesuki/G14Manager/rpc/server"
 
 	"google.golang.org/grpc"
@@ -19,7 +20,7 @@ type servers struct {
 }
 
 type Server struct {
-	reload        <-chan *Dependencies
+	reload        <-chan *controller.Dependencies
 	errorCh       chan error
 	server        *grpc.Server
 	servers       servers
@@ -30,7 +31,7 @@ type Server struct {
 }
 
 type GRPCRunConfig struct {
-	ReloadCh     <-chan *Dependencies
+	ReloadCh     <-chan *controller.Dependencies
 	ManagerReqCh chan server.ManagerSupervisorRequest
 }
 
@@ -107,7 +108,7 @@ func (s *Server) Stop() {
 	s.cancelFn()
 }
 
-func (s *Server) hotReload(dep *Dependencies) {
+func (s *Server) hotReload(dep *controller.Dependencies) {
 	s.servers.Battery.HotReload(dep.Battery)
 	s.servers.Keyboard.HotReload(dep.Keyboard)
 	s.servers.Configs.HotReload(dep.Updatable)

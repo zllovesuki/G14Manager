@@ -13,6 +13,7 @@ import (
 
 	"github.com/zllovesuki/G14Manager/box"
 	"github.com/zllovesuki/G14Manager/controller"
+	"github.com/zllovesuki/G14Manager/controller/supervisor"
 	"github.com/zllovesuki/G14Manager/rpc/server"
 
 	"github.com/thejerf/suture"
@@ -76,7 +77,7 @@ func main() {
 	reload := make(chan *controller.Dependencies, 1)
 	managerCtrl := make(chan server.ManagerSupervisorRequest, 1)
 
-	grpcServer, grpcStartErrCh, err := controller.NewGRPCServer(controller.GRPCRunConfig{
+	grpcServer, grpcStartErrCh, err := supervisor.NewGRPCServer(supervisor.GRPCRunConfig{
 		ReloadCh:     reload,
 		ManagerReqCh: managerCtrl,
 	})
@@ -84,20 +85,20 @@ func main() {
 		log.Fatalf("[supervisor] cannot start gRPCServer: %+v\n", err)
 	}
 
-	supervisor := suture.New("gRPCServer", suture.Spec{
+	rootSupervisor := suture.New("gRPCServer", suture.Spec{
 		Log: func(msg string) {
 			log.Printf("[supervisor] %s\n", msg)
 		},
 	})
-	supervisor.Add(grpcServer)
+	rootSupervisor.Add(grpcServer)
 
 	ctx, cancel := context.WithCancel(context.Background())
 
 	/*
 		How the supervisor tree is structured:
 
-		root -> gRPCServer
-					\-> Controller
+		rootSupervisor -> gRPCServer
+							\-> Controller
 
 		Since the gRPCServer can control the lifecycle of the Controller,
 		we need a two-way communication between the Supervisor tree and
@@ -109,7 +110,7 @@ func main() {
 		for hot reloading (ReloadCh).
 	*/
 
-	supervisor.ServeBackground()
+	rootSupervisor.ServeBackground()
 
 	select {
 	case grpcStartErr := <-grpcStartErrCh:
@@ -124,8 +125,8 @@ func main() {
 		reload <- dep // this will annouce configurations to annoucement.Updatable's
 	}
 
-	go controller.ManagerResponder(ctx, controller.ManagerResponderOption{
-		Supervisor:       supervisor,
+	go supervisor.ManagerResponder(ctx, supervisor.ManagerResponderOption{
+		Supervisor:       rootSupervisor,
 		ReloadCh:         reload,
 		Dependencies:     dep,
 		ManagerReqCh:     managerCtrl,
@@ -150,7 +151,7 @@ func main() {
 	<-sigc
 
 	cancel()
-	supervisor.Stop()
+	rootSupervisor.Stop()
 	srv.Shutdown(context.Background())
 	dep.ConfigRegistry.Close()
 	time.Sleep(time.Second) // 1 second for grace period

@@ -3,8 +3,6 @@ package controller
 import (
 	"context"
 	"log"
-	"os/exec"
-	"syscall"
 	"time"
 
 	"github.com/zllovesuki/G14Manager/system/atkacpi"
@@ -50,12 +48,6 @@ func (c chargerStatus) String() string {
 	return [...]string{"Plugged In", "Unplugged"}[c]
 }
 
-// Features contains feature flags
-type Features struct {
-	FnRemap            bool
-	AutoThermalProfile bool
-}
-
 // Config contains the configurations for the controller
 type Config struct {
 	WMI atkacpi.WMI
@@ -63,9 +55,7 @@ type Config struct {
 	Plugins  []plugin.Plugin
 	Registry persist.ConfigRegistry
 
-	LogoPath        string
-	EnabledFeatures Features
-	ROGKey          []string
+	LogoPath string
 
 	Context  context.Context
 	cancelFn context.CancelFunc
@@ -178,10 +168,10 @@ func (c *Controller) initialize(haltCtx context.Context) error {
 	// seed the channel so we get the the charger status
 	c.workQueueCh[fnCheckCharger].noisy <- true // indicating initial (startup) check
 
-	c.notifyQueueCh <- util.Notification{
-		Title:   "Settings Loaded from Registry",
-		Message: "Enjoy your bloat-free G14",
-	}
+	// c.notifyQueueCh <- util.Notification{
+	// 	Title:   "Settings Loaded from Registry",
+	// 	Message: "Enjoy your bloat-free G14",
+	// }
 
 	return nil
 }
@@ -232,6 +222,9 @@ func (c *Controller) Serve() {
 	for {
 		select {
 		case <-c.ctx.Done():
+			if err := c.Registry.Save(); err != nil {
+				log.Printf("[controller] unable to save to config registry: %+v\n", err)
+			}
 			log.Println("[controller] exiting Run loop")
 			return
 		case err := <-c.errorCh:
@@ -247,10 +240,4 @@ func (c *Controller) IsCompletable() bool {
 
 func (c *Controller) Stop() {
 	c.cancelFn()
-}
-
-func run(commands ...string) error {
-	cmd := exec.Command(commands[0], commands[1:]...)
-	cmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: 0x08000000}
-	return cmd.Start()
 }

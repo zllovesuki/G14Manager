@@ -6,9 +6,9 @@ import (
 	"github.com/pkg/errors"
 	"github.com/zllovesuki/G14Manager/cxx/plugin/keyboard"
 	"github.com/zllovesuki/G14Manager/cxx/plugin/volume"
+	"github.com/zllovesuki/G14Manager/rpc/annoucement"
 	"github.com/zllovesuki/G14Manager/system/atkacpi"
 	"github.com/zllovesuki/G14Manager/system/battery"
-	kb "github.com/zllovesuki/G14Manager/system/keyboard"
 	"github.com/zllovesuki/G14Manager/system/persist"
 	"github.com/zllovesuki/G14Manager/system/plugin"
 	"github.com/zllovesuki/G14Manager/system/power"
@@ -20,10 +20,8 @@ const defaultCommandWithArgs = "Taskmgr.exe"
 
 // RunConfig contains the start up configuration for the controller
 type RunConfig struct {
-	RogRemap        util.ArrayFlags
-	DryRun          bool
-	EnabledFeatures Features
-	LogoPath        string
+	DryRun   bool
+	LogoPath string
 }
 
 type Dependencies struct {
@@ -33,6 +31,7 @@ type Dependencies struct {
 	Volume         *volume.Control
 	Thermal        *thermal.Control
 	ConfigRegistry persist.ConfigRegistry
+	Updatable      []annoucement.Updatable
 }
 
 func GetDependencies(conf RunConfig) (*Dependencies, error) {
@@ -58,17 +57,9 @@ func GetDependencies(conf RunConfig) (*Dependencies, error) {
 
 	// TODO: allow user to specify profiles
 	thermalCfg := thermal.Config{
-		WMI:         wmi,
-		PowerCfg:    powercfg,
-		Profiles:    thermal.GetDefaultThermalProfiles(),
-		AutoThermal: conf.EnabledFeatures.AutoThermalProfile,
-		AutoThermalConfig: struct {
-			PluggedIn string
-			Unplugged string
-		}{
-			PluggedIn: "Performance",
-			Unplugged: "Silent",
-		},
+		WMI:      wmi,
+		PowerCfg: powercfg,
+		Profiles: thermal.GetDefaultThermalProfiles(),
 	}
 
 	thermal, err := thermal.NewControl(thermalCfg)
@@ -82,14 +73,9 @@ func GetDependencies(conf RunConfig) (*Dependencies, error) {
 		return nil, err
 	}
 
-	remap := make(map[uint32]uint16)
-	if conf.EnabledFeatures.FnRemap {
-		remap[kb.KeyFnLeft] = kb.KeyPgUp
-		remap[kb.KeyFnRight] = kb.KeyPgDown
-	}
 	kbCtrl, err := keyboard.NewControl(keyboard.Config{
 		DryRun: conf.DryRun,
-		Remap:  remap,
+		RogKey: []string{"Taskmgr.exe"},
 	})
 	if err != nil {
 		return nil, err
@@ -104,6 +90,11 @@ func GetDependencies(conf RunConfig) (*Dependencies, error) {
 	config.Register(thermal)
 	config.Register(kbCtrl)
 
+	updatable := []annoucement.Updatable{
+		thermal,
+		kbCtrl,
+	}
+
 	return &Dependencies{
 		WMI:            wmi,
 		Keyboard:       kbCtrl,
@@ -111,6 +102,7 @@ func GetDependencies(conf RunConfig) (*Dependencies, error) {
 		Volume:         volCtrl,
 		Thermal:        thermal,
 		ConfigRegistry: config,
+		Updatable:      updatable,
 	}, nil
 }
 
@@ -120,11 +112,6 @@ func New(conf RunConfig, dep *Dependencies) (*Controller, chan error, error) {
 	if dep == nil {
 		return nil, nil, fmt.Errorf("nil Dependencies is invalid")
 	}
-
-	if len(conf.RogRemap) == 0 {
-		conf.RogRemap = []string{defaultCommandWithArgs}
-	}
-
 	if dep.WMI == nil {
 		return nil, nil, errors.New("[controller] nil WMI is invalid")
 	}
@@ -144,9 +131,7 @@ func New(conf RunConfig, dep *Dependencies) (*Controller, chan error, error) {
 			},
 			Registry: dep.ConfigRegistry,
 
-			LogoPath:        conf.LogoPath,
-			EnabledFeatures: conf.EnabledFeatures,
-			ROGKey:          conf.RogRemap,
+			LogoPath: conf.LogoPath,
 		},
 
 		notifyQueueCh: make(chan util.Notification, 10),

@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"log"
 	"sync"
 
 	"github.com/zllovesuki/G14Manager/cxx/plugin/keyboard"
@@ -103,6 +104,8 @@ func (k *KeyboardServer) Change(ctx context.Context, req *protocol.ChangeKeyboar
 func (k *KeyboardServer) HotReload(ctrl *keyboard.Control) {
 	k.mu.Lock()
 	defer k.mu.Unlock()
+
+	log.Println("[grpc] hot reloading keyboard server")
 
 	k.control = ctrl
 }

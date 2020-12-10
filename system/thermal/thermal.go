@@ -25,6 +25,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/zllovesuki/G14Manager/rpc/annoucement"
+	"github.com/zllovesuki/G14Manager/shared"
 	"github.com/zllovesuki/G14Manager/system/atkacpi"
 	"github.com/zllovesuki/G14Manager/system/persist"
 	"github.com/zllovesuki/G14Manager/system/plugin"
@@ -38,9 +40,9 @@ const (
 
 // TODO: validate these constants are actually what they say they are
 const (
-	throttlePlanPerformance uint32 = 0x00
-	throttlePlanTurbo       uint32 = 0x01
-	throttlePlanSilent      uint32 = 0x02
+	ThrottlePlanPerformance uint32 = 0x00
+	ThrottlePlanTurbo       uint32 = 0x01
+	ThrottlePlanSilent      uint32 = 0x02
 )
 
 // Profile contain each thermal profile definition
@@ -49,8 +51,8 @@ type Profile struct {
 	Name             string
 	WindowsPowerPlan string
 	ThrottlePlan     uint32
-	CPUFanCurve      *fanTable
-	GPUFanCurve      *fanTable
+	CPUFanCurve      *FanTable
+	GPUFanCurve      *FanTable
 }
 
 // Control defines contains the Windows Power Option and list of thermal profiles
@@ -365,4 +367,24 @@ func (c *Control) Close() error {
 	defer c.mu.Unlock()
 
 	return c.wmi.Close()
+}
+
+var _ annoucement.Updatable = &Control{}
+
+func (c *Control) ConfigUpdate(u annoucement.Update) {
+	if u.Type != annoucement.FeaturesUpdate {
+		return
+	}
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	feats, ok := u.Config.(shared.Features)
+	if !ok {
+		return
+	}
+
+	c.AutoThermal = feats.AutoThermal.Enabled
+	c.AutoThermalConfig.PluggedIn = feats.AutoThermal.PluggedIn
+	c.AutoThermalConfig.Unplugged = feats.AutoThermal.Unplugged
 }

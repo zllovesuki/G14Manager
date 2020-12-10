@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"log"
 	"sync"
 
 	"github.com/zllovesuki/G14Manager/rpc/protocol"
@@ -72,6 +73,8 @@ func (b *BatteryServer) Set(ctx context.Context, req *protocol.SetBatteryLimitRe
 func (b *BatteryServer) HotReload(ctrl *battery.ChargeLimit) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
+
+	log.Println("[grpc] hot reloading battery server")
 
 	b.control = ctrl
 }

@@ -1,0 +1,49 @@
+syntax = "proto3";
+package protocol;
+
+option go_package = "github.com/zllovesuki/G14Manager/rpc/protocol";
+
+import "google/protobuf/empty.proto";
+
+service ConfigList {
+  rpc GetCurrentConfigs(google.protobuf.Empty) returns(SetConfigsResponse) {}
+  rpc Set(SetConfigsRequest) returns(SetConfigsResponse) {}
+}
+
+message AutoThermal {
+  bool Enabled = 1;
+  string PluggedInProfile = 2;
+  string UnpluggedProfile = 3;
+}
+
+message Features {
+  AutoThermal AutoThermal = 1;
+  map<uint32, uint32> FnRemap = 2;
+
+  repeated string RogRemap = 10;
+}
+
+message Profile {
+  enum ThrottleValue { PERFORMANCE = 0; TURBO = 1; SILENT = 2; }
+
+  string WindowsPowerPlan = 1;
+  ThrottleValue ThrottlePlan = 2;
+  string CPUFanCurve = 3;
+  string GPUFanCurve = 4;
+
+  string Name = 10;
+}
+
+message Configs {
+  Features Features = 1;
+  repeated Profile Profiles = 2;
+}
+
+message SetConfigsRequest { Configs Configs = 1; }
+
+message SetConfigsResponse {
+  bool Success = 1;
+  Configs Configs = 2;
+
+  string Message = 10;
+}

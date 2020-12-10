@@ -15,6 +15,7 @@ type servers struct {
 	Keyboard *server.KeyboardServer
 	Battery  *server.BatteryServer
 	Manager  *server.ManagerServer
+	Configs  *server.ConfigListServer
 }
 
 type Server struct {
@@ -29,17 +30,18 @@ type Server struct {
 }
 
 type GRPCRunConfig struct {
-	ReloadCh  <-chan *Dependencies
-	RequestCh chan server.SupervisorRequest
+	ReloadCh     <-chan *Dependencies
+	ManagerReqCh chan server.ManagerSupervisorRequest
 }
 
 func NewGRPCServer(conf GRPCRunConfig) (*Server, chan error, error) {
 	if conf.ReloadCh == nil {
 		return nil, nil, fmt.Errorf("nil reload channel is invalid")
 	}
-	if conf.RequestCh == nil {
-		return nil, nil, fmt.Errorf("nil control channel is invalid")
+	if conf.ManagerReqCh == nil {
+		return nil, nil, fmt.Errorf("nil manager request channel is invalid")
 	}
+
 	s := grpc.NewServer()
 
 	startErrorCh := make(chan error)
@@ -50,7 +52,8 @@ func NewGRPCServer(conf GRPCRunConfig) (*Server, chan error, error) {
 		servers: servers{
 			Keyboard: server.RegisterKeyboardServer(s, nil),
 			Battery:  server.RegisterBatteryChargeLimitServer(s, nil),
-			Manager:  server.RegisterManagerServer(s, conf.RequestCh),
+			Configs:  server.RegisterConfigListServer(s, nil),
+			Manager:  server.RegisterManagerServer(s, conf.ManagerReqCh),
 		},
 		startErrorCh: startErrorCh,
 	}, startErrorCh, nil
@@ -107,4 +110,6 @@ func (s *Server) Stop() {
 func (s *Server) hotReload(dep *Dependencies) {
 	s.servers.Battery.HotReload(dep.Battery)
 	s.servers.Keyboard.HotReload(dep.Keyboard)
+	s.servers.Configs.HotReload(dep.Updatable)
+	dep.ConfigRegistry.Register(s.servers.Configs)
 }

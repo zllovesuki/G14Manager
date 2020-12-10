@@ -148,13 +148,7 @@ func (c *Controller) handleWorkQueue(haltCtx context.Context) {
 		select {
 		case ev := <-c.workQueueCh[fnUtilityKey].clean:
 			log.Printf("[controller] ROG Key pressed %d times\n", ev.Counter)
-			if int(ev.Counter) <= len(c.Config.ROGKey) {
-				cmd := c.Config.ROGKey[ev.Counter-1]
-				log.Printf("[controller] Running: %s\n", cmd)
-				if err := run("cmd.exe", "/C", cmd); err != nil {
-					log.Println(err)
-				}
-			}
+			c.notifyPlugins(plugin.EvtSentinelUtilityKey, ev.Counter)
 
 		case ev := <-c.workQueueCh[fnThermalProfile].clean:
 			log.Printf("[controller] Fn + F5 pressed %d times\n", ev.Counter)

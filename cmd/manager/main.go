@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -15,7 +14,6 @@ import (
 
 	"github.com/zllovesuki/G14Manager/box"
 	"github.com/zllovesuki/G14Manager/controller"
-	"github.com/zllovesuki/G14Manager/rpc/protocol"
 	"github.com/zllovesuki/G14Manager/rpc/server"
 	"github.com/zllovesuki/G14Manager/util"
 
@@ -51,6 +49,10 @@ func main() {
 
 	flag.Parse()
 
+	if len(rogRemap) == 0 {
+		rogRemap = append(rogRemap, "Taskmgr.exe")
+	}
+
 	log.Printf("G14Manager version: %s\n", Version)
 	log.Printf("Remapping enabled: %v\n", *enableRemap)
 	log.Printf("Automatic Thermal Profile Switching enabled: %v\n", *enableAutoThermal)
@@ -81,12 +83,7 @@ func main() {
 
 	controllerConfig := controller.RunConfig{
 		LogoPath: logoPath,
-		RogRemap: rogRemap,
-		EnabledFeatures: controller.Features{
-			FnRemap:            *enableRemap,
-			AutoThermalProfile: *enableAutoThermal,
-		},
-		DryRun: os.Getenv("DRY_RUN") != "",
+		DryRun:   os.Getenv("DRY_RUN") != "",
 	}
 
 	dep, err := controller.GetDependencies(controllerConfig)
@@ -95,11 +92,11 @@ func main() {
 	}
 
 	reload := make(chan *controller.Dependencies, 1)
-	control := make(chan server.SupervisorRequest, 1)
+	managerCtrl := make(chan server.ManagerSupervisorRequest, 1)
 
 	grpcServer, grpcStartErrCh, err := controller.NewGRPCServer(controller.GRPCRunConfig{
-		ReloadCh:  reload,
-		RequestCh: control,
+		ReloadCh:     reload,
+		ManagerReqCh: managerCtrl,
 	})
 	if err != nil {
 		log.Fatalf("[supervisor] cannot start gRPCServer: %+v\n", err)
@@ -120,7 +117,7 @@ func main() {
 		root -> gRPCServer
 					\-> Controller
 
-		Since the gRPCServer controls the lifecycle of the Controller,
+		Since the gRPCServer can control the lifecycle of the Controller,
 		we need a two-way communication between the Supervisor tree and
 		the gRPC Manager Server (RequestCh).
 
@@ -136,15 +133,21 @@ func main() {
 	case grpcStartErr := <-grpcStartErrCh:
 		log.Fatalf("[supervisor] Cannot start gRPC Server: %+v\n", grpcStartErr)
 	case <-time.After(time.Second * 2):
-		reload <- dep
+		// This requires some explaination
+
+		reload <- dep // the first reload is to populate gRPC servers dependencies
+		time.Sleep(time.Millisecond * 500)
+		dep.ConfigRegistry.Load() // this is to load configurations from config registry
+		time.Sleep(time.Millisecond * 500)
+		reload <- dep // this will annouce configurations to annoucement.Updatable's
 	}
 
-	go grpcManagerResponder(ctx, grpcResponderOption{
+	go controller.ManagerResponder(ctx, controller.ManagerResponderOption{
 		Supervisor:       supervisor,
 		ReloadCh:         reload,
-		RequestCh:        control,
-		ControllerConfig: controllerConfig,
 		Dependencies:     dep,
+		ManagerReqCh:     managerCtrl,
+		ControllerConfig: controllerConfig,
 	})
 
 	srv := &http.Server{Addr: "127.0.0.1:9969"}
@@ -169,99 +172,4 @@ func main() {
 	srv.Shutdown(context.Background())
 	dep.ConfigRegistry.Close()
 	time.Sleep(time.Second) // 1 second for grace period
-}
-
-type grpcResponderOption struct {
-	Supervisor       *suture.Supervisor
-	ReloadCh         chan *controller.Dependencies
-	RequestCh        chan server.SupervisorRequest
-	ControllerConfig controller.RunConfig
-	Dependencies     *controller.Dependencies
-
-	childToken        suture.ServiceToken
-	controllerRunning bool
-}
-
-func grpcManagerResponder(haltCtx context.Context, opt grpcResponderOption) {
-	for {
-		select {
-		case s := <-opt.RequestCh:
-			switch s.Request {
-
-			case server.RequestStartController:
-				if opt.controllerRunning {
-					s.Response <- server.SupervisorResponse{
-						Error: fmt.Errorf("Controller is already running"),
-						State: protocol.ManagerControlResponse_RUNNING,
-					}
-					continue
-				}
-
-				control, controllerStartErrCh, err := controller.New(opt.ControllerConfig, opt.Dependencies)
-				if err != nil {
-					s.Response <- server.SupervisorResponse{
-						Error: err,
-						State: protocol.ManagerControlResponse_STOPPED,
-					}
-					continue
-				}
-
-				controllerSupervisor := suture.New("Controller", suture.Spec{})
-				controllerSupervisor.Add(control)
-				opt.childToken = opt.Supervisor.Add(controllerSupervisor)
-
-				select {
-				case controllerStartErr := <-controllerStartErrCh:
-					s.Response <- server.SupervisorResponse{
-						Error: controllerStartErr,
-						State: protocol.ManagerControlResponse_STOPPED,
-					}
-					continue
-				case <-time.After(time.Second * 2):
-					opt.controllerRunning = true
-					s.Response <- server.SupervisorResponse{
-						Error: nil,
-						State: protocol.ManagerControlResponse_RUNNING,
-					}
-				}
-
-			case server.RequestStopController:
-				if opt.controllerRunning {
-					err := opt.Supervisor.Remove(opt.childToken)
-					if err != nil {
-						s.Response <- server.SupervisorResponse{
-							Error: err,
-							State: protocol.ManagerControlResponse_STOPPED,
-						}
-					} else {
-						opt.controllerRunning = false
-						s.Response <- server.SupervisorResponse{
-							Error: nil,
-							State: protocol.ManagerControlResponse_STOPPED,
-						}
-					}
-				} else {
-					s.Response <- server.SupervisorResponse{
-						Error: fmt.Errorf("Controller is not running"),
-						State: protocol.ManagerControlResponse_STOPPED,
-					}
-				}
-			case server.RequestCheckState:
-				if opt.controllerRunning {
-					s.Response <- server.SupervisorResponse{
-						Error: nil,
-						State: protocol.ManagerControlResponse_RUNNING,
-					}
-				} else {
-					s.Response <- server.SupervisorResponse{
-						Error: nil,
-						State: protocol.ManagerControlResponse_STOPPED,
-					}
-				}
-			}
-		case <-haltCtx.Done():
-			log.Println("[supervisor] exiting grpcManagerResponder")
-			return
-		}
-	}
 }

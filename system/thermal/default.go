@@ -15,40 +15,40 @@ func GetDefaultThermalProfiles() []Profile {
 		{
 			name:             "Fanless",
 			windowsPowerPlan: "Power saver",
-			throttlePlan:     throttlePlanPerformance,
+			throttlePlan:     ThrottlePlanPerformance,
 			cpuFanCurve:      "20c:0%,50c:0%,55c:0%,60c:0%,65c:31%,70c:49%,75c:56%,98c:56%",
 			gpuFanCurve:      "20c:0%,50c:0%,55c:0%,60c:0%,65c:34%,70c:51%,75c:61%,98c:61%",
 		},
 		{
 			name:             "Quiet",
 			windowsPowerPlan: "Power saver",
-			throttlePlan:     throttlePlanPerformance,
+			throttlePlan:     ThrottlePlanPerformance,
 			cpuFanCurve:      "20c:10%,50c:10%,55c:10%,60c:10%,65c:31%,70c:49%,75c:56%,98c:56%",
 			gpuFanCurve:      "20c:0%,50c:0%,55c:0%,60c:0%,65c:34%,70c:51%,75c:61%,98c:61%",
 		},
 		{
 			name:             "Power Saver",
 			windowsPowerPlan: "Power saver",
-			throttlePlan:     throttlePlanSilent,
+			throttlePlan:     ThrottlePlanSilent,
 		},
 		{
 			name:             "Silent Performance",
 			windowsPowerPlan: "High performance",
-			throttlePlan:     throttlePlanSilent,
+			throttlePlan:     ThrottlePlanSilent,
 		},
 		{
 			name:             "Performance",
 			windowsPowerPlan: "High performance",
-			throttlePlan:     throttlePlanPerformance,
+			throttlePlan:     ThrottlePlanPerformance,
 		},
 		{
 			name:             "Turbo",
 			windowsPowerPlan: "High performance",
-			throttlePlan:     throttlePlanTurbo,
+			throttlePlan:     ThrottlePlanTurbo,
 		},
 	}
 	for _, d := range defaults {
-		var cpuTable, gpuTable *fanTable
+		var cpuTable, gpuTable *FanTable
 		var err error
 		profile := Profile{
 			Name:             d.name,

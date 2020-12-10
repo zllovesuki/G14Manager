@@ -10,20 +10,20 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-type RequestType int
+type ManagerRequestType int
 
 const (
-	RequestCheckState RequestType = iota
+	RequestCheckState ManagerRequestType = iota
 	RequestStartController
 	RequestStopController
 )
 
-type SupervisorRequest struct {
-	Request  RequestType
-	Response chan SupervisorResponse
+type ManagerSupervisorRequest struct {
+	Request  ManagerRequestType
+	Response chan ManagerSupervisorResponse
 }
 
-type SupervisorResponse struct {
+type ManagerSupervisorResponse struct {
 	State protocol.ManagerControlResponse_CurrentState
 	Error error
 }
@@ -31,12 +31,12 @@ type SupervisorResponse struct {
 type ManagerServer struct {
 	protocol.UnimplementedManagerControlServer
 
-	control chan SupervisorRequest
+	control chan ManagerSupervisorRequest
 }
 
 var _ protocol.ManagerControlServer = &ManagerServer{}
 
-func RegisterManagerServer(s *grpc.Server, ctrl chan SupervisorRequest) *ManagerServer {
+func RegisterManagerServer(s *grpc.Server, ctrl chan ManagerSupervisorRequest) *ManagerServer {
 	server := &ManagerServer{
 		control: ctrl,
 	}
@@ -45,8 +45,8 @@ func RegisterManagerServer(s *grpc.Server, ctrl chan SupervisorRequest) *Manager
 }
 
 func (m *ManagerServer) GetCurrentState(ctx context.Context, req *emptypb.Empty) (*protocol.ManagerControlResponse, error) {
-	respChan := make(chan SupervisorResponse)
-	supervisorReq := SupervisorRequest{
+	respChan := make(chan ManagerSupervisorResponse)
+	supervisorReq := ManagerSupervisorRequest{
 		Request:  RequestCheckState,
 		Response: respChan,
 	}
@@ -62,8 +62,8 @@ func (m *ManagerServer) Control(ctx context.Context, req *protocol.ManagerContro
 	if req == nil {
 		return nil, fmt.Errorf("nil request is invalid")
 	}
-	respChan := make(chan SupervisorResponse)
-	supervisorReq := SupervisorRequest{
+	respChan := make(chan ManagerSupervisorResponse)
+	supervisorReq := ManagerSupervisorRequest{
 		Response: respChan,
 	}
 	if req.GetState() == protocol.ManagerControlRequest_START {

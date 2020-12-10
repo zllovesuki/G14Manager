@@ -12,16 +12,16 @@ var (
 	curveRe = regexp.MustCompile(`\s*(\d{1,3})c:(\d{1,3})%\s*`)
 )
 
-type fanTable struct {
+type FanTable struct {
 	ByteTable []byte
 }
 
-func newFanTable(curve string) (*fanTable, error) {
+func newFanTable(curve string) (*FanTable, error) {
 	if len(curve) == 0 {
 		return nil, nil
 	}
 	match := curveRe.FindAllStringSubmatch(curve, -1)
-	t := &fanTable{
+	t := &FanTable{
 		ByteTable: make([]byte, 16),
 	}
 	if len(match) != 8 {
@@ -48,8 +48,12 @@ func newFanTable(curve string) (*fanTable, error) {
 }
 
 // Bytes returns the binary presentation of the table
-func (f *fanTable) Bytes() []byte {
+func (f *FanTable) Bytes() []byte {
 	b := make([]byte, 16)
 	copy(b, f.ByteTable)
 	return b
+}
+
+func (f *FanTable) String() string {
+	return ""
 }

@@ -56,14 +56,14 @@ func GetDefaultThermalProfiles() []Profile {
 			WindowsPowerPlan: strings.ToLower(d.windowsPowerPlan),
 		}
 		if d.cpuFanCurve != "" {
-			cpuTable, err = newFanTable(d.cpuFanCurve)
+			cpuTable, err = NewFanTable(d.cpuFanCurve)
 			if err != nil {
 				panic(err)
 			}
 			profile.CPUFanCurve = cpuTable
 		}
 		if d.gpuFanCurve != "" {
-			gpuTable, err = newFanTable(d.gpuFanCurve)
+			gpuTable, err = NewFanTable(d.gpuFanCurve)
 			if err != nil {
 				panic(err)
 			}

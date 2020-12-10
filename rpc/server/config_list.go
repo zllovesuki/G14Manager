@@ -10,9 +10,9 @@ import (
 
 	"github.com/zllovesuki/G14Manager/rpc/annoucement"
 	"github.com/zllovesuki/G14Manager/rpc/protocol"
-	"github.com/zllovesuki/G14Manager/system/shared"
 	"github.com/zllovesuki/G14Manager/system/keyboard"
 	"github.com/zllovesuki/G14Manager/system/persist"
+	"github.com/zllovesuki/G14Manager/system/shared"
 	"github.com/zllovesuki/G14Manager/system/thermal"
 
 	"google.golang.org/grpc"
@@ -138,7 +138,59 @@ func (f *ConfigListServer) Set(ctx context.Context, req *protocol.SetConfigsRequ
 	}
 
 	if profiles != nil {
-		// parse the fan table
+		newProfiles = make([]thermal.Profile, 0)
+		for _, p := range profiles {
+			// TODO: verify windows power plan existence
+			if p.GetName() == "" {
+				return nil, fmt.Errorf("Profile name must not be empty")
+			}
+			var err error
+			var val uint32
+			switch p.GetThrottlePlan() {
+			case protocol.Profile_PERFORMANCE:
+				val = thermal.ThrottlePlanPerformance
+			case protocol.Profile_SILENT:
+				val = thermal.ThrottlePlanSilent
+			case protocol.Profile_TURBO:
+				val = thermal.ThrottlePlanTurbo
+			default:
+				return nil, fmt.Errorf("Unrecognized throttle plan in profile")
+			}
+			profile := thermal.Profile{
+				Name:             p.GetName(),
+				ThrottlePlan:     val,
+				WindowsPowerPlan: p.GetWindowsPowerPlan(),
+			}
+			if p.GetCPUFanCurve() != "" {
+				profile.CPUFanCurve, err = thermal.NewFanTable(p.GetCPUFanCurve())
+				if err != nil {
+					return nil, fmt.Errorf("CPU fan curve parse error: %s", err.Error())
+				}
+			}
+			if p.GetGPUFanCurve() != "" {
+				profile.GPUFanCurve, err = thermal.NewFanTable(p.GetGPUFanCurve())
+				if err != nil {
+					return nil, fmt.Errorf("GPU fan curve parse error: %s", err.Error())
+				}
+			}
+			newProfiles = append(newProfiles, profile)
+		}
+	}
+
+	if newFeatures != nil && newFeatures.AutoThermal.Enabled && len(newProfiles) > 0 {
+		var validPluggedInProfile bool
+		var validUnpluggedProfile bool
+		for _, p := range newProfiles {
+			if p.Name == newFeatures.AutoThermal.PluggedIn {
+				validPluggedInProfile = true
+			}
+			if p.Name == newFeatures.AutoThermal.Unplugged {
+				validUnpluggedProfile = true
+			}
+		}
+		if !validPluggedInProfile || !validUnpluggedProfile {
+			return nil, fmt.Errorf("AutoThermal must specify a valid profile if enabled")
+		}
 	}
 
 	if newFeatures != nil {

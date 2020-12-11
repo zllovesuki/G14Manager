@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"log"
 	"net/http"
 	_ "net/http/pprof"
@@ -22,15 +24,16 @@ import (
 
 // Compile time injected variables
 var (
-	Version = "v0.0.0-dev"
-	IsDebug = "yes"
+	Version     = "v0.0.0-dev"
+	IsDebug     = "yes"
+	logLocation = `C:\Logs\G14Manager.log`
 )
 
 func main() {
 
 	if IsDebug == "no" {
 		log.SetOutput(&lumberjack.Logger{
-			Filename:   `C:\Logs\G14Manager.log`,
+			Filename:   logLocation,
 			MaxSize:    5,
 			MaxBackups: 3,
 			MaxAge:     7,
@@ -131,7 +134,7 @@ func main() {
 	})
 	rootSupervisor.Add(grpcSupervisor)
 	rootSupervisor.Add(backgroundSupervisor)
-	rootSupervisor.Add(&pprof{
+	rootSupervisor.Add(&webDebugger{
 		Srv: &http.Server{Addr: "127.0.0.1:9969"},
 	})
 
@@ -161,21 +164,36 @@ func main() {
 	time.Sleep(time.Second) // 1 second for grace period
 }
 
-type pprof struct {
+type webDebugger struct {
 	Srv *http.Server
 }
 
-func (p *pprof) Serve(haltCtx context.Context) error {
+func (w *webDebugger) Serve(haltCtx context.Context) error {
+
+	http.HandleFunc("/debug/logs", func(w http.ResponseWriter, r *http.Request) {
+		if IsDebug != "no" {
+			fmt.Fprintf(w, "Logging is not enabled on debug build")
+			return
+		}
+		osFile, err := os.Open(logLocation)
+		if err != nil {
+			fmt.Fprintf(w, "Unable to open log file: %+v", err)
+			return
+		}
+		defer osFile.Close()
+		io.Copy(w, osFile)
+	})
+
 	errCh := make(chan error)
 	go func() {
-		log.Printf("[pprof] debugging server available at %s\n", p.Srv.Addr)
-		errCh <- p.Srv.ListenAndServe()
+		log.Printf("[pprof] debugging server available at %s\n", w.Srv.Addr)
+		errCh <- w.Srv.ListenAndServe()
 	}()
 	for {
 		select {
 		case <-haltCtx.Done():
 			log.Println("[pprof] exiting pprof server")
-			p.Srv.Shutdown(context.Background())
+			w.Srv.Shutdown(context.Background())
 			return nil
 		case err := <-errCh:
 			if err == nil || err == http.ErrServerClosed {

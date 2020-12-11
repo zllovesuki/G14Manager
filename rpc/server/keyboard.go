@@ -50,8 +50,8 @@ func (k *KeyboardServer) Set(ctx context.Context, req *protocol.SetKeyboardBrigh
 	if req == nil {
 		return nil, fmt.Errorf("nil request is invalid")
 	}
-	k.mu.RLock()
-	defer k.mu.RUnlock()
+	k.mu.Lock()
+	defer k.mu.Unlock()
 
 	if k.control == nil {
 		return nil, fmt.Errorf("keyboard server is not initialized")
@@ -75,8 +75,8 @@ func (k *KeyboardServer) Change(ctx context.Context, req *protocol.ChangeKeyboar
 	if req == nil {
 		return nil, fmt.Errorf("nil request is invalid")
 	}
-	k.mu.RLock()
-	defer k.mu.RUnlock()
+	k.mu.Lock()
+	defer k.mu.Unlock()
 
 	if k.control == nil {
 		return nil, fmt.Errorf("keyboard server is not initialized")

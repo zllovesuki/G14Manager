@@ -50,8 +50,8 @@ func (b *BatteryServer) Set(ctx context.Context, req *protocol.SetBatteryLimitRe
 	if req == nil {
 		return nil, fmt.Errorf("nil request is invalid")
 	}
-	b.mu.RLock()
-	defer b.mu.RUnlock()
+	b.mu.Lock()
+	defer b.mu.Unlock()
 
 	if b.control == nil {
 		return nil, fmt.Errorf("battery server is not initialized")

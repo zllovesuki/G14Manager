@@ -3,6 +3,8 @@ package protocol;
 
 option go_package = "github.com/zllovesuki/G14Manager/rpc/protocol";
 
+import "rpc/protocol/thermal.proto";
+
 import "google/protobuf/empty.proto";
 
 service ConfigList {
@@ -21,17 +23,6 @@ message Features {
   map<uint32, uint32> FnRemap = 2;
 
   repeated string RogRemap = 10;
-}
-
-message Profile {
-  enum ThrottleValue { PERFORMANCE = 0; TURBO = 1; SILENT = 2; }
-
-  string WindowsPowerPlan = 1;
-  ThrottleValue ThrottlePlan = 2;
-  string CPUFanCurve = 3;
-  string GPUFanCurve = 4;
-
-  string Name = 10;
 }
 
 message Configs {

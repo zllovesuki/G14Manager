@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"sync"
+	"time"
 
 	"github.com/zllovesuki/G14Manager/rpc/protocol"
 	"github.com/zllovesuki/G14Manager/system/persist"
@@ -19,7 +20,7 @@ const (
 	managerPersistName = "Manager"
 )
 
-var once sync.Once
+var managerOnce sync.Once
 
 type ManagerRequestType int
 
@@ -69,6 +70,26 @@ func (m *ManagerServer) GetCurrentAutoStart(ctx context.Context, req *emptypb.Em
 	}, nil
 }
 
+func (m *ManagerServer) waitForResponder(ctx context.Context, req ManagerRequestType) ManagerSupervisorResponse {
+	respChan := make(chan ManagerSupervisorResponse)
+	m.control <- ManagerSupervisorRequest{
+		Request:  req,
+		Response: respChan,
+	}
+	select {
+	case <-ctx.Done():
+		return ManagerSupervisorResponse{
+			Error: ctx.Err(),
+		}
+	case <-time.After(time.Second * 5):
+		return ManagerSupervisorResponse{
+			Error: context.DeadlineExceeded,
+		}
+	case resp := <-respChan:
+		return resp
+	}
+}
+
 func (m *ManagerServer) SetAutoStart(ctx context.Context, req *protocol.ManagerAutoStartRequest) (*protocol.ManagerAutoStartResponse, error) {
 	if req == nil {
 		return nil, fmt.Errorf("nil request is invalid")
@@ -80,12 +101,10 @@ func (m *ManagerServer) SetAutoStart(ctx context.Context, req *protocol.ManagerA
 	m.autoStart = req.GetAutoStart()
 
 	go func() {
-		respChan := make(chan ManagerSupervisorResponse)
-		m.control <- ManagerSupervisorRequest{
-			Request:  RequestSaveConfig,
-			Response: respChan,
+		resp := m.waitForResponder(context.Background(), RequestSaveConfig)
+		if resp.Error != nil {
+			log.Printf("[gRPCServer] unable to save config: %+v\n", resp.Error)
 		}
-		<-respChan
 	}()
 
 	return &protocol.ManagerAutoStartResponse{
@@ -95,13 +114,7 @@ func (m *ManagerServer) SetAutoStart(ctx context.Context, req *protocol.ManagerA
 }
 
 func (m *ManagerServer) GetCurrentState(ctx context.Context, req *emptypb.Empty) (*protocol.ManagerControlResponse, error) {
-	respChan := make(chan ManagerSupervisorResponse)
-	supervisorReq := ManagerSupervisorRequest{
-		Request:  RequestCheckState,
-		Response: respChan,
-	}
-	m.control <- supervisorReq
-	resp := <-respChan
+	resp := m.waitForResponder(ctx, RequestCheckState)
 	return &protocol.ManagerControlResponse{
 		Success: true,
 		State:   resp.State,
@@ -112,17 +125,13 @@ func (m *ManagerServer) Control(ctx context.Context, req *protocol.ManagerContro
 	if req == nil {
 		return nil, fmt.Errorf("nil request is invalid")
 	}
-	respChan := make(chan ManagerSupervisorResponse)
-	supervisorReq := ManagerSupervisorRequest{
-		Response: respChan,
-	}
+	var r ManagerRequestType
 	if req.GetState() == protocol.ManagerControlRequest_START {
-		supervisorReq.Request = RequestStartController
+		r = RequestStartController
 	} else {
-		supervisorReq.Request = RequestStopController
+		r = RequestStopController
 	}
-	m.control <- supervisorReq
-	resp := <-respChan
+	resp := m.waitForResponder(ctx, r)
 	if resp.Error != nil {
 		return &protocol.ManagerControlResponse{
 			Success: false,
@@ -170,18 +179,13 @@ func (m *ManagerServer) Load(v []byte) error {
 
 	m.autoStart = autoStart
 
-	go once.Do(func() {
+	go managerOnce.Do(func() {
 		if !m.autoStart {
 			log.Println("[gRPCServer] not auto starting controller")
 			return
 		}
-		respChan := make(chan ManagerSupervisorResponse)
-		supervisorReq := ManagerSupervisorRequest{
-			Request:  RequestStartController,
-			Response: respChan,
-		}
-		m.control <- supervisorReq
-		resp := <-respChan
+		log.Println("[gRPCServer] auto starting controller")
+		resp := m.waitForResponder(context.Background(), RequestStartController)
 		if resp.Error != nil {
 			log.Printf("[gRPCServer] cannot auto start controller: %+v\n", resp.Error)
 		} else {

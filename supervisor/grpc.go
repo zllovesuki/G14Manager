@@ -6,6 +6,7 @@ import (
 	"log"
 	"net"
 
+	"github.com/pkg/errors"
 	"github.com/thejerf/suture/v4"
 	"github.com/zllovesuki/G14Manager/controller"
 	"github.com/zllovesuki/G14Manager/rpc/server"
@@ -21,9 +22,9 @@ type servers struct {
 }
 
 type Server struct {
-	server       *grpc.Server
-	servers      servers
-	startErrorCh chan error
+	server  *grpc.Server
+	servers servers
+	dep     *controller.Dependencies
 }
 
 type GRPCRunConfig struct {
@@ -31,17 +32,16 @@ type GRPCRunConfig struct {
 	Dependencies *controller.Dependencies
 }
 
-func NewGRPCServer(conf GRPCRunConfig) (*Server, chan error, error) {
+func NewGRPCServer(conf GRPCRunConfig) (*Server, error) {
 	if conf.ManagerReqCh == nil {
-		return nil, nil, fmt.Errorf("nil manager request channel is invalid")
+		return nil, fmt.Errorf("nil manager request channel is invalid")
 	}
 	if conf.Dependencies == nil {
-		return nil, nil, fmt.Errorf("nil dependencies is invalid")
+		return nil, fmt.Errorf("nil dependencies is invalid")
 	}
 
 	s := grpc.NewServer()
 
-	startErrorCh := make(chan error)
 	server := &Server{
 		server: s,
 		servers: servers{
@@ -50,21 +50,20 @@ func NewGRPCServer(conf GRPCRunConfig) (*Server, chan error, error) {
 			Configs:  server.RegisterConfigListServer(s, conf.Dependencies.Updatable),
 			Manager:  server.RegisterManagerServer(s, conf.ManagerReqCh),
 		},
-		startErrorCh: startErrorCh,
+		dep: conf.Dependencies,
 	}
 
 	conf.Dependencies.ConfigRegistry.Register(server.servers.Configs)
 	conf.Dependencies.ConfigRegistry.Register(server.servers.Manager)
 
-	return server, startErrorCh, nil
+	return server, nil
 }
 
 func (s *Server) Serve(haltCtx context.Context) error {
 	lis, err := net.Listen("tcp", "127.0.0.1:9963")
 	if err != nil {
 		log.Printf("[gRPCServer] Failed to listen for connections: %+v\n", err)
-		s.startErrorCh <- err
-		return suture.ErrDoNotRestart
+		return errors.Wrap(suture.ErrTerminateSupervisorTree, "[gRPCServer] failed to listen for connectios") // If we cannot start gRPC Server, kill the entire tree
 	}
 
 	go func() {
@@ -79,6 +78,8 @@ func (s *Server) Serve(haltCtx context.Context) error {
 		}
 	}()
 	log.Printf("[gRPCServer] grpc server available at 127.0.0.1:9963\n")
+
+	s.dep.ConfigRegistry.Load()
 
 	return s.server.Serve(lis)
 }

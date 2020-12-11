@@ -23,6 +23,8 @@ const (
 	featuresPersistName = "Configs"
 )
 
+var configOnce sync.Once
+
 type ConfigListServer struct {
 	protocol.UnimplementedConfigListServer
 
@@ -268,21 +270,23 @@ func (f *ConfigListServer) Load(v []byte) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
-	if len(v) == 0 {
-		return nil
-	}
+	configOnce.Do(func() {
+		if len(v) == 0 {
+			return
+		}
 
-	var p persistMap
-	buf := bytes.NewBuffer(v)
-	dec := gob.NewDecoder(buf)
-	if err := dec.Decode(&p); err != nil {
-		return err
-	}
+		var p persistMap
+		buf := bytes.NewBuffer(v)
+		dec := gob.NewDecoder(buf)
+		if err := dec.Decode(&p); err != nil {
+			return
+		}
 
-	f.features = p.Features
-	f.profiles = p.Profiles
+		f.features = p.Features
+		f.profiles = p.Profiles
 
-	f.announceConfigs()
+		f.announceConfigs()
+	})
 
 	return nil
 }

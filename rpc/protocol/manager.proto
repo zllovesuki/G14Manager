@@ -29,7 +29,7 @@ message ManagerControlRequest {
 }
 
 message ManagerControlResponse {
-  enum CurrentState { STOPPED = 0; RUNNING = 1; }
+  enum CurrentState { UNKNOWN = 0; STOPPED = 1; RUNNING = 2; }
   bool Success = 1;
   CurrentState State = 2;
 

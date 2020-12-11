@@ -13,14 +13,22 @@ import (
 	suture "github.com/thejerf/suture/v4"
 )
 
+type controllerState int
+
+const (
+	controllerStopped controllerState = iota
+	controllerRunning
+	controllerUnknown
+)
+
 type ManagerResponderOption struct {
 	Supervisor       *suture.Supervisor
 	Dependencies     *controller.Dependencies
 	ManagerReqCh     chan server.ManagerSupervisorRequest
 	ControllerConfig controller.RunConfig
 
-	childToken        suture.ServiceToken
-	controllerRunning bool
+	childToken      suture.ServiceToken
+	controllerState controllerState
 }
 
 func (m *ManagerResponderOption) HasSupervisor() *suture.Supervisor {
@@ -47,15 +55,21 @@ func (m *ManagerResponderOption) Serve(haltCtx context.Context) error {
 				m.doStopController(s)
 
 			case server.RequestCheckState:
-				if m.controllerRunning {
+				switch m.controllerState {
+				case controllerRunning:
 					s.Response <- server.ManagerSupervisorResponse{
 						Error: nil,
 						State: protocol.ManagerControlResponse_RUNNING,
 					}
-				} else {
+				case controllerStopped:
 					s.Response <- server.ManagerSupervisorResponse{
 						Error: nil,
 						State: protocol.ManagerControlResponse_STOPPED,
+					}
+				case controllerUnknown:
+					s.Response <- server.ManagerSupervisorResponse{
+						Error: nil,
+						State: protocol.ManagerControlResponse_UNKNOWN,
 					}
 				}
 
@@ -74,10 +88,17 @@ func (m *ManagerResponderOption) Serve(haltCtx context.Context) error {
 }
 
 func (m *ManagerResponderOption) doStartController(s server.ManagerSupervisorRequest) {
-	if m.controllerRunning {
+	switch m.controllerState {
+	case controllerRunning:
 		s.Response <- server.ManagerSupervisorResponse{
 			Error: fmt.Errorf("Controller is already running"),
 			State: protocol.ManagerControlResponse_RUNNING,
+		}
+		return
+	case controllerUnknown:
+		s.Response <- server.ManagerSupervisorResponse{
+			Error: fmt.Errorf("Controller is in unknown state"),
+			State: protocol.ManagerControlResponse_UNKNOWN,
 		}
 		return
 	}
@@ -103,7 +124,7 @@ func (m *ManagerResponderOption) doStartController(s server.ManagerSupervisorReq
 		}
 		return
 	case <-time.After(time.Second * 2):
-		m.controllerRunning = true
+		m.controllerState = controllerRunning
 		s.Response <- server.ManagerSupervisorResponse{
 			Error: nil,
 			State: protocol.ManagerControlResponse_RUNNING,
@@ -112,23 +133,31 @@ func (m *ManagerResponderOption) doStartController(s server.ManagerSupervisorReq
 }
 
 func (m *ManagerResponderOption) doStopController(s server.ManagerSupervisorRequest) {
-	if m.controllerRunning {
-		err := m.Supervisor.Remove(m.childToken)
-		if err != nil {
-			s.Response <- server.ManagerSupervisorResponse{
-				Error: err,
-				State: protocol.ManagerControlResponse_STOPPED,
-			}
-		} else {
-			m.controllerRunning = false
-			s.Response <- server.ManagerSupervisorResponse{
-				Error: nil,
-				State: protocol.ManagerControlResponse_STOPPED,
-			}
-		}
-	} else {
+	switch m.controllerState {
+	case controllerStopped:
 		s.Response <- server.ManagerSupervisorResponse{
 			Error: fmt.Errorf("Controller is not running"),
+			State: protocol.ManagerControlResponse_RUNNING,
+		}
+		return
+	case controllerUnknown:
+		s.Response <- server.ManagerSupervisorResponse{
+			Error: fmt.Errorf("Controller is in unknown state"),
+			State: protocol.ManagerControlResponse_UNKNOWN,
+		}
+		return
+	}
+
+	err := m.Supervisor.RemoveAndWait(m.childToken, time.Second*2)
+	if err != nil {
+		s.Response <- server.ManagerSupervisorResponse{
+			Error: err,
+			State: protocol.ManagerControlResponse_UNKNOWN,
+		}
+	} else {
+		m.controllerState = controllerStopped
+		s.Response <- server.ManagerSupervisorResponse{
+			Error: nil,
 			State: protocol.ManagerControlResponse_STOPPED,
 		}
 	}

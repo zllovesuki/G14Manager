@@ -41,7 +41,7 @@ func (t *ThermalServer) GetCurrentProfile(ctx context.Context, _ *empty.Empty) (
 		Profile: &protocol.Profile{
 			Name:             current.Name,
 			WindowsPowerPlan: current.WindowsPowerPlan,
-			ThrottlePlan:     toProtoThrottlw(current.ThrottlePlan),
+			ThrottlePlan:     toProtoThrottle(current.ThrottlePlan),
 			CPUFanCurve:      current.CPUFanCurve.String(),
 			GPUFanCurve:      current.GPUFanCurve.String(),
 		},
@@ -71,7 +71,7 @@ func (t *ThermalServer) Set(ctx context.Context, req *protocol.SetProfileRequest
 		Profile: &protocol.Profile{
 			Name:             current.Name,
 			WindowsPowerPlan: current.WindowsPowerPlan,
-			ThrottlePlan:     toProtoThrottlw(current.ThrottlePlan),
+			ThrottlePlan:     toProtoThrottle(current.ThrottlePlan),
 			CPUFanCurve:      current.CPUFanCurve.String(),
 			GPUFanCurve:      current.GPUFanCurve.String(),
 		},
@@ -88,7 +88,7 @@ func (t *ThermalServer) HotReload(ctrl *thermal.Control) {
 	t.control = ctrl
 }
 
-func toProtoThrottlw(v uint32) protocol.Profile_ThrottleValue {
+func toProtoThrottle(v uint32) protocol.Profile_ThrottleValue {
 	var val protocol.Profile_ThrottleValue
 	switch v {
 	case thermal.ThrottlePlanPerformance:

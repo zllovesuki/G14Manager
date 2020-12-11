@@ -42,6 +42,11 @@ Write-Host "Building debug release"
 $BUILD_DEBUG = "go build -ldflags=`"-X 'main.Version=$env:GITHUB_REF'`" -o build/G14Manager.debug.exe .\cmd\manager"
 Invoke-Expression $BUILD_DEBUG
 
+Write-Host "Building configurator"
+
+$BUILD_CLIENT = "go build -ldflags=`"-X main.Version=$env:GITHUB_REF'`" -o build/G14Manager.config.exe .\cmd\client"
+Invoke-Expression $BUILD_CLIENT
+
 Write-Host "Building DLLs"
 
 $BUILD_MATRIX_RELEASE_DLL = "MSBuild.exe .\cxx\MatrixController.sln /property:Configuration=Release /property:Platform=x64"

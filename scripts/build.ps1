@@ -12,3 +12,5 @@ rsrc.exe -arch amd64 -manifest .\cmd\manager\G14Manager.exe.manifest -ico .\cmd\
 go generate .\...
 go build -ldflags="-H=windowsgui -s -w -X 'main.Version=staging'" -o "build/G14Manager.exe" .\cmd\manager
 go build -gcflags="-N -l" -o "build/G14Manager.debug.exe" .\cmd\manager
+
+go build -gcflags="-N -l" -o "build/G14Manager.config.exe" .\cmd\client

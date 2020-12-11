@@ -92,8 +92,7 @@ func (c *Controller) initialize(haltCtx context.Context) error {
 		return errors.Wrap(err, "[controller] error initializing atkacpi wmi listener")
 	}
 
-	// TODO: Unregister when we are done
-	err = power.NewEventListener(c.powerEvCh)
+	err = power.NewEventListener(haltCtx, c.powerEvCh)
 	if err != nil {
 		return errors.Wrap(err, "[controller] error initializing power event listener")
 	}

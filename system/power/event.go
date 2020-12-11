@@ -1,6 +1,8 @@
 package power
 
 import (
+	"context"
+	"log"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
@@ -9,8 +11,9 @@ import (
 // adapted from https://golang.org/src/runtime/os_windows.go
 
 var (
-	libPowrProf                            = windows.NewLazySystemDLL("powrprof.dll")
-	powerRegisterSuspendResumeNotification = libPowrProf.NewProc("PowerRegisterSuspendResumeNotification")
+	libPowrProf                              = windows.NewLazySystemDLL("powrprof.dll")
+	powerRegisterSuspendResumeNotification   = libPowrProf.NewProc("PowerRegisterSuspendResumeNotification")
+	powerUnregisterSuspendResumeNotification = libPowrProf.NewProc("PowerUnregisterSuspendResumeNotification")
 )
 
 // Defines the type of event
@@ -21,7 +24,7 @@ const (
 )
 
 // NewEventListener will listen for PowerSuspendResumeNotification and send events to the channel
-func NewEventListener(eventCh chan uint32) error {
+func NewEventListener(haltCtx context.Context, eventCh chan uint32) error {
 	const (
 		_DEVICE_NOTIFY_CALLBACK = 2
 	)
@@ -40,6 +43,8 @@ func NewEventListener(eventCh chan uint32) error {
 		callback: windows.NewCallback(fn),
 	}
 	handle := uintptr(0)
+
+	log.Println("power: registering suspend/resume notification")
 	ret, _, err := powerRegisterSuspendResumeNotification.Call(
 		_DEVICE_NOTIFY_CALLBACK,
 		uintptr(unsafe.Pointer(&params)),
@@ -48,5 +53,19 @@ func NewEventListener(eventCh chan uint32) error {
 	if ret != 0 {
 		return err
 	}
+
+	go func() {
+		select {
+		case <-haltCtx.Done():
+			log.Println("power: unregistering suspend/resume notification")
+			ret, _, err := powerRegisterSuspendResumeNotification.Call(
+				uintptr(unsafe.Pointer(&handle)),
+			)
+			if ret != 87 {
+				log.Printf("power: unable to unregister: %+v\n", err)
+			}
+		}
+	}()
+
 	return nil
 }

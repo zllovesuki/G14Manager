@@ -6,6 +6,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/zllovesuki/G14Manager/controller"
 	"github.com/zllovesuki/G14Manager/rpc/protocol"
 	"github.com/zllovesuki/G14Manager/rpc/server"
@@ -21,25 +22,32 @@ const (
 	controllerUnknown
 )
 
-type ManagerResponderOption struct {
-	Supervisor       *suture.Supervisor
+type ManagerResponder struct {
 	Dependencies     *controller.Dependencies
 	ManagerReqCh     chan server.ManagerSupervisorRequest
 	ControllerConfig controller.RunConfig
 
+	supervisor      *suture.Supervisor
 	childToken      suture.ServiceToken
 	controllerState controllerState
 }
 
-func (m *ManagerResponderOption) HasSupervisor() *suture.Supervisor {
-	return m.Supervisor
+func (m *ManagerResponder) HasSupervisor() *suture.Supervisor {
+	return m.supervisor
 }
 
-func (m *ManagerResponderOption) String() string {
+func (m *ManagerResponder) SetSupervisor(s *suture.Supervisor) {
+	m.supervisor = s
+}
+
+func (m *ManagerResponder) String() string {
 	return "ManagerResponder"
 }
 
-func (m *ManagerResponderOption) Serve(haltCtx context.Context) error {
+func (m *ManagerResponder) Serve(haltCtx context.Context) error {
+	if m.supervisor == nil {
+		return errors.Wrap(suture.ErrTerminateSupervisorTree, "no supervisor was set")
+	}
 
 	log.Println("[gRPCSupervisor] starting responder loop")
 
@@ -87,7 +95,7 @@ func (m *ManagerResponderOption) Serve(haltCtx context.Context) error {
 	}
 }
 
-func (m *ManagerResponderOption) doStartController(s server.ManagerSupervisorRequest) {
+func (m *ManagerResponder) doStartController(s server.ManagerSupervisorRequest) {
 	switch m.controllerState {
 	case controllerRunning:
 		s.Response <- server.ManagerSupervisorResponse{
@@ -114,7 +122,7 @@ func (m *ManagerResponderOption) doStartController(s server.ManagerSupervisorReq
 
 	controllerSupervisor := suture.New("controllerSupervisor", suture.Spec{})
 	controllerSupervisor.Add(control)
-	m.childToken = m.Supervisor.Add(controllerSupervisor)
+	m.childToken = m.supervisor.Add(controllerSupervisor)
 
 	select {
 	case controllerStartErr := <-controllerStartErrCh:
@@ -132,7 +140,7 @@ func (m *ManagerResponderOption) doStartController(s server.ManagerSupervisorReq
 	}
 }
 
-func (m *ManagerResponderOption) doStopController(s server.ManagerSupervisorRequest) {
+func (m *ManagerResponder) doStopController(s server.ManagerSupervisorRequest) {
 	switch m.controllerState {
 	case controllerStopped:
 		s.Response <- server.ManagerSupervisorResponse{
@@ -148,7 +156,7 @@ func (m *ManagerResponderOption) doStopController(s server.ManagerSupervisorRequ
 		return
 	}
 
-	err := m.Supervisor.RemoveAndWait(m.childToken, time.Second*2)
+	err := m.supervisor.RemoveAndWait(m.childToken, time.Second*2)
 	if err != nil {
 		s.Response <- server.ManagerSupervisorResponse{
 			Error: err,

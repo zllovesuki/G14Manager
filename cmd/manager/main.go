@@ -71,9 +71,7 @@ func main() {
 		log.Fatalf("[supervisor] cannot create gRPCServer: %+v\n", err)
 	}
 
-	grpcSupervisor := suture.New("gRPCSupervisor", suture.Spec{})
-	managerResponder := &supervisor.ManagerResponderOption{
-		Supervisor:       grpcSupervisor,
+	managerResponder := &supervisor.ManagerResponder{
 		Dependencies:     dep,
 		ManagerReqCh:     managerCtrl,
 		ControllerConfig: controllerConfig,
@@ -123,6 +121,8 @@ func main() {
 	backgroundSupervisor.Add(versionChecker)
 	backgroundSupervisor.Add(notifier)
 
+	grpcSupervisor := suture.New("gRPCSupervisor", suture.Spec{})
+	managerResponder.SetSupervisor(grpcSupervisor)
 	grpcSupervisor.Add(grpcServer)
 	grpcSupervisor.Add(managerResponder)
 

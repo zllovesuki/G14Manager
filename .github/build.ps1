@@ -34,12 +34,12 @@ Invoke-Expression $PACKED
 Write-Host "Building prod release"
 
 # $BUILD = "go build -tags 'use_cgo' -ldflags='-H=windowsgui -s -w' ."
-$BUILD = "go build -ldflags=`"-H=windowsgui -s -w -X 'main.Version=$env:GITHUB_REF' -X 'main.IsDebug=no'`" -o build/G14Manager.exe .\cmd\manager"
+$BUILD = "go build -ldflags=`"-H=windowsgui -s -w -X 'main.Version=$env:GITHUB_REF'`" -o build/G14Manager.exe .\cmd\manager"
 Invoke-Expression $BUILD
 
 Write-Host "Building debug release"
 
-$BUILD_DEBUG = "go build -ldflags=`"-X 'main.Version=$env:GITHUB_REF'`" -o build/G14Manager.debug.exe .\cmd\manager"
+$BUILD_DEBUG = "go build -gcflags=`"-N -l`" -ldflags=`"-X 'main.Version=$env:GITHUB_REF-debug' -X 'main.IsDebug=yes'`" -o build/G14Manager.debug.exe .\cmd\manager"
 Invoke-Expression $BUILD_DEBUG
 
 Write-Host "Building configurator"

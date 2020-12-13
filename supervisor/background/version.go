@@ -70,6 +70,7 @@ func (v *VersionChecker) Serve(haltCtx context.Context) error {
 			latest, err := v.getLatest()
 			if err != nil {
 				log.Printf("[VersionChecker] error checking for new version: %+v\n", err)
+				continue
 			}
 			if latest.GreaterThan(v.current) {
 				log.Printf("[VersionChecker] new version found: %s\n", latest.String())

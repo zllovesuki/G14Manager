@@ -3,7 +3,8 @@ extern "C"
 {
 #endif
 
-    int restartGPU(void);
+    int disableGPU(void);
+    int enableGPU(void);
 
 #ifdef __cplusplus
 }

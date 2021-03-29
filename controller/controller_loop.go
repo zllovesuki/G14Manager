@@ -3,7 +3,6 @@ package controller
 import (
 	"context"
 	"encoding/binary"
-	"fmt"
 	"log"
 	"runtime"
 
@@ -87,11 +86,12 @@ func (c *Controller) handleKeyPress(haltCtx context.Context) {
 				log.Println("hid: volume up Pressed")
 
 			case kb.KeyFnC:
-				log.Println("hid: Fn + C Pressed")
+				log.Println("[controller] request to disable gpu")
+				c.notifyPlugins(plugin.EvtSentinelDisableGPU, nil)
 
 			case kb.KeyFnV:
-				log.Println("hid: Fn + V Pressed")
-				c.errorCh <- fmt.Errorf("Crashing deliberately")
+				log.Println("[controller] request to enable gpu")
+				c.notifyPlugins(plugin.EvtSentinelEnableGPU, nil)
 
 			case
 				kb.KeyLCDUp,
@@ -107,7 +107,6 @@ func (c *Controller) handleKeyPress(haltCtx context.Context) {
 				kb.KeyFnRight,
 				kb.KeyFnUp,
 				kb.KeyFnDown:
-				log.Printf("hid: keyboard hardware function %+v\n", keyCode)
 				c.notifyPlugins(plugin.EvtKeyboardFn, keyCode)
 
 			default:

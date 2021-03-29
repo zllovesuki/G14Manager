@@ -31,11 +31,39 @@ func NewGPUControl(dryRun bool) (*Control, error) {
 }
 
 func (c *Control) RestartGPU() error {
-	ret := C.restartGPU()
+	ret := C.disableGPU()
 	if int(ret) == 0 {
-		return fmt.Errorf("gpu: Cannot restart GPU")
+		return fmt.Errorf("gpu: Cannot disable GPU")
+	}
+	ret = C.enableGPU()
+	if int(ret) == 0 {
+		return fmt.Errorf("gpu: Cannot re-enable GPU")
 	}
 	return nil
+}
+
+func (c *Control) DisableGPU() error {
+	ret := C.disableGPU()
+	switch int(ret) {
+	case 0:
+		return fmt.Errorf("gpu: Cannot disable GPU")
+	case 2:
+		return fmt.Errorf("gpu: GPU is already disabled")
+	default:
+		return nil
+	}
+}
+
+func (c *Control) EnableGPU() error {
+	ret := C.enableGPU()
+	switch int(ret) {
+	case 0:
+		return fmt.Errorf("gpu: Cannot enable GPU")
+	case 2:
+		return fmt.Errorf("gpu: GPU is already enabled")
+	default:
+		return nil
+	}
 }
 
 func (c *Control) Initialize() error {
@@ -52,35 +80,39 @@ func (c *Control) loop(haltCtx context.Context, cb chan<- plugin.Callback) {
 
 	for {
 		select {
-		case <-c.queue:
+		case evt := <-c.queue:
 			if c.dryRun {
-				log.Println("gpu: dry run, not restarting GPU")
+				log.Println("gpu: dry run, not controlling GPU state")
 				continue
+			}
+			var action string
+			var err error
+			switch evt.Event {
+			case plugin.EvtSentinelEnableGPU:
+				action = "enable"
+				err = c.EnableGPU()
+			case plugin.EvtSentinelDisableGPU:
+				action = "disable"
+				err = c.DisableGPU()
 			}
 			cb <- plugin.Callback{
 				Event: plugin.CbNotifyToast,
 				Value: util.Notification{
 					Title:   "GPU Control",
-					Message: "Restarting GPU...",
+					Message: fmt.Sprintf("Attempting to %s GPU...", action),
 				},
 			}
-			err := c.RestartGPU()
 			n := util.Notification{
 				Title: "GPU Control",
 			}
 			if err != nil {
-				n.Message = "Unable to restart GPU. Please check Device Manager."
+				n.Message = fmt.Sprintf("Unable to %s GPU. Please check log for more details", action)
 				cb <- plugin.Callback{
 					Event: plugin.CbNotifyToast,
 					Value: n,
 				}
 				c.errChan <- err
 				continue
-			}
-			n.Message = "GPU Restarted"
-			cb <- plugin.Callback{
-				Event: plugin.CbNotifyToast,
-				Value: n,
 			}
 		case <-haltCtx.Done():
 			log.Println("gpu: exiting Plugin run loop")
@@ -98,7 +130,7 @@ func (c *Control) Run(haltCtx context.Context, cb chan<- plugin.Callback) <-chan
 }
 
 func (c *Control) Notify(t plugin.Notification) {
-	if t.Event != plugin.EvtSentinelRestartGPU {
+	if t.Event != plugin.EvtSentinelEnableGPU && t.Event != plugin.EvtSentinelDisableGPU {
 		return
 	}
 

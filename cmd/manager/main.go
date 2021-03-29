@@ -25,7 +25,7 @@ import (
 // Compile time injected variables
 var (
 	Version     = "v0.0.0-dev"
-	IsDebug     = "no"
+	IsDebug     = "yes"
 	logLocation = `C:\Logs\G14Manager.log`
 )
 

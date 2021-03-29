@@ -39,11 +39,18 @@ int changeState(HDEVINFO deviceInfoSet, PSP_DEVINFO_DATA pDeviceInfoData, DWORD 
     return 1;
 }
 
-int restartGPU(void)
+/*
+    Return code:
+    0: Unrecoverable error
+    1: Successful
+    2: Incorrect state (cannot enable if already enabled, etc)
+*/
+
+int disableGPU(void)
 {
     int ret = 0;
     HDEVINFO deviceInfoSet;
-    deviceInfoSet = SetupDiGetClassDevsA(&GUID_DEVINTERFACE_DISPLAY_ADAPTER, NULL, NULL, DIGCF_DEVICEINTERFACE | DIGCF_PRESENT);
+    deviceInfoSet = SetupDiGetClassDevsA(&GUID_DEVINTERFACE_DISPLAY_ADAPTER, NULL, NULL, DIGCF_DEVICEINTERFACE);
     if (INVALID_HANDLE_VALUE == deviceInfoSet)
     {
         std::cerr << "gpu: SetupDiGetClassDevsA error: " << GetLastError() << std::endl;
@@ -89,6 +96,7 @@ int restartGPU(void)
     if (!(status & DN_STARTED))
     {
         std::cerr << "gpu: Dedicated graphics card is not enabled" << std::endl;
+        ret = 2;
         goto GTFO;
     }
 
@@ -99,6 +107,71 @@ int restartGPU(void)
     }
 
     Sleep(1000);
+
+    ret = 1;
+
+GTFO:
+    if (!SetupDiDestroyDeviceInfoList(deviceInfoSet))
+    {
+        std::cerr << "gpu: SetupDiDestroyDeviceInfoList error: " << GetLastError() << std::endl;
+    }
+
+    return ret;
+}
+
+int enableGPU(void)
+{
+    int ret = 0;
+    HDEVINFO deviceInfoSet;
+    deviceInfoSet = SetupDiGetClassDevsA(&GUID_DEVINTERFACE_DISPLAY_ADAPTER, NULL, NULL, DIGCF_DEVICEINTERFACE);
+    if (INVALID_HANDLE_VALUE == deviceInfoSet)
+    {
+        std::cerr << "gpu: SetupDiGetClassDevsA error: " << GetLastError() << std::endl;
+        return 0;
+    }
+
+    SP_DEVINFO_DATA deviceInfoData;
+    ZeroMemory(&deviceInfoData, sizeof(SP_DEVINFO_DATA));
+    deviceInfoData.cbSize = sizeof(SP_DEVINFO_DATA);
+
+    unsigned long status = 0;
+    unsigned long problem = 0;
+    char mfgName[MAX_LEN] = {0};
+    int foundDevice = 0;
+
+    int deviceMemberIndex = 0;
+    while (SetupDiEnumDeviceInfo(deviceInfoSet, deviceMemberIndex, &deviceInfoData))
+    {
+        deviceMemberIndex++;
+        deviceInfoData.cbSize = sizeof(deviceInfoData);
+
+        if (CR_SUCCESS != CM_Get_DevNode_Status(&status, &problem, deviceInfoData.DevInst, 0))
+        {
+            std::cerr << "gpu: CM_Get_DevNode_Status error: " << GetLastError() << std::endl;
+            goto GTFO;
+        }
+
+        SetupDiGetDeviceRegistryPropertyA(deviceInfoSet, &deviceInfoData, SPDRP_MFG, 0, (PBYTE)mfgName, MAX_LEN, NULL);
+
+        if (strncmp(mfgName, nvidiaMfgName, MAX_LEN) == 0)
+        {
+            foundDevice = 1;
+            break;
+        }
+    }
+
+    if (foundDevice == 0)
+    {
+        std::cerr << "gpu: Cannot found NVIDIA graphics card" << std::endl;
+        goto GTFO;
+    }
+
+    if (status & DN_STARTED)
+    {
+        std::cerr << "gpu: Dedicated graphics card is already enabled" << std::endl;
+        ret = 2;
+        goto GTFO;
+    }
 
     if (!changeState(deviceInfoSet, &deviceInfoData, DICS_ENABLE, DICS_FLAG_GLOBAL))
     {

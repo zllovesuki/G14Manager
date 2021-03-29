@@ -10,6 +10,7 @@ import (
 	kb "github.com/zllovesuki/G14Manager/system/keyboard"
 	"github.com/zllovesuki/G14Manager/system/plugin"
 	"github.com/zllovesuki/G14Manager/system/power"
+	"github.com/zllovesuki/G14Manager/system/shared"
 	"github.com/zllovesuki/G14Manager/util"
 
 	"github.com/pkg/errors"
@@ -85,10 +86,12 @@ func (c *Controller) handleKeyPress(haltCtx context.Context) {
 				log.Println("hid: volume up Pressed")
 
 			case kb.KeyFnC:
-				log.Println("hid: Fn + C Pressed")
+				log.Println("[controller] request to disable gpu")
+				c.notifyPlugins(plugin.EvtSentinelDisableGPU, nil)
 
 			case kb.KeyFnV:
-				log.Println("hid: Fn + V Pressed")
+				log.Println("[controller] request to enable gpu")
+				c.notifyPlugins(plugin.EvtSentinelEnableGPU, nil)
 
 			case
 				kb.KeyLCDUp,
@@ -104,7 +107,6 @@ func (c *Controller) handleKeyPress(haltCtx context.Context) {
 				kb.KeyFnRight,
 				kb.KeyFnUp,
 				kb.KeyFnDown:
-				log.Printf("hid: keyboard hardware function %+v\n", keyCode)
 				c.notifyPlugins(plugin.EvtKeyboardFn, keyCode)
 
 			default:
@@ -112,22 +114,6 @@ func (c *Controller) handleKeyPress(haltCtx context.Context) {
 			}
 		case <-haltCtx.Done():
 			log.Println("[controller] exiting handleKeyPress")
-			return
-		}
-	}
-}
-
-// In the future this will be notifying OSD
-func (c *Controller) handleNotify(haltCtx context.Context) {
-	for {
-		select {
-		case msg := <-c.notifyQueueCh:
-			msg.Icon = c.LogoPath
-			if err := util.SendToastNotification(appName, msg); err != nil {
-				log.Printf("Error sending toast notification: %s\n", err)
-			}
-		case <-haltCtx.Done():
-			log.Println("[controller] exiting handleNotify")
 			return
 		}
 	}
@@ -148,13 +134,7 @@ func (c *Controller) handleWorkQueue(haltCtx context.Context) {
 		select {
 		case ev := <-c.workQueueCh[fnUtilityKey].clean:
 			log.Printf("[controller] ROG Key pressed %d times\n", ev.Counter)
-			if int(ev.Counter) <= len(c.Config.ROGKey) {
-				cmd := c.Config.ROGKey[ev.Counter-1]
-				log.Printf("[controller] Running: %s\n", cmd)
-				if err := run("cmd.exe", "/C", cmd); err != nil {
-					log.Println(err)
-				}
-			}
+			c.notifyPlugins(plugin.EvtSentinelUtilityKey, ev.Counter)
 
 		case ev := <-c.workQueueCh[fnThermalProfile].clean:
 			log.Printf("[controller] Fn + F5 pressed %d times\n", ev.Counter)
@@ -260,7 +240,9 @@ func (c *Controller) handlePluginCallback(haltCtx context.Context) {
 				c.workQueueCh[fnPersistConfigs].noisy <- struct{}{}
 			case plugin.CbNotifyToast:
 				if n, ok := t.Value.(util.Notification); ok {
-					c.notifyQueueCh <- n
+					n.AppName = shared.AppName
+					n.Icon = c.LogoPath
+					c.Config.Notifier <- n
 				}
 			}
 		case <-haltCtx.Done():

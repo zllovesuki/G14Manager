@@ -2,10 +2,11 @@ package main
 
 import (
 	"context"
-	"flag"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"syscall"
@@ -13,25 +14,26 @@ import (
 
 	"github.com/zllovesuki/G14Manager/box"
 	"github.com/zllovesuki/G14Manager/controller"
-	"github.com/zllovesuki/G14Manager/util"
+	"github.com/zllovesuki/G14Manager/rpc/server"
+	"github.com/zllovesuki/G14Manager/supervisor"
+	"github.com/zllovesuki/G14Manager/supervisor/background"
 
-	"cirello.io/oversight"
+	suture "github.com/thejerf/suture/v4"
 	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 // Compile time injected variables
 var (
-	Version = "dev"
-	IsDebug = "yes"
+	Version     = "v0.0.0-dev"
+	IsDebug     = "yes"
+	logLocation = `C:\Logs\G14Manager.log`
 )
-
-var defaultCommandWithArgs = "Taskmgr.exe"
 
 func main() {
 
 	if IsDebug == "no" {
 		log.SetOutput(&lumberjack.Logger{
-			Filename:   `C:\Logs\G14Manager.log`,
+			Filename:   logLocation,
 			MaxSize:    5,
 			MaxBackups: 3,
 			MaxAge:     7,
@@ -39,81 +41,113 @@ func main() {
 		})
 	}
 
-	var rogRemap util.ArrayFlags
-	flag.Var(&rogRemap, "rog", "customize ROG key behavior when pressed multiple times")
-
-	var enableRemap = flag.Bool("remap", false, "enable remapping Fn+Left/Right to PgUp/PgDown")
-	var enableAutoThermal = flag.Bool("autoThermal", false, "enable automatic thermal profile switching on power source change")
-
-	flag.Parse()
-
 	log.Printf("G14Manager version: %s\n", Version)
-	log.Printf("Remapping enabled: %v\n", *enableRemap)
-	log.Printf("Automatic Thermal Profile Switching enabled: %v\n", *enableAutoThermal)
 
-	var logoPath string
-	logoPng := box.Get("/Logo.png")
-	if logoPng != nil {
-		logoFile, err := ioutil.TempFile(os.TempDir(), "G14Manager-")
-		if err != nil {
-			log.Fatal("[supervisor] Cannot create temporary file for logo", err)
-		}
-		defer func() {
-			time.Sleep(time.Second)
-			os.Remove(logoFile.Name())
-		}()
+	asset := box.GetAssetExtractor()
+	defer asset.Close()
 
-		if _, err = logoFile.Write(logoPng); err != nil {
-			log.Fatal("[supervisor] Failed to write to temporary file for logo", err)
-		}
+	notifier := background.NewNotifier()
 
-		if err := logoFile.Close(); err != nil {
-			log.Fatal(err)
-		}
-
-		logoPath = logoFile.Name()
-		log.Printf("[supervisor] Logo extracted to %s\n", logoPath)
+	versionChecker, err := background.NewVersionCheck(Version, "zllovesuki/G14Manager", notifier.C)
+	if err != nil {
+		log.Fatalf("[supervisor] cannot get version checker")
 	}
 
 	controllerConfig := controller.RunConfig{
-		LogoPath: logoPath,
-		RogRemap: rogRemap,
-		EnabledFeatures: controller.Features{
-			FnRemap:            *enableRemap,
-			AutoThermalProfile: *enableAutoThermal,
-		},
-		DryRun: os.Getenv("DRY_RUN") != "",
+		LogoPath:   asset.Get("/Logo.png"),
+		DryRun:     os.Getenv("DRY_RUN") != "",
+		NotifierCh: notifier.C,
 	}
 
-	supervisor := oversight.New(
-		oversight.WithRestartStrategy(oversight.OneForOne()),
-		oversight.Process(oversight.ChildProcessSpecification{
-			Name: "Controller",
-			Start: func(ctx context.Context) error {
-				control, err := controller.New(controllerConfig)
-				if err != nil {
-					return err
-				}
-				return control.Run(ctx)
-			},
-			Restart: func(err error) bool {
-				if err == nil {
-					return false
-				}
-				log.Println("[supervisor] controller returned an error:")
-				log.Printf("%+v\n", err)
-				util.SendToastNotification("G14Manager Supervisor", util.Notification{
-					Title:   "G14Manager will be restarted",
-					Message: fmt.Sprintf("An error has occurred: %s", err),
-				})
-				return true
-			},
-		}),
-	)
+	dep, err := controller.GetDependencies(controllerConfig)
+	if err != nil {
+		log.Fatalf("[supervisor] cannot get dependencies\n")
+	}
+
+	managerCtrl := make(chan server.ManagerSupervisorRequest, 1)
+
+	grpcServer, err := supervisor.NewGRPCServer(supervisor.GRPCRunConfig{
+		ManagerReqCh: managerCtrl,
+		Dependencies: dep,
+	})
+	if err != nil {
+		log.Fatalf("[supervisor] cannot create gRPCServer: %+v\n", err)
+	}
+
+	managerResponder := &supervisor.ManagerResponder{
+		Dependencies:     dep,
+		ManagerReqCh:     managerCtrl,
+		ControllerConfig: controllerConfig,
+	}
+
+	evtHook := &supervisor.EventHook{
+		Notifier: notifier.C,
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 
+	/*
+		How the supervisor tree is structured:
+			gRPCSupervisor:		supervisor/grpc.go
+			gRPCServer: 		rpc/server
+			ManagerResponder:	supervisor/responder.go
+			versionChecker:		supervisor/background/version.go
+			toastNotifier:		supervisor/background/notifier.go
+			controller:			controller
+
+								rootSupervisor  +----+  pprof
+									+    +
+									|    |
+									|    |
+				gRPCSupervisor  +---+    +---+   backgroundSupervisor
+				+ + +                            + +
+				| | |                            | |
+				| | +-> gRPCServer               | +-> versionChecker
+				| |                              |
+				| |                              |
+				| +---> ManagerResponder         +---> toastNotifier
+				|
+				|
+				+-----> controllerSupervisor
+							+
+							|
+							+-> Controller
+
+		Since the gRPCServer can control the lifecycle of the Controller,
+		we need a two-way communication between the gRPCSupervisor and
+		the gRPC ManagerServer via ManagerReqCh. The coordination is handled
+		by ManagerResponder
+
+	*/
+
+	backgroundSupervisor := suture.New("backgroundSupervisor", suture.Spec{})
+	backgroundSupervisor.Add(versionChecker)
+	backgroundSupervisor.Add(notifier)
+
+	grpcSupervisor := suture.New("gRPCSupervisor", suture.Spec{})
+	managerResponder.SetSupervisor(grpcSupervisor)
+	grpcSupervisor.Add(grpcServer)
+	grpcSupervisor.Add(managerResponder)
+
+	rootSupervisor := suture.New("Supervisor", suture.Spec{
+		EventHook: evtHook.Event,
+	})
+	rootSupervisor.Add(grpcSupervisor)
+	rootSupervisor.Add(backgroundSupervisor)
+	rootSupervisor.Add(&webDebugger{
+		Srv: &http.Server{Addr: "127.0.0.1:9969"},
+	})
+
 	sigc := make(chan os.Signal, 1)
+
+	go func() {
+		supervisorErr := rootSupervisor.Serve(ctx)
+		if supervisorErr != nil {
+			log.Printf("[supervisor] rootSupervisor returns error: %+v\n", supervisorErr)
+			sigc <- syscall.SIGTERM
+		}
+	}()
+
 	signal.Notify(
 		sigc,
 		syscall.SIGHUP,
@@ -122,18 +156,50 @@ func main() {
 		syscall.SIGQUIT,
 	)
 
-	go func() {
-		log.Println("[supervisor] Monitoring controller")
-		if err := supervisor.Start(ctx); err != nil {
-			util.SendToastNotification("G14Manager Supervisor", util.Notification{
-				Title:   "G14Manager cannot be started",
-				Message: fmt.Sprintf("Error: %v", err),
-			})
-			log.Fatalf("[supervisor] controller start error: %v\n", err)
-		}
-	}()
+	sig := <-sigc
+	log.Printf("[supervisor] signal received: %+v\n", sig)
 
-	<-sigc
 	cancel()
+	dep.ConfigRegistry.Close()
 	time.Sleep(time.Second) // 1 second for grace period
+}
+
+type webDebugger struct {
+	Srv *http.Server
+}
+
+func (w *webDebugger) Serve(haltCtx context.Context) error {
+
+	http.HandleFunc("/debug/logs", func(w http.ResponseWriter, r *http.Request) {
+		if IsDebug != "no" {
+			fmt.Fprintf(w, "Logging is not enabled on debug build")
+			return
+		}
+		osFile, err := os.Open(logLocation)
+		if err != nil {
+			fmt.Fprintf(w, "Unable to open log file: %+v", err)
+			return
+		}
+		defer osFile.Close()
+		io.Copy(w, osFile)
+	})
+
+	errCh := make(chan error)
+	go func() {
+		log.Printf("[pprof] debugging server available at %s\n", w.Srv.Addr)
+		errCh <- w.Srv.ListenAndServe()
+	}()
+	for {
+		select {
+		case <-haltCtx.Done():
+			log.Println("[pprof] exiting pprof server")
+			w.Srv.Shutdown(context.Background())
+			return nil
+		case err := <-errCh:
+			if err == nil || err == http.ErrServerClosed {
+				return nil
+			}
+			return suture.ErrTerminateSupervisorTree
+		}
+	}
 }

@@ -11,6 +11,9 @@ const (
 	EvtChargerPluggedIn
 	EvtChargerUnplugged
 	EvtSentinelCycleThermalProfile
+	EvtSentinelUtilityKey
+	EvtSentinelEnableGPU
+	EvtSentinelDisableGPU
 
 	CbPersistConfig
 	CbNotifyToast
@@ -24,6 +27,9 @@ func (e Event) String() string {
 		"Event: Charged plugged in",
 		"Event: Charged unplugged",
 		"Event (sentinel): Cycle thermal profile",
+		"Event (sentinel): ROG/Utility Key",
+		"Event (sentinel): Enable GPU",
+		"Event (sentinel): Disable GPU",
 
 		"Callback: Request to persist config",
 		"Callback: Request to notify user",

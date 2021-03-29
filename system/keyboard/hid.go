@@ -50,6 +50,7 @@ func NewHidListener(haltCtx context.Context, eventCh chan uint32) (map[string]us
 			return nil, err
 		}
 		openDevices = append(openDevices, d)
+		log.Printf("hid: reading from %s\n", device.Path)
 	}
 	for _, d := range openDevices {
 		go readDevice(haltCtx, eventCh, d)
@@ -61,17 +62,19 @@ func readDevice(haltCtx context.Context, eventCh chan uint32, dev usb.Device) {
 	for {
 		select {
 		case <-haltCtx.Done():
+			dev.Close()
+			log.Printf("hid: closing read channel\n")
 			return
 		default:
-		}
-		buf := make([]byte, reportBufSize)
-		buf[0] = reportID
-		_, err := dev.Read(buf)
-		if err != nil {
-			log.Fatalln(err)
-		}
-		if buf[1] > 0 && buf[1] < 236 {
-			eventCh <- uint32(buf[1])
+			buf := make([]byte, reportBufSize)
+			buf[0] = reportID
+			_, err := dev.Read(buf)
+			if err != nil {
+				log.Fatalln(err)
+			}
+			if buf[1] > 0 && buf[1] < 236 {
+				eventCh <- uint32(buf[1])
+			}
 		}
 	}
 }

@@ -13,20 +13,20 @@ const (
 	registryPath = `SOFTWARE\G14Manager`
 )
 
-// RegistryHelper contains a list of configurations to be loaded, saved, and applied
-type RegistryHelper struct {
-	sync.Mutex
+// RegistryConfigHelper contains a list of configurations to be loaded, saved, and applied
+type RegistryConfigHelper struct {
+	mu            sync.Mutex
 	alreadyClosed bool
 	configs       map[string]Registry
 	key           registry.Key
 	path          string
 }
 
-var _ ConfigRegistry = &RegistryHelper{}
+var _ ConfigRegistry = &RegistryConfigHelper{}
 
-// NewRegistryHelper returns a helper to persist config to the Registry
-func NewRegistryHelper() (ConfigRegistry, error) {
-	return &RegistryHelper{
+// NewRegistryConfigHelper returns a helper to persist config to the Registry
+func NewRegistryConfigHelper() (ConfigRegistry, error) {
+	return &RegistryConfigHelper{
 		configs: make(map[string]Registry),
 		key:     registryKey,
 		path:    registryPath,
@@ -34,17 +34,17 @@ func NewRegistryHelper() (ConfigRegistry, error) {
 }
 
 // Register will add the config to the list
-func (h *RegistryHelper) Register(config Registry) {
-	h.Lock()
-	defer h.Unlock()
+func (h *RegistryConfigHelper) Register(config Registry) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
 
 	h.configs[config.Name()] = config
 }
 
 // Load will retrive and populate configs from Registry
-func (h *RegistryHelper) Load() error {
-	h.Lock()
-	defer h.Unlock()
+func (h *RegistryConfigHelper) Load() error {
+	h.mu.Lock()
+	defer h.mu.Unlock()
 
 	key, exists, err := registry.CreateKey(
 		h.key,
@@ -75,9 +75,9 @@ func (h *RegistryHelper) Load() error {
 }
 
 // Save will persist all the configs to Registry as binary values
-func (h *RegistryHelper) Save() error {
-	h.Lock()
-	defer h.Unlock()
+func (h *RegistryConfigHelper) Save() error {
+	h.mu.Lock()
+	defer h.mu.Unlock()
 
 	key, _, err := registry.CreateKey(
 		h.key,
@@ -102,9 +102,9 @@ func (h *RegistryHelper) Save() error {
 }
 
 // Apply will apply each config accordingly. This is usually called after Load()
-func (h *RegistryHelper) Apply() error {
-	h.Lock()
-	defer h.Unlock()
+func (h *RegistryConfigHelper) Apply() error {
+	h.mu.Lock()
+	defer h.mu.Unlock()
 
 	for _, config := range h.configs {
 		log.Printf("persist: applying \"%s\" config\n", config.Name())
@@ -120,9 +120,9 @@ func (h *RegistryHelper) Apply() error {
 }
 
 // Close will release resources of each config
-func (h *RegistryHelper) Close() {
-	h.Lock()
-	defer h.Unlock()
+func (h *RegistryConfigHelper) Close() {
+	h.mu.Lock()
+	defer h.mu.Unlock()
 
 	if h.alreadyClosed {
 		return

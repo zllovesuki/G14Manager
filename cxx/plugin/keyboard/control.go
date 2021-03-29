@@ -19,10 +19,14 @@ import (
 	"encoding/binary"
 	"fmt"
 	"log"
+	"os/exec"
 	"runtime"
 	"strings"
 	"sync"
+	"syscall"
 
+	"github.com/zllovesuki/G14Manager/rpc/announcement"
+	"github.com/zllovesuki/G14Manager/system/shared"
 	"github.com/zllovesuki/G14Manager/system/device"
 	"github.com/zllovesuki/G14Manager/system/ioctl"
 	"github.com/zllovesuki/G14Manager/system/keyboard"
@@ -108,6 +112,7 @@ type Control struct {
 type Config struct {
 	DryRun bool
 	Remap  map[uint32]uint16
+	RogKey []string
 }
 
 var _ plugin.Plugin = &Control{}
@@ -206,8 +211,22 @@ func (c *Control) loop(haltCtx context.Context, cb chan<- plugin.Callback) {
 			case plugin.EvtACPISuspend:
 				log.Println("kbCtrl: turning off keyboard backlight")
 				c.errChan <- c.SetBrightness(OFF)
+
+			case plugin.EvtSentinelUtilityKey:
+				counter, ok := t.Value.(int64)
+				if !ok {
+					continue
+				}
+				if int(counter) <= len(c.Config.RogKey) {
+					cmd := c.Config.RogKey[counter-1]
+					log.Printf("[controller] Running: %s\n", cmd)
+					if err := run("cmd.exe", "/C", cmd); err != nil {
+						log.Println(err)
+					}
+				}
 			}
 		case <-haltCtx.Done():
+			log.Println("kbCtrl: exiting Plugin run loop")
 			return
 		}
 	}
@@ -225,6 +244,14 @@ func (c *Control) Run(haltCtx context.Context, cb chan<- plugin.Callback) <-chan
 // Notify satifies system/plugin.Plugin
 func (c *Control) Notify(t plugin.Notification) {
 	c.queue <- t
+}
+
+// CurrentBrightness returns current brightness Level
+func (c *Control) CurrentBrightness() Level {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	return c.currentBrightness
 }
 
 // SetBrightness change the keyboard backlight directly
@@ -315,6 +342,26 @@ func (c *Control) EmulateKeyPress(keyCode uint16) error {
 	return nil
 }
 
+var _ announcement.Updatable = &Control{}
+
+func (c *Control) ConfigUpdate(u announcement.Update) {
+	if u.Type != announcement.FeaturesUpdate {
+		return
+	}
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	feats, ok := u.Config.(shared.Features)
+	if !ok {
+		return
+	}
+
+	c.Remap = feats.FnRemap
+	c.RogKey = feats.RogRemap
+
+}
+
 var _ persist.Registry = &Control{}
 
 // Name satisfies persist.Registry
@@ -357,4 +404,10 @@ func (c *Control) Close() error {
 	defer c.mu.Unlock()
 
 	return c.deviceCtrl.Close()
+}
+
+func run(commands ...string) error {
+	cmd := exec.Command(commands[0], commands[1:]...)
+	cmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: 0x08000000}
+	return cmd.Start()
 }

@@ -1,6 +1,6 @@
 # G14Manager: An open source replacement to manage your G14
 
-![Test and Build](https://github.com/zllovesuki/G14Manager/workflows/Test%20and%20Build/badge.svg) ![Build Release](https://github.com/zllovesuki/G14Manager/workflows/Build%20Release/badge.svg)
+![Test and Build](https://github.com/zllovesuki/G14Manager/workflows/Test%20and%20Build/badge.svg) ![Build Release](https://github.com/zllovesuki/G14Manager/workflows/Build%20Release/badge.svg) [![GoDoc](https://godoc.org/github.com/zllovesuki/G14Manager?status.svg)](https://godoc.org/github.com/zllovesuki/G14Manager)
 
 ## Disclaimer
 
@@ -14,8 +14,9 @@ After some reverse engineering, G14Manager now (mostly) replaces Asus software s
 1. ~~Toggle mute/unmute microphone~~
 2. ~~Toggle enable/disable TouchPad~~
 3. ~~Keyboard brightness adjustment~~
+4. ~~Fan curve control~~
 4. On-screen display
-5. AniMe Matrix control
+5. AniMe Matrix control (Proof of Concept available)
 
 _Note_: Currently, the default profiles expect Power Plans "High Performance" and "Power Saver" to be available. If your installation of Windows does not have those Power Plans, G14Manager will refuse to start. This will be fixed when customizable config is released.
 
@@ -118,7 +119,7 @@ Use `.\scripts\run.ps1`.
 
 Most keycodes can be found in [reverse_eng/codes.txt](https://github.com/zllovesuki/reverse_engineering/blob/master/G14/codes.txt), and the repo contains USB and API calls captures for reference.
 
-## References:
+## References
 
 - https://github.com/torvalds/linux/blob/master/drivers/platform/x86/asus-wmi.c
 - https://github.com/torvalds/linux/blob/master/drivers/platform/x86/asus-nb-wmi.c
@@ -130,3 +131,9 @@ Most keycodes can be found in [reverse_eng/codes.txt](https://github.com/zlloves
 - https://wiki.ubuntu.com/Kernel/Reference/WMI
 - [DSDT Table](https://github.com/zllovesuki/reverse_engineering/blob/master/G14/g14-dsdt.dsl)
 - [Reverse Engineering](https://github.com/zllovesuki/reverse_engineering/tree/master/G14)
+
+## Credits
+
+"Go" logo licensed under unsplash license: [https://blog.golang.org/go-brand](https://blog.golang.org/go-brand)
+
+"Dead computer" logo licensed under Creative Commons: [https://thenounproject.com/term/dead-computer/98571/](https://thenounproject.com/term/dead-computer/98571/)

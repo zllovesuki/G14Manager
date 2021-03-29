@@ -3,8 +3,6 @@ package controller
 import (
 	"context"
 	"log"
-	"os/exec"
-	"syscall"
 	"time"
 
 	"github.com/zllovesuki/G14Manager/system/atkacpi"
@@ -15,15 +13,12 @@ import (
 	"github.com/zllovesuki/G14Manager/util"
 
 	"github.com/pkg/errors"
+	suture "github.com/thejerf/suture/v4"
 )
 
 const (
 	// AutoThermalDelay defines how long the Controller should wait before changing thermal profile when power source is changed
 	AutoThermalDelay = time.Second * 5
-)
-
-const (
-	appName = "G14Manager"
 )
 
 const (
@@ -50,12 +45,6 @@ func (c chargerStatus) String() string {
 	return [...]string{"Plugged In", "Unplugged"}[c]
 }
 
-// Features contains feature flags
-type Features struct {
-	FnRemap            bool
-	AutoThermalProfile bool
-}
-
 // Config contains the configurations for the controller
 type Config struct {
 	WMI atkacpi.WMI
@@ -63,9 +52,8 @@ type Config struct {
 	Plugins  []plugin.Plugin
 	Registry persist.ConfigRegistry
 
-	LogoPath        string
-	EnabledFeatures Features
-	ROGKey          []string
+	LogoPath string
+	Notifier chan<- util.Notification
 }
 
 type workQueue struct {
@@ -77,9 +65,9 @@ type workQueue struct {
 type Controller struct {
 	Config
 
-	notifyQueueCh chan util.Notification
-	workQueueCh   map[uint32]workQueue
-	errorCh       chan error
+	workQueueCh  map[uint32]workQueue
+	errorCh      chan error
+	startErrorCh chan error
 
 	keyCodeCh  chan uint32
 	acpiCh     chan uint32
@@ -87,53 +75,24 @@ type Controller struct {
 	pluginCbCh chan plugin.Callback
 }
 
-func newController(conf Config) (*Controller, error) {
-	if conf.WMI == nil {
-		return nil, errors.New("[controller] nil WMI is invalid")
-	}
-	if conf.Registry == nil {
-		return nil, errors.New("[controller] nil Registry is invalid")
-	}
-	if len(conf.ROGKey) == 0 {
-		return nil, errors.New("[controller] empty key remap is invalid")
-	}
-	return &Controller{
-		Config: conf,
-
-		notifyQueueCh: make(chan util.Notification, 10),
-		workQueueCh:   make(map[uint32]workQueue, 1),
-		errorCh:       make(chan error),
-
-		keyCodeCh:  make(chan uint32, 1),
-		acpiCh:     make(chan uint32, 1),
-		powerEvCh:  make(chan uint32, 1),
-		pluginCbCh: make(chan plugin.Callback, 1),
-	}, nil
-}
-
 func (c *Controller) initialize(haltCtx context.Context) error {
-	// Do we need to lock os thread on any of these?
-
 	for _, p := range c.Config.Plugins {
 		if err := p.Initialize(); err != nil {
 			return errors.Wrap(err, "[controller] plugin initializtion error")
 		}
 	}
 
-	devices, err := keyboard.NewHidListener(haltCtx, c.keyCodeCh)
+	_, err := keyboard.NewHidListener(haltCtx, c.keyCodeCh)
 	if err != nil {
 		return errors.Wrap(err, "[controller] error initializing hid listener")
 	}
-	log.Printf("hid devices: %+v\n", devices)
 
-	// This is a bit buggy, as Windows seems to time out our connection to WMI
-	// TODO: Find a better way os listening from atk wmi events
 	err = atkacpi.NewACPIListener(haltCtx, c.acpiCh)
 	if err != nil {
 		return errors.Wrap(err, "[controller] error initializing atkacpi wmi listener")
 	}
 
-	err = power.NewEventListener(c.powerEvCh)
+	err = power.NewEventListener(haltCtx, c.powerEvCh)
 	if err != nil {
 		return errors.Wrap(err, "[controller] error initializing power event listener")
 	}
@@ -197,10 +156,10 @@ func (c *Controller) initialize(haltCtx context.Context) error {
 	// seed the channel so we get the the charger status
 	c.workQueueCh[fnCheckCharger].noisy <- true // indicating initial (startup) check
 
-	c.notifyQueueCh <- util.Notification{
-		Title:   "Settings Loaded from Registry",
-		Message: "Enjoy your bloat-free G14",
-	}
+	// c.notifyQueueCh <- util.Notification{
+	// 	Title:   "Settings Loaded from Registry",
+	// 	Message: "Enjoy your bloat-free G14",
+	// }
 
 	return nil
 }
@@ -224,44 +183,40 @@ func (c *Controller) startPlugins(haltCtx context.Context) {
 	}
 }
 
-// Run will start the controller loop and blocked until context cancel, or an error has occurred
-func (c *Controller) Run(haltCtx context.Context) error {
-
-	ctx, cancel := context.WithCancel(haltCtx)
-	defer func() {
-		c.Config.Registry.Close()
-		cancel()
-	}()
+func (c *Controller) Serve(haltCtx context.Context) error {
 
 	log.Println("[controller] Starting controller loop")
 
-	if err := c.initialize(ctx); err != nil {
-		return errors.Wrap(err, "[controller] error initializing")
+	if err := c.initialize(haltCtx); err != nil {
+		log.Printf("[controller] error initializing: %+v\n", err)
+		c.startErrorCh <- err
+		return suture.ErrDoNotRestart
 	}
 
 	c.startPlugins(haltCtx)
 
 	// defined in controller_loop.go
-	go c.handlePluginCallback(ctx)
-	go c.handleNotify(ctx)
-	go c.handleWorkQueue(ctx)
-	go c.handlePowerEvent(ctx)
-	go c.handleACPINotification(ctx)
-	go c.handleKeyPress(ctx)
+	go c.handlePluginCallback(haltCtx)
+	go c.handleWorkQueue(haltCtx)
+	go c.handlePowerEvent(haltCtx)
+	go c.handleACPINotification(haltCtx)
+	go c.handleKeyPress(haltCtx)
 
 	for {
 		select {
-		case <-ctx.Done():
+		case <-haltCtx.Done():
+			if err := c.Registry.Save(); err != nil {
+				log.Printf("[controller] unable to save to config registry: %+v\n", err)
+			}
+			log.Println("[controller] exiting Run loop")
 			return nil
 		case err := <-c.errorCh:
-			log.Printf("[controller] Unrecoverable error in controller loop: %v\n", err)
+			log.Printf("[controller] Recoverable error in controller loop: %v\n", err)
 			return err
 		}
 	}
 }
 
-func run(commands ...string) error {
-	cmd := exec.Command(commands[0], commands[1:]...)
-	cmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: 0x08000000}
-	return cmd.Start()
+func (c *Controller) String() string {
+	return "Controller"
 }

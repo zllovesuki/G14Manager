@@ -18,9 +18,9 @@ var (
 )
 
 type plan struct {
-	GUID         string
-	OriginalName string
-	Name         string
+	GUID           string
+	Name           string
+	normalizedName string
 }
 
 // Cfg allows the caller to change the Power Plan Option in Windows
@@ -54,11 +54,11 @@ func (p *Cfg) loadPowerPlans() error {
 			continue
 		}
 		currentPlan := plan{
-			GUID:         match[1],
-			OriginalName: match[3],
-			Name:         strings.ToLower(match[3]),
+			GUID:           match[1],
+			Name:           match[3],
+			normalizedName: strings.ToLower(match[3]),
 		}
-		p.plansMap[currentPlan.Name] = currentPlan
+		p.plansMap[currentPlan.normalizedName] = currentPlan
 	}
 	return nil
 }
@@ -75,7 +75,7 @@ func (p *Cfg) setPowerPlan(active plan) error {
 
 // Set will change the Windows Power Option to the given power plan name
 func (p *Cfg) Set(planName string) (nextPlan string, err error) {
-	propose, ok := p.plansMap[planName]
+	propose, ok := p.plansMap[strings.ToLower(planName)]
 	if !ok {
 		err = errors.New("Cannot find target power plan")
 		return
@@ -92,7 +92,7 @@ func (p *Cfg) Set(planName string) (nextPlan string, err error) {
 		return
 	}
 
-	nextPlan = propose.OriginalName
+	nextPlan = propose.Name
 
 	log.Printf("windows power plan set to: %s\n", nextPlan)
 

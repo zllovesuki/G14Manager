@@ -12,26 +12,21 @@ func GetDefaultThermalProfiles() []Profile {
 	}{
 		{
 			name:             "Fanless",
-			windowsPowerPlan: "Power saver",
+			windowsPowerPlan: "Balanced",
 			throttlePlan:     ThrottlePlanPerformance,
 			cpuFanCurve:      "20c:0%,50c:0%,55c:0%,60c:0%,65c:31%,70c:49%,75c:56%,98c:56%",
 			gpuFanCurve:      "20c:0%,50c:0%,55c:0%,60c:0%,65c:34%,70c:51%,75c:61%,98c:61%",
 		},
 		{
 			name:             "Quiet",
-			windowsPowerPlan: "Power saver",
+			windowsPowerPlan: "Balanced",
 			throttlePlan:     ThrottlePlanPerformance,
 			cpuFanCurve:      "20c:10%,50c:10%,55c:10%,60c:10%,65c:31%,70c:49%,75c:56%,98c:56%",
 			gpuFanCurve:      "20c:0%,50c:0%,55c:0%,60c:0%,65c:34%,70c:51%,75c:61%,98c:61%",
 		},
 		{
-			name:             "Power Saver",
-			windowsPowerPlan: "Power saver",
-			throttlePlan:     ThrottlePlanSilent,
-		},
-		{
-			name:             "Silent Performance",
-			windowsPowerPlan: "High performance",
+			name:             "Balanced",
+			windowsPowerPlan: "Balanced",
 			throttlePlan:     ThrottlePlanSilent,
 		},
 		{

@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/gdamore/tcell/v2"
@@ -32,30 +33,55 @@ type Configurator struct {
 	confirmYes        func()
 	confirmNo         string
 
-	container *tview.Flex
+	frame                *tview.Frame
+	container            *tview.Flex
+	containerLeftCol     *tview.Flex
+	containerRightCol    *tview.Flex
+	containerPlaceholder *tview.Box
 
-	configView *tview.TextView
+	configEditHolder *tview.Flex
+	configEdit       *tview.TextView
+	configView       *tview.TextView
+	infoView         *tview.TextView
+
+	batteryEdit *tview.Form
 
 	fnLists     *tview.List
 	fnListItems []listItem
+
+	dataBinding data
+}
+
+type data struct {
+	battery uint32
 }
 
 type listItem struct {
-	Main      string
-	Secondary string
-	Shortcut  rune
-	Callback  func()
+	Main            string
+	Secondary       string
+	Shortcut        rune
+	Callback        func()
+	EditPrimitive   tview.Primitive
+	HideEditTooltip bool
 }
 
 func NewInterface() *Configurator {
 	return &Configurator{
-		app:               tview.NewApplication(),
-		layers:            tview.NewPages(),
-		connectModal:      tview.NewModal(),
-		confirmationModal: tview.NewModal(),
-		container:         tview.NewFlex(),
-		configView:        tview.NewTextView(),
-		fnLists:           tview.NewList(),
+		app:                  tview.NewApplication(),
+		layers:               tview.NewPages(),
+		connectModal:         tview.NewModal(),
+		confirmationModal:    tview.NewModal(),
+		container:            tview.NewFlex(),
+		containerLeftCol:     tview.NewFlex(),
+		containerRightCol:    tview.NewFlex(),
+		containerPlaceholder: tview.NewBox(),
+		configEditHolder:     tview.NewFlex(),
+		configEdit:           tview.NewTextView(),
+		configView:           tview.NewTextView(),
+		infoView:             tview.NewTextView(),
+		batteryEdit:          tview.NewForm(),
+		fnLists:              tview.NewList(),
+		dataBinding:          data{},
 	}
 }
 
@@ -73,6 +99,7 @@ func (i *Configurator) connect(haltCtx context.Context) error {
 	i.gKeyboard = protocol.NewKeyboardBrightnessClient(c)
 	i.gManager = protocol.NewManagerControlClient(c)
 
+	i.updateInfoView()
 	return nil
 }
 
@@ -85,28 +112,36 @@ func (i *Configurator) setup() {
 	i.setupFnList()
 	i.setupModals()
 
+	i.setupForms()
+
 	i.setupStyles()
 	i.keyBindings()
 
+	i.containerLeftCol.SetDirection(tview.FlexRow).
+		AddItem(i.fnLists, 0, 8, true).
+		AddItem(i.infoView, 0, 2, false)
+
+	i.containerRightCol.SetDirection(tview.FlexRow).
+		AddItem(i.configView, 0, 2, false).
+		AddItem(i.configEditHolder, 0, 4, false)
+
 	i.container.
-		AddItem(
-			tview.NewFlex().SetDirection(tview.FlexRow).
-				AddItem(i.fnLists, 0, 8, true).
-				AddItem(tview.NewBox().SetTitle(" Version ").SetBorder(true), 0, 2, false),
-			0, 4, true).
-		AddItem(
-			tview.NewFlex().SetDirection(tview.FlexRow).
-				AddItem(i.configView, 0, 2, false).
-				AddItem(tview.NewBox().SetTitle(" Change Settings ").SetBorder(true), 0, 4, false),
-			0, 6, false)
+		AddItem(i.containerLeftCol, 0, 3, true).
+		AddItem(i.containerRightCol, 0, 7, false)
 
 	i.configView.SetDoneFunc(func(key tcell.Key) {
 		if key == tcell.KeyESC {
 			i.app.SetFocus(i.fnLists)
 		}
+	}).Focus(func(p tview.Primitive) {
+		i.showMessage(fmt.Sprintf("%T", p), tcell.ColorRed)
 	})
 
-	i.app.SetRoot(i.layers, true)
+	i.frame = tview.NewFrame(i.layers)
+
+	i.clearMessage()
+
+	i.app.SetRoot(i.frame, true)
 }
 
 func (i *Configurator) setupModals() {
@@ -148,7 +183,7 @@ func (i *Configurator) setupFnList() {
 		},
 		{
 			Main:      "Configs",
-			Secondary: "Get/Set features and profiles",
+			Secondary: "Get/Set features & profiles",
 			Shortcut:  'c',
 			Callback:  i.selectConfigs,
 		},
@@ -159,16 +194,17 @@ func (i *Configurator) setupFnList() {
 			Callback:  i.selectThermal,
 		},
 		{
-			Main:      "Keyboarc Backlight",
+			Main:      "Keyboard Backlight",
 			Secondary: "Get/Set backlight level",
 			Shortcut:  'k',
 			Callback:  i.selectKeyboard,
 		},
 		{
-			Main:      "Battery Charge Limit",
-			Secondary: "Get/Set charge limit",
-			Shortcut:  'b',
-			Callback:  i.selectBattery,
+			Main:          "Battery Charge Limit",
+			Secondary:     "Get/Set charge limit",
+			Shortcut:      'b',
+			Callback:      i.selectBattery,
+			EditPrimitive: i.batteryEdit,
 		},
 		{
 			Main:      "Exit",
@@ -176,23 +212,66 @@ func (i *Configurator) setupFnList() {
 			Shortcut:  'q',
 			Callback: func() {
 				i.confirmNo = "container"
-				i.confirmYes = func() {
-					i.cancelFn()
-				}
+				i.confirmYes = i.cancelFn
 				i.layers.SwitchToPage("confirmation")
 			},
 		},
 	}
-	for _, item := range i.fnListItems {
+	for index := range i.fnListItems {
+		item := i.fnListItems[index]
 		i.fnLists.AddItem(item.Main, item.Secondary, item.Shortcut, item.Callback)
 	}
+}
+
+func (i *Configurator) clearConfigEdit() {
+	i.configEditHolder.Clear()
+	i.app.SetFocus(i.configView)
+}
+
+func (i *Configurator) setupForms() {
+	i.batteryEdit.
+		AddInputField("New Charge Limit Percentage ", "", 20, func(textToCheck string, lastChar rune) bool {
+			_, err := strconv.ParseUint(textToCheck, 10, 32)
+			if err != nil {
+				return false
+			}
+			// i.showError(textToCheck)
+			return true
+		}, nil).
+		AddButton("Cancel", func() {
+			i.clearConfigEdit()
+			i.showEditTooltip()
+		}).
+		AddButton("Save", func() {
+			num, _ := strconv.ParseUint(i.batteryEdit.GetFormItem(0).(*tview.InputField).GetText(), 10, 32)
+			i.dataBinding.battery = uint32(num)
+			b, err := i.gBattery.Set(context.Background(), &protocol.SetBatteryLimitRequest{
+				Percentage: uint32(num),
+			})
+			if err != nil {
+				i.showMessage(err.Error(), tcell.ColorRed)
+				return
+			}
+
+			if b.GetSuccess() == false {
+				i.showMessage(b.GetMessage(), tcell.ColorRed)
+				return
+			}
+
+			i.showMessage("Charge limit updated!", tcell.ColorGreen)
+			i.clearConfigEdit()
+			i.selectBattery()
+		}).
+		SetButtonBackgroundColor(tcell.Color104).
+		SetFieldBackgroundColor(tcell.Color104)
 }
 
 func (i *Configurator) keyBindings() {
 	// Right key on function list will select the item
 	i.fnLists.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		if event.Key() == tcell.KeyRight {
-			i.fnListItems[i.fnLists.GetCurrentItem()].Callback()
+			item := i.fnListItems[i.fnLists.GetCurrentItem()]
+			item.Callback()
 			return nil
 		}
 		return event
@@ -200,18 +279,57 @@ func (i *Configurator) keyBindings() {
 
 	// Left key on configView will go back to function list
 	i.configView.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		if event.Key() == tcell.KeyLeft {
+		if event.Key() == tcell.KeyLeft || event.Key() == tcell.KeyEsc {
+			i.clearMessage()
 			i.app.SetFocus(i.fnLists)
 			return nil
+		}
+		if event.Key() == tcell.KeyRune && event.Rune() == 'e' {
+			i.configEditHolder.Clear()
+			currentItem := i.fnLists.GetCurrentItem()
+			editPrim := i.fnListItems[currentItem].EditPrimitive
+
+			if editPrim != nil {
+				i.clearMessage()
+				i.configEditHolder.AddItem(editPrim, 0, 1, true)
+				i.app.SetFocus(editPrim)
+			}
 		}
 		return event
 	})
 }
 
 func (i *Configurator) setupStyles() {
-	i.container.Box.SetBorder(true).SetTitle(" G14Manager Configurator ").SetBorderColor(tcell.ColorDarkSlateGrey)
 	i.fnLists.Box.SetBorder(true).SetTitle(" Functions ")
+	i.fnLists.SetSecondaryTextColor(tcell.ColorGray)
 	i.configView.Box.SetBorder(true).SetBorderAttributes(tcell.AttrNone).SetTitle(" Current Settings ")
+	i.configEdit.Box.SetBorder(true).SetTitle(" Edit Settings ")
+	i.infoView.Box.SetBorder(true).SetTitle(" Information ")
+}
+
+func (i *Configurator) updateInfoView() {
+	var txt string
+	txt = fmt.Sprintf("%v\nSupervisor version: %s", txt, "blah")
+	txt = fmt.Sprintf("%v\nClient version: %s", txt, "blahblah")
+	txt = fmt.Sprintf("%v\nLogs: 127.0.0.1:9969/debug/logs", txt)
+	i.infoView.SetText(txt[1:])
+}
+
+func (i *Configurator) showEditTooltip() {
+	i.frame.Clear().AddText("G14Manager Configurator", true, tview.AlignCenter, tcell.ColorWhite).AddText("Press (E) to edit", false, tview.AlignLeft, tcell.ColorWhite)
+}
+
+func (i *Configurator) clearMessage() {
+	i.frame.Clear().AddText("G14Manager Configurator", true, tview.AlignCenter, tcell.ColorWhite).AddText("", false, tview.AlignLeft, tcell.ColorWhite)
+}
+
+func (i *Configurator) showMessage(msg string, color tcell.Color) {
+	i.frame.Clear().AddText("G14Manager Configurator", true, tview.AlignCenter, tcell.ColorWhite).AddText(msg, false, tview.AlignLeft, color)
+	go func() {
+		time.Sleep(time.Millisecond * 2500)
+		i.clearMessage()
+		i.app.Draw()
+	}()
 }
 
 func (i *Configurator) selectManager() {
@@ -223,17 +341,18 @@ func (i *Configurator) selectManager() {
 	m, err := i.gManager.GetCurrentState(context.Background(), &empty.Empty{})
 	if err != nil {
 		i.configView.SetText(err.Error())
+		return
 	}
 	var txt string
 	if auto.Success != true {
-		txt = fmt.Sprintf("%s\n\nCannot get AutoStart status: %s", txt, auto.Message)
+		txt = fmt.Sprintf("%sCannot get AutoStart status: %s\n\n", txt, auto.Message)
 	} else {
-		txt = fmt.Sprintf("%s\n\nRun Controller when Supervisor starts: %t", txt, auto.AutoStart)
+		txt = fmt.Sprintf("%sRun Controller when Supervisor starts: %t\n\n", txt, auto.AutoStart)
 	}
 	if m.Success != true {
-		txt = fmt.Sprintf("%s\n\nCannot get Manager running state: %s", txt, m.Message)
+		txt = fmt.Sprintf("%sCannot get Manager running state: %s\n\n", txt, m.Message)
 	} else {
-		txt = fmt.Sprintf("%s\n\nController is currently: %s", txt, m.State)
+		txt = fmt.Sprintf("%sController is currently: %s\n\n", txt, m.State)
 	}
 	i.configView.SetText(txt)
 	i.app.SetFocus(i.configView)
@@ -272,10 +391,23 @@ func (i *Configurator) selectKeyboard() {
 func (i *Configurator) selectBattery() {
 	b, err := i.gBattery.GetCurrentLimit(context.Background(), &empty.Empty{})
 	if err != nil {
-		i.configView.SetText(err.Error())
+		i.showMessage(err.Error(), tcell.ColorRed)
 		return
 	}
-	i.configView.SetText(fmt.Sprintf("%+v", b))
+
+	if b.GetSuccess() == false {
+		i.showMessage(b.GetMessage(), tcell.ColorRed)
+		return
+	}
+
+	i.dataBinding.battery = b.GetPercentage()
+
+	var txt string
+	txt = fmt.Sprintf("%sCurrent battery charge limit: %d%%\n", txt, b.GetPercentage())
+	i.configView.SetText(txt)
+
+	i.batteryEdit.GetFormItem(0).(*tview.InputField).SetText(fmt.Sprintf("%d", i.dataBinding.battery))
+
 	i.app.SetFocus(i.configView)
 }
 

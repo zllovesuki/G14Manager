@@ -25,7 +25,7 @@ func (n *Notifier) Serve(haltCtx context.Context) error {
 	defer runtime.UnlockOSThread()
 
 	log.Println("[notifier] starting notify loop")
-	display, _ := osd.NewOSD(400, 50, 20)
+	display, _ := osd.NewOSD(400, 50, 22)
 
 	for {
 		select {
@@ -34,9 +34,6 @@ func (n *Notifier) Serve(haltCtx context.Context) error {
 				msg.Delay = time.Millisecond * 2500
 			}
 			display.Show(msg.Message, msg.Delay)
-			// if err := util.SendToastNotification(msg); err != nil {
-			// 	log.Printf("[notifier] cannot send toast notification: %+v\n", err)
-			// }
 		case <-haltCtx.Done():
 			log.Println("[notifier] existing notify loop")
 			return nil

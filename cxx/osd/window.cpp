@@ -49,7 +49,7 @@ namespace
 
         if (!RegisterClassExA(&wc))
         {
-            throw std::runtime_error("window registration failed");
+            std::cerr << "osd: Window registration failed" << std::endl;
         }
     }
 
@@ -124,7 +124,7 @@ Window::Window(int width, int height) : windowWidth{width},
                                    getScreenCenterX(), getScreenCenterY(), width, height, NULL, NULL, instanceHandle, NULL);
     if (!windowHandle)
     {
-        throw std::runtime_error("failed to create window");
+        std::cerr << "osd: Failed to create window" << std::endl;
     }
     handleWindowMap[windowHandle] = std::shared_ptr<Window>{this};
 

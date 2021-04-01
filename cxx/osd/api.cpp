@@ -22,13 +22,3 @@ void fnHide(void *pWindow)
     Window *window = static_cast<Window *>(pWindow);
     window->hide();
 }
-
-void fnGG(void)
-{
-    MSG msg{};
-    while (GetMessage(&msg, NULL, 0, 0) > 0)
-    {
-        TranslateMessage(&msg);
-        DispatchMessage(&msg);
-    }
-}

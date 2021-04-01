@@ -87,7 +87,7 @@ func main() {
 			gRPCServer: 		rpc/server
 			ManagerResponder:	supervisor/responder.go
 			versionChecker:		supervisor/background/version.go
-			toastNotifier:		supervisor/background/notifier.go
+			osdNotifier:		supervisor/background/notifier.go
 			controller:			controller
 
 								rootSupervisor  +----+  pprof
@@ -100,7 +100,7 @@ func main() {
 				| | +-> gRPCServer               | +-> versionChecker
 				| |                              |
 				| |                              |
-				| +---> ManagerResponder         +---> toastNotifier
+				| +---> ManagerResponder         +---> osdNotifier
 				|
 				|
 				+-----> controllerSupervisor

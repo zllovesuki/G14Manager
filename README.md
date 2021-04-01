@@ -18,7 +18,7 @@ After some reverse engineering, G14Manager now (mostly) replaces Asus software s
 4. ~~On-screen display~~
 5. AniMe Matrix control (Proof of Concept available)
 
-_Note_: Currently, the default profiles expect Power Plans "High Performance" and "Power Saver" to be available. If your installation of Windows does not have those Power Plans, G14Manager will refuse to start. This will be fixed when customizable config is released.
+_Note_: Currently, the default profiles expect Power Plans "High Performance" and "Balanced" to be available. If your installation of Windows does not have those Power Plans, G14Manager will refuse to start. This will be fixed when customizable config is released.
 
 ## Bug Report
 
@@ -56,6 +56,16 @@ Optionally, disable ASUS System Analysis Driver with `sc.exe config "ASUSSAIO" s
 
 Recommend running `G14Manager.exe` on startup in Task Scheduler with "Run with highest privileges."
 
+## Changing the Fan Curve
+
+For the initial release, you have to change fan curve in `system\thermal\default.go`. In a future release G14Manager will allow you to specify the fan curve without rebuilding the binary. However, the default fan curve should be sufficient for most users.
+
+Use the `Fn + F5` key combo to cycle through all the profiles. Fanless -> Quiet -> Balanced -> Performance -> Turbo.
+
+The key combo has a time delay. If you press the combo X times, it will apply the the next X profile. For example, if you are currently on "Fanless" profile, pressing `Fn + F5` twice will apply the "Balanced" profile.
+
+## !! THE FOLLOWING INSTRUCTIONS ARE OUTDATED !!
+
 ## Remapping Fn+Left/Right to PgUp/PgDown
 
 Pass `-remap` flag to enable it. Note that this is done with ScanCode via `SendInput`. Some applications using DirectInput may not register the emulated keypress.
@@ -78,20 +88,12 @@ To specify which program to launch when pressed multiple times, pass your path t
 
 This will launch Task Manager when you press the ROG key once, and Spotify when you press twice.
 
-## Changing the Fan Curve
-
-For the initial release, you have to change fan curve in `system\thermal\default.go`. In a future release G14Manager will allow you to specify the fan curve without rebuilding the binary. However, the default fan curve should be sufficient for most users.
-
-Use the `Fn + F5` key combo to cycle through all the profiles. Fanless -> Quiet -> Slient -> Performance.
-
-The key combo has a time delay. If you press the combo X times, it will apply the the next X profile. For example, if you are currently on "Fanless" profile, pressing `Fn + F5` twice will apply the "Slient" profile.
-
 ## Automatic Thermal Profile Switching
 
 For the initial release, it is hardcoded to be:
 
-- On power adapter plugged in: "Performance" Profile
-- On power adapter unplugged: "Silent" Profile
+- On power adapter plugged in: "Performance" Profile (with "High Performance" Power Plan)
+- On power adapter unplugged: "Balanced" Profile (With "Balanced" Power Plan)
 
 There is a 5 seconds delay before changing the profile upon power source changes.
 

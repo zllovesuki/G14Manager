@@ -43,8 +43,13 @@ void *fnGetDisplay(void)
 
         return pDisplay;
     }
-    std::cout << "No primary display found";
+    std::cout << "No primary display found" << std::endl;
     return NULL;
+}
+
+void fnReleaseDisplay(void *p)
+{
+    free(p);
 }
 
 int fnGetCurrentRefreshRate(void *p)

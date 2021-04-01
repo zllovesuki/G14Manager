@@ -10,6 +10,7 @@ extern "C"
     void *GetDisplay();
     int CycleRefreshRate(void *);
     int GetCurrentRefreshRate(void *);
+    void ReleaseDisplay(void *);
 
 #ifdef __cplusplus
 }

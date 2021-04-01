@@ -16,7 +16,7 @@ type Display struct {
 func NewDisplayRR() (*Display, error) {
 	pDisplay := C.GetDisplay()
 	if pDisplay == nil {
-		return nil, fmt.Errorf("No active display attached to integrated graphics")
+		return nil, fmt.Errorf("no active display attached to integrated graphics")
 	}
 	return &Display{
 		pDisplay: pDisplay,
@@ -29,4 +29,9 @@ func (d *Display) CycleRefreshRate() int {
 
 func (d *Display) GetCurrent() int {
 	return int(C.GetCurrentRefreshRate(d.pDisplay))
+}
+
+func (d *Display) Release() {
+	C.ReleaseDisplay(d.pDisplay)
+	d.pDisplay = nil
 }

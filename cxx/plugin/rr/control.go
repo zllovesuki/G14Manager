@@ -23,24 +23,31 @@ type Control struct {
 var _ plugin.Plugin = &Control{}
 
 func NewRRControl(dryRun bool) (*Control, error) {
-	display, err := rr.NewDisplayRR()
-	if err != nil {
-		return nil, err
-	}
 	return &Control{
-		dryRun:   dryRun,
-		pDisplay: display,
-		queue:    make(chan plugin.Notification),
-		errChan:  make(chan error),
+		dryRun:  dryRun,
+		queue:   make(chan plugin.Notification),
+		errChan: make(chan error),
 	}, nil
 }
 
 // Initialize satisfies system/plugin.Plugin
 func (c *Control) Initialize() error {
+	var err error
+	c.pDisplay, err = rr.NewDisplayRR()
+	if err != nil {
+		log.Printf("rr: internal display not active/primary")
+		c.pDisplay = nil
+	}
 	return nil
 }
 
 func (c *Control) loop(haltCtx context.Context, cb chan<- plugin.Callback) {
+
+	if c.pDisplay == nil {
+		log.Printf("rr: pDisplay is nil, exiting loop")
+		return
+	}
+
 	defer func() {
 		if err := recover(); err != nil {
 			log.Printf("rr: loop panic %+v\n", err)
@@ -81,6 +88,7 @@ func (c *Control) loop(haltCtx context.Context, cb chan<- plugin.Callback) {
 			}
 		case <-haltCtx.Done():
 			log.Println("rr: exiting Plugin run loop")
+			c.pDisplay.Release()
 			return
 		}
 	}

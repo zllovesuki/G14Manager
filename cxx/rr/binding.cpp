@@ -20,6 +20,11 @@ extern "C"
     {
         return fnGetCurrentRefreshRate(p);
     }
+
+    void ReleaseDisplay(void *p)
+    {
+        fnReleaseDisplay(p);
+    }
 #ifdef __cplusplus
 }
 #endif

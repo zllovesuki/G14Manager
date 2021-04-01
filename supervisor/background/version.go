@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/Masterminds/semver"
-	"github.com/zllovesuki/G14Manager/system/shared"
 	"github.com/zllovesuki/G14Manager/util"
 )
 
@@ -75,8 +74,6 @@ func (v *VersionChecker) Serve(haltCtx context.Context) error {
 			if latest.GreaterThan(v.current) {
 				log.Printf("[VersionChecker] new version found: %s\n", latest.String())
 				v.notifier <- util.Notification{
-					AppName: shared.AppName,
-					Title:   "New Version Available",
 					Message: fmt.Sprintf("A new version of G14Manager is available: %s", latest.String()),
 				}
 			}

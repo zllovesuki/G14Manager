@@ -10,7 +10,6 @@ import (
 	kb "github.com/zllovesuki/G14Manager/system/keyboard"
 	"github.com/zllovesuki/G14Manager/system/plugin"
 	"github.com/zllovesuki/G14Manager/system/power"
-	"github.com/zllovesuki/G14Manager/system/shared"
 	"github.com/zllovesuki/G14Manager/util"
 
 	"github.com/pkg/errors"
@@ -240,8 +239,6 @@ func (c *Controller) handlePluginCallback(haltCtx context.Context) {
 				c.workQueueCh[fnPersistConfigs].noisy <- struct{}{}
 			case plugin.CbNotifyToast:
 				if n, ok := t.Value.(util.Notification); ok {
-					n.AppName = shared.AppName
-					n.Icon = c.LogoPath
 					c.Config.Notifier <- n
 				}
 			}

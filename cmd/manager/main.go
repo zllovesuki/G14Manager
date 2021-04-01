@@ -12,7 +12,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/zllovesuki/G14Manager/box"
 	"github.com/zllovesuki/G14Manager/controller"
 	"github.com/zllovesuki/G14Manager/rpc/server"
 	"github.com/zllovesuki/G14Manager/supervisor"
@@ -43,9 +42,6 @@ func main() {
 
 	log.Printf("G14Manager version: %s\n", Version)
 
-	asset := box.GetAssetExtractor()
-	defer asset.Close()
-
 	notifier := background.NewNotifier()
 
 	versionChecker, err := background.NewVersionCheck(Version, "zllovesuki/G14Manager", notifier.C)
@@ -54,7 +50,6 @@ func main() {
 	}
 
 	controllerConfig := controller.RunConfig{
-		LogoPath:   asset.Get("/Logo.png"),
 		DryRun:     os.Getenv("DRY_RUN") != "",
 		NotifierCh: notifier.C,
 	}
@@ -92,7 +87,7 @@ func main() {
 			gRPCServer: 		rpc/server
 			ManagerResponder:	supervisor/responder.go
 			versionChecker:		supervisor/background/version.go
-			toastNotifier:		supervisor/background/notifier.go
+			osdNotifier:		supervisor/background/notifier.go
 			controller:			controller
 
 								rootSupervisor  +----+  pprof
@@ -105,7 +100,7 @@ func main() {
 				| | +-> gRPCServer               | +-> versionChecker
 				| |                              |
 				| |                              |
-				| +---> ManagerResponder         +---> toastNotifier
+				| +---> ManagerResponder         +---> osdNotifier
 				|
 				|
 				+-----> controllerSupervisor

@@ -69,15 +69,10 @@ func (s *Server) Serve(haltCtx context.Context) error {
 	}
 
 	go func() {
-		for {
-			select {
-			case <-haltCtx.Done():
-				log.Printf("[gRPCServer] stopping grpc server\n")
-				s.server.GracefulStop()
-				log.Printf("[gRPCServer] server stopped\n")
-				return
-			}
-		}
+		<-haltCtx.Done()
+		log.Printf("[gRPCServer] stopping grpc server\n")
+		s.server.GracefulStop()
+		log.Printf("[gRPCServer] server stopped\n")
 	}()
 	log.Printf("[gRPCServer] grpc server available at 127.0.0.1:9963\n")
 

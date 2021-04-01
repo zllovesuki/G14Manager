@@ -64,6 +64,10 @@ Use the `Fn + F5` key combo to cycle through all the profiles. Fanless -> Quiet 
 
 The key combo has a time delay. If you press the combo X times, it will apply the the next X profile. For example, if you are currently on "Fanless" profile, pressing `Fn + F5` twice will apply the "Balanced" profile.
 
+## Change Refresh Rate
+
+For battery saving, you can switch the display refresh rate to 60Hz while you are on battery. Use the `Fn + F12` key combo to toggle between 60Hz/120Hz refresh rate on the internal display. However, this does mean that `Fn + F12` will no longer toggle Airplane Mode.
+
 ## !! THE FOLLOWING INSTRUCTIONS ARE OUTDATED !!
 
 ## Remapping Fn+Left/Right to PgUp/PgDown

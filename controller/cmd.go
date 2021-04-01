@@ -21,7 +21,6 @@ import (
 // RunConfig contains the start up configuration for the controller
 type RunConfig struct {
 	DryRun     bool
-	LogoPath   string
 	NotifierCh chan util.Notification
 }
 
@@ -141,7 +140,6 @@ func New(conf RunConfig, dep *Dependencies) (*Controller, chan error, error) {
 			},
 			Registry: dep.ConfigRegistry,
 
-			LogoPath: conf.LogoPath,
 			Notifier: conf.NotifierCh,
 		},
 

@@ -12,7 +12,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/zllovesuki/G14Manager/box"
 	"github.com/zllovesuki/G14Manager/controller"
 	"github.com/zllovesuki/G14Manager/rpc/server"
 	"github.com/zllovesuki/G14Manager/supervisor"
@@ -43,9 +42,6 @@ func main() {
 
 	log.Printf("G14Manager version: %s\n", Version)
 
-	asset := box.GetAssetExtractor()
-	defer asset.Close()
-
 	notifier := background.NewNotifier()
 
 	versionChecker, err := background.NewVersionCheck(Version, "zllovesuki/G14Manager", notifier.C)
@@ -54,7 +50,6 @@ func main() {
 	}
 
 	controllerConfig := controller.RunConfig{
-		LogoPath:   asset.Get("/Logo.png"),
 		DryRun:     os.Getenv("DRY_RUN") != "",
 		NotifierCh: notifier.C,
 	}

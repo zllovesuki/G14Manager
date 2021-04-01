@@ -25,7 +25,7 @@ func (n *Notifier) Serve(haltCtx context.Context) error {
 	defer runtime.UnlockOSThread()
 
 	log.Println("[notifier] starting notify loop")
-	display, _ := osd.NewOSD(400, 50, 22)
+	display, _ := osd.NewOSD(450, 50, 22)
 
 	for {
 		select {

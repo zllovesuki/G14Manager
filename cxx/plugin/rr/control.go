@@ -20,13 +20,16 @@ type Control struct {
 	errChan chan error
 }
 
+const notifyDelay time.Duration = time.Second * 3
+
 var _ plugin.Plugin = &Control{}
 
 func NewRRControl(dryRun bool) (*Control, error) {
 	return &Control{
-		dryRun:  dryRun,
-		queue:   make(chan plugin.Notification),
-		errChan: make(chan error),
+		dryRun:   dryRun,
+		pDisplay: nil,
+		queue:    make(chan plugin.Notification),
+		errChan:  make(chan error),
 	}, nil
 }
 
@@ -42,12 +45,6 @@ func (c *Control) Initialize() error {
 }
 
 func (c *Control) loop(haltCtx context.Context, cb chan<- plugin.Callback) {
-
-	if c.pDisplay == nil {
-		log.Printf("rr: pDisplay is nil, exiting loop")
-		return
-	}
-
 	defer func() {
 		if err := recover(); err != nil {
 			log.Printf("rr: loop panic %+v\n", err)
@@ -57,12 +54,14 @@ func (c *Control) loop(haltCtx context.Context, cb chan<- plugin.Callback) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
-	cb <- plugin.Callback{
-		Event: plugin.CbNotifyToast,
-		Value: util.Notification{
-			Message: fmt.Sprintf("Current Refresh Rate: %d Hz", c.pDisplay.GetCurrent()),
-			Delay:   time.Millisecond * 3000,
-		},
+	if c.pDisplay != nil {
+		cb <- plugin.Callback{
+			Event: plugin.CbNotifyToast,
+			Value: util.Notification{
+				Message: fmt.Sprintf("Current Refresh Rate: %d Hz", c.pDisplay.GetCurrent()),
+				Delay:   notifyDelay,
+			},
+		}
 	}
 
 	for {
@@ -73,7 +72,21 @@ func (c *Control) loop(haltCtx context.Context, cb chan<- plugin.Callback) {
 				continue
 			}
 			n := util.Notification{
-				Delay: time.Millisecond * 3000,
+				Delay: notifyDelay,
+			}
+			if c.pDisplay == nil {
+				// try again, in case the laptop now has internal display as primary
+				c.Initialize()
+				if c.pDisplay == nil {
+					cb <- plugin.Callback{
+						Event: plugin.CbNotifyToast,
+						Value: util.Notification{
+							Message: "Internal display is not primary, will not change refresh rate",
+							Delay:   notifyDelay,
+						},
+					}
+					continue
+				}
 			}
 			ret := c.pDisplay.CycleRefreshRate()
 			log.Printf("rr: ret value %d\n", ret)
@@ -88,7 +101,9 @@ func (c *Control) loop(haltCtx context.Context, cb chan<- plugin.Callback) {
 			}
 		case <-haltCtx.Done():
 			log.Println("rr: exiting Plugin run loop")
-			c.pDisplay.Release()
+			if c.pDisplay != nil {
+				c.pDisplay.Release()
+			}
 			return
 		}
 	}

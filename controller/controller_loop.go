@@ -92,11 +92,14 @@ func (c *Controller) handleKeyPress(haltCtx context.Context) {
 				log.Println("[controller] request to enable gpu")
 				c.notifyPlugins(plugin.EvtSentinelEnableGPU, nil)
 
+			case kb.KeyRFKill:
+				log.Println("[controller] request to cycle refresh rate")
+				c.notifyPlugins(plugin.EvtSentinelCycleRefreshRate, nil)
+
 			case
 				kb.KeyLCDUp,
 				kb.KeyLCDDown,
-				kb.KeySleep,
-				kb.KeyRFKill:
+				kb.KeySleep:
 				c.workQueueCh[fnHwCtrl].noisy <- keyCode
 
 			case

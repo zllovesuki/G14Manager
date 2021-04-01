@@ -5,6 +5,7 @@ import (
 
 	"github.com/zllovesuki/G14Manager/cxx/plugin/gpu"
 	"github.com/zllovesuki/G14Manager/cxx/plugin/keyboard"
+	"github.com/zllovesuki/G14Manager/cxx/plugin/rr"
 	"github.com/zllovesuki/G14Manager/cxx/plugin/volume"
 	"github.com/zllovesuki/G14Manager/rpc/announcement"
 	"github.com/zllovesuki/G14Manager/system/atkacpi"
@@ -31,6 +32,7 @@ type Dependencies struct {
 	Volume         *volume.Control
 	Thermal        *thermal.Control
 	GPU            *gpu.Control
+	RR             *rr.Control
 	ConfigRegistry persist.ConfigRegistry
 	Updatable      []announcement.Updatable
 }
@@ -90,6 +92,11 @@ func GetDependencies(conf RunConfig) (*Dependencies, error) {
 		return nil, err
 	}
 
+	rrCtrl, err := rr.NewRRControl(conf.DryRun)
+	if err != nil {
+		return nil, err
+	}
+
 	config.Register(battery)
 	config.Register(thermal)
 	config.Register(kbCtrl)
@@ -106,6 +113,7 @@ func GetDependencies(conf RunConfig) (*Dependencies, error) {
 		Volume:         volCtrl,
 		Thermal:        thermal,
 		GPU:            gpuCtrl,
+		RR:             rrCtrl,
 		ConfigRegistry: config,
 		Updatable:      updatable,
 	}, nil
@@ -137,6 +145,7 @@ func New(conf RunConfig, dep *Dependencies) (*Controller, chan error, error) {
 				dep.Volume,
 				dep.Thermal,
 				dep.GPU,
+				dep.RR,
 			},
 			Registry: dep.ConfigRegistry,
 

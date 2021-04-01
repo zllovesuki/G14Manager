@@ -15,7 +15,7 @@ After some reverse engineering, G14Manager now (mostly) replaces Asus software s
 2. ~~Toggle enable/disable TouchPad~~
 3. ~~Keyboard brightness adjustment~~
 4. ~~Fan curve control~~
-4. On-screen display
+4. ~~On-screen display~~
 5. AniMe Matrix control (Proof of Concept available)
 
 _Note_: Currently, the default profiles expect Power Plans "High Performance" and "Power Saver" to be available. If your installation of Windows does not have those Power Plans, G14Manager will refuse to start. This will be fixed when customizable config is released.

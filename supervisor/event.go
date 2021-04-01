@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/zllovesuki/G14Manager/box"
-	"github.com/zllovesuki/G14Manager/system/shared"
 	"github.com/zllovesuki/G14Manager/util"
 
 	"github.com/thejerf/suture/v4"
@@ -26,10 +24,7 @@ func (e *EventHook) Event(evt suture.Event) {
 	switch evt.Type() {
 	case suture.EventTypeServiceTerminate, suture.EventTypeServicePanic:
 		e.Notifier <- util.Notification{
-			AppName: shared.AppName,
-			Icon:    box.GetAssetExtractor().Get("/dead.png"),
-			Title:   fmt.Sprintf("%s crashed unexpectedly", m["service_name"].(string)),
-			Message: "The service will be restarted",
+			Message: fmt.Sprintf("%s crashed unexpectedly, restarting...", m["service_name"].(string)),
 		}
 	}
 }

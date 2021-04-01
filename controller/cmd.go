@@ -18,8 +18,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-const defaultCommandWithArgs = "Taskmgr.exe"
-
 // RunConfig contains the start up configuration for the controller
 type RunConfig struct {
 	DryRun     bool

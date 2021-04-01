@@ -253,7 +253,6 @@ func (c *Control) loop(haltCtx context.Context, cb chan<- plugin.Callback) {
 				cb <- plugin.Callback{
 					Event: plugin.CbNotifyToast,
 					Value: util.Notification{
-						Title:   "Toggle Thermal Plan",
 						Message: message,
 					},
 				}
@@ -284,7 +283,6 @@ func (c *Control) loop(haltCtx context.Context, cb chan<- plugin.Callback) {
 				cb <- plugin.Callback{
 					Event: plugin.CbNotifyToast,
 					Value: util.Notification{
-						Title:   "Automatic Thermal Plan Switching",
 						Message: message,
 					},
 				}

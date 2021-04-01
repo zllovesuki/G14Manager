@@ -49,7 +49,7 @@ func (c *Control) DisableGPU() error {
 	case 0:
 		return &gpuGeneralError{"cannot disable gpu"}
 	case 2:
-		return &gpuInvalidStateError{"gpu is already disabled"}
+		return &gpuInvalidStateError{"GPU is already disabled"}
 	default:
 		return nil
 	}
@@ -61,7 +61,7 @@ func (c *Control) EnableGPU() error {
 	case 0:
 		return &gpuGeneralError{"cannot enable gpu"}
 	case 2:
-		return &gpuInvalidStateError{"gpu is already enabled"}
+		return &gpuInvalidStateError{"GPU is already enabled"}
 	default:
 		return nil
 	}
@@ -96,15 +96,7 @@ func (c *Control) loop(haltCtx context.Context, cb chan<- plugin.Callback) {
 				action = "disable"
 				err = c.DisableGPU()
 			}
-			n := util.Notification{
-				Title: "GPU Control",
-			}
-
-			n.Message = fmt.Sprintf("Attempting to %s GPU...", action)
-			cb <- plugin.Callback{
-				Event: plugin.CbNotifyToast,
-				Value: n,
-			}
+			n := util.Notification{}
 
 			var recoverable *gpuInvalidStateError
 			if err != nil && !errors.As(err, &recoverable) {
@@ -117,6 +109,12 @@ func (c *Control) loop(haltCtx context.Context, cb chan<- plugin.Callback) {
 				continue
 			} else if errors.As(err, &recoverable) {
 				n.Message = err.Error()
+				cb <- plugin.Callback{
+					Event: plugin.CbNotifyToast,
+					Value: n,
+				}
+			} else {
+				n.Message = fmt.Sprintf("GPU %sd", action)
 				cb <- plugin.Callback{
 					Event: plugin.CbNotifyToast,
 					Value: n,

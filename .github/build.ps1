@@ -3,8 +3,8 @@
 # should have Mingw-w64 installed already
 Get-Command "gcc.exe"
 
-# $env:GOPATH = $env:GITHUB_WORKSPACE + "\go"
-# $GOBIN = $env:GOPATH + "\bin"
+$env:GOPATH = $env:GITHUB_WORKSPACE + "\go"
+$GOBIN = $env:GOPATH + "\bin"
 $env:Path += ";" + $env:GOBIN
 $env:GOOS = "windows"
 $env:GOARCH = "amd64"
@@ -18,7 +18,7 @@ $CommandInstallRSRC = "go get github.com/akavel/rsrc"
 Invoke-Expression $CommandInstallRSRC
 
 # easier for us to debug
-# Get-ChildItem $GOBIN
+Get-ChildItem $GOBIN
 
 $RSRC = $GOBIN + "\rsrc.exe -arch amd64 -manifest .\cmd\manager\G14Manager.exe.manifest -ico .\cmd\manager\go.ico -o .\cmd\manager\G14Manager.exe.syso"
 Invoke-Expression $RSRC

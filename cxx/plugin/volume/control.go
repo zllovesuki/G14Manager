@@ -10,9 +10,11 @@ import (
 	"log"
 	"runtime"
 	"sync"
+	"time"
 
 	"github.com/zllovesuki/G14Manager/system/keyboard"
 	"github.com/zllovesuki/G14Manager/system/plugin"
+	"github.com/zllovesuki/G14Manager/util"
 )
 
 type Control struct {
@@ -61,6 +63,18 @@ func (c *Control) loop(haltCtx context.Context, cb chan<- plugin.Callback) {
 			}
 			switch keycode {
 			case keyboard.KeyMuteMic:
+				n := util.Notification{
+					Delay: time.Millisecond * 500,
+				}
+				if c.isMuted {
+					n.Message = "Unmuting microphone"
+				} else {
+					n.Message = "Muting microphone"
+				}
+				cb <- plugin.Callback{
+					Event: plugin.CbNotifyToast,
+					Value: n,
+				}
 				c.errChan <- c.ToggleMuted()
 			}
 		case <-haltCtx.Done():

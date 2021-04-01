@@ -24,15 +24,17 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/zllovesuki/G14Manager/rpc/announcement"
-	"github.com/zllovesuki/G14Manager/system/shared"
 	"github.com/zllovesuki/G14Manager/system/device"
 	"github.com/zllovesuki/G14Manager/system/ioctl"
 	"github.com/zllovesuki/G14Manager/system/keyboard"
 	kb "github.com/zllovesuki/G14Manager/system/keyboard"
 	"github.com/zllovesuki/G14Manager/system/persist"
 	"github.com/zllovesuki/G14Manager/system/plugin"
+	"github.com/zllovesuki/G14Manager/system/shared"
+	"github.com/zllovesuki/G14Manager/util"
 
 	"github.com/karalabe/usb"
 )
@@ -189,13 +191,34 @@ func (c *Control) loop(haltCtx context.Context, cb chan<- plugin.Callback) {
 				}
 				switch keycode {
 				case keyboard.KeyTpadToggle:
+					cb <- plugin.Callback{
+						Event: plugin.CbNotifyToast,
+						Value: util.Notification{
+							Message: "Toggle Disable/Enable Touchpad",
+							Delay:   time.Millisecond * 500,
+						},
+					}
 					c.errChan <- c.ToggleTouchPad()
 				case keyboard.KeyFnDown:
+					cb <- plugin.Callback{
+						Event: plugin.CbNotifyToast,
+						Value: util.Notification{
+							Message: "Brightness Down",
+							Delay:   time.Millisecond * 250,
+						},
+					}
 					c.errChan <- c.BrightnessDown()
 					cb <- plugin.Callback{
 						Event: plugin.CbPersistConfig,
 					}
 				case keyboard.KeyFnUp:
+					cb <- plugin.Callback{
+						Event: plugin.CbNotifyToast,
+						Value: util.Notification{
+							Message: "Brightness Up",
+							Delay:   time.Millisecond * 250,
+						},
+					}
 					c.errChan <- c.BrightnessUp()
 					cb <- plugin.Callback{
 						Event: plugin.CbPersistConfig,

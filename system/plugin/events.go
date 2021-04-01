@@ -14,6 +14,7 @@ const (
 	EvtSentinelUtilityKey
 	EvtSentinelEnableGPU
 	EvtSentinelDisableGPU
+	EvtSentinelCycleRefreshRate
 
 	CbPersistConfig
 	CbNotifyToast
@@ -30,6 +31,7 @@ func (e Event) String() string {
 		"Event (sentinel): ROG/Utility Key",
 		"Event (sentinel): Enable GPU",
 		"Event (sentinel): Disable GPU",
+		"Event (sentinel): Cycle Refresh Rate",
 
 		"Callback: Request to persist config",
 		"Callback: Request to notify user",

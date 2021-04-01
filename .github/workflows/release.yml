@@ -16,6 +16,10 @@ jobs:
           go-version: "1.16.2" # The Go version to download (if necessary) and use.
       - name: Add msbuild to PATH
         uses: microsoft/setup-msbuild@v1.0.2
+      - name: Install Protoc
+        uses: arduino/setup-protoc@v1
+      - name: Generate protobuf
+        run: make proto_windows
       - name: test packages
         run: go test .\...
       - name: Build MatrixControl DLL (Debug)

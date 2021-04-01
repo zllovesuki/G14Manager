@@ -6,24 +6,27 @@ extern "C"
 {
 #endif
 
-    void *GetDisplay(void)
+    void *pDisplay = NULL;
+
+    int GetDisplay(void)
     {
-        return fnGetDisplay();
+        pDisplay = fnGetDisplay();
+        return pDisplay != NULL;
     }
 
-    int CycleRefreshRate(void *p)
+    int CycleRefreshRate()
     {
-        return fnCycleRefreshRate(p);
+        return fnCycleRefreshRate(pDisplay);
     }
 
-    int GetCurrentRefreshRate(void *p)
+    int GetCurrentRefreshRate()
     {
-        return fnGetCurrentRefreshRate(p);
+        return fnGetCurrentRefreshRate(pDisplay);
     }
 
-    void ReleaseDisplay(void *p)
+    void ReleaseDisplay()
     {
-        fnReleaseDisplay(p);
+        fnReleaseDisplay(pDisplay);
     }
 #ifdef __cplusplus
 }

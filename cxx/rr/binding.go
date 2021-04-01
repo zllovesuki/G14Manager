@@ -6,32 +6,27 @@ package rr
 import "C"
 import (
 	"fmt"
-	"unsafe"
 )
 
 type Display struct {
-	pDisplay unsafe.Pointer
 }
 
 func NewDisplayRR() (*Display, error) {
-	pDisplay := C.GetDisplay()
-	if pDisplay == nil {
+	ret := C.GetDisplay()
+	if int(ret) != 1 {
 		return nil, fmt.Errorf("no active display attached to integrated graphics")
 	}
-	return &Display{
-		pDisplay: pDisplay,
-	}, nil
+	return &Display{}, nil
 }
 
 func (d *Display) CycleRefreshRate() int {
-	return int(C.CycleRefreshRate(d.pDisplay))
+	return int(C.CycleRefreshRate())
 }
 
 func (d *Display) GetCurrent() int {
-	return int(C.GetCurrentRefreshRate(d.pDisplay))
+	return int(C.GetCurrentRefreshRate())
 }
 
 func (d *Display) Release() {
-	C.ReleaseDisplay(d.pDisplay)
-	d.pDisplay = nil
+	C.ReleaseDisplay()
 }

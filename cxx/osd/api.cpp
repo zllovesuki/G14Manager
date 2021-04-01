@@ -6,8 +6,16 @@
 
 void *fnNewWindow(int height, int width)
 {
-    Window *window = new Window(height, width);
-    return window;
+    Window *pWindow = NULL;
+    try
+    {
+        pWindow = new Window(height, width);
+    }
+    catch (const std::runtime_error &e)
+    {
+        std::cerr << e.what() << std::endl;
+    }
+    return pWindow;
 }
 
 void fnShowText(void *pWindow, char *text, int fontSize)

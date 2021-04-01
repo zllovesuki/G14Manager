@@ -5,17 +5,21 @@
 extern "C"
 {
 #endif
-    void *NewWindow(int height, int width)
+
+    void *pWindow = NULL;
+
+    int NewWindow(int height, int width)
     {
-        return fnNewWindow(height, width);
+        pWindow = fnNewWindow(height, width);
+        return pWindow != NULL;
     }
 
-    void ShowText(void *pWindow, char *text, int fontSize)
+    void ShowText(char *text, int fontSize)
     {
         fnShowText(pWindow, text, fontSize);
     }
 
-    void Hide(void *pWindow)
+    void Hide()
     {
         fnHide(pWindow);
     }

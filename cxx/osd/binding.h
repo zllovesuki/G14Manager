@@ -7,9 +7,10 @@ extern "C"
 {
 #endif
 
-    void *NewWindow(int, int);
-    void ShowText(void *, char *, int);
-    void Hide(void *);
+    extern void *pWindow;
+    int NewWindow(int, int);
+    void ShowText(char *, int);
+    void Hide();
 
 #ifdef __cplusplus
 }

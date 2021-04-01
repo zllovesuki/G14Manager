@@ -7,10 +7,12 @@ extern "C"
 {
 #endif
 
-    void *GetDisplay();
-    int CycleRefreshRate(void *);
-    int GetCurrentRefreshRate(void *);
-    void ReleaseDisplay(void *);
+    extern void *pDisplay;
+
+    int GetDisplay();
+    int CycleRefreshRate();
+    int GetCurrentRefreshRate();
+    void ReleaseDisplay();
 
 #ifdef __cplusplus
 }

@@ -3,6 +3,7 @@ package power
 import (
 	"context"
 	"log"
+	"runtime"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
@@ -25,47 +26,53 @@ const (
 
 // NewEventListener will listen for PowerSuspendResumeNotification and send events to the channel
 func NewEventListener(haltCtx context.Context, eventCh chan uint32) error {
-	const (
-		_DEVICE_NOTIFY_CALLBACK = 2
-	)
-	type _DEVICE_NOTIFY_SUBSCRIBE_PARAMETERS struct {
-		callback uintptr
-		context  uintptr
-	}
-
-	// TODO: investgiate if this is safe to run in goroutines
-	var fn interface{} = func(context uintptr, changeType uint32, setting uintptr) uintptr {
-		eventCh <- changeType
-		return 0
-	}
-
-	params := _DEVICE_NOTIFY_SUBSCRIBE_PARAMETERS{
-		callback: windows.NewCallback(fn),
-	}
-	handle := uintptr(0)
-
-	log.Println("power: registering suspend/resume notification")
-	ret, _, err := powerRegisterSuspendResumeNotification.Call(
-		_DEVICE_NOTIFY_CALLBACK,
-		uintptr(unsafe.Pointer(&params)),
-		uintptr(unsafe.Pointer(&handle)),
-	)
-	if ret != 0 {
-		return err
-	}
+	r := make(chan error)
 
 	go func() {
-		select {
-		case <-haltCtx.Done():
-			log.Println("power: unregistering suspend/resume notification")
-			ret, _, err := powerRegisterSuspendResumeNotification.Call(
-				uintptr(unsafe.Pointer(&handle)),
-			)
-			if ret != 87 {
-				log.Printf("power: unable to unregister: %+v\n", err)
-			}
+		runtime.LockOSThread()
+		defer runtime.UnlockOSThread()
+
+		const (
+			_DEVICE_NOTIFY_CALLBACK = 2
+		)
+		type _DEVICE_NOTIFY_SUBSCRIBE_PARAMETERS struct {
+			callback uintptr
+			context  uintptr
 		}
+
+		var fn interface{} = func(context uintptr, changeType uint32, setting uintptr) uintptr {
+			eventCh <- changeType
+			return 0
+		}
+
+		params := _DEVICE_NOTIFY_SUBSCRIBE_PARAMETERS{
+			callback: windows.NewCallback(fn),
+		}
+		handle := uintptr(0)
+
+		log.Println("power: registering suspend/resume notification")
+		ret, _, err := powerRegisterSuspendResumeNotification.Call(
+			_DEVICE_NOTIFY_CALLBACK,
+			uintptr(unsafe.Pointer(&params)),
+			uintptr(unsafe.Pointer(&handle)),
+		)
+		if ret != 0 {
+			r <- err
+			return
+		}
+
+		r <- nil
+
+		<-haltCtx.Done()
+		log.Println("power: unregistering suspend/resume notification")
+		ret, _, err = powerUnregisterSuspendResumeNotification.Call(
+			uintptr(unsafe.Pointer(&handle)),
+		)
+		if ret != 87 { // despite non-zero ret, err is "The operation completed successfully."
+			log.Printf("power: unable to unregister: %+v\n", err)
+		}
+
 	}()
 
-	return nil
+	return <-r
 }

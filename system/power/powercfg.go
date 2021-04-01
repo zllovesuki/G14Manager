@@ -9,10 +9,6 @@ import (
 	"syscall"
 )
 
-const (
-	powerPersistKey = "PowerCfg"
-)
-
 var (
 	powerCfgRe = regexp.MustCompile(`(?P<GUID>[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-4[a-fA-F0-9]{3}-[8|9|aA|bB][a-fA-F0-9]{3}-[a-fA-F0-9]{12})  (?P<Name>\((.*?)\))\s?(?P<Active>\*)?`)
 )
@@ -32,7 +28,7 @@ type Cfg struct {
 // NewCfg will return a Cfg allowing you to modify the Windows Power Option
 func NewCfg() (*Cfg, error) {
 	cfg := &Cfg{
-		plansMap: make(map[string]plan, 0),
+		plansMap: make(map[string]plan),
 	}
 	err := cfg.loadPowerPlans()
 	if err != nil {
@@ -67,7 +63,7 @@ func (p *Cfg) setPowerPlan(active plan) error {
 	_, err := run("powercfg", "/S", active.GUID)
 	if err != nil {
 		log.Printf("cannot set active power plan: %s\n", err)
-		return errors.New("Cannot set active power plan")
+		return errors.New("cannot set active power plan")
 	}
 	p.activePlan = active
 	return nil
@@ -77,7 +73,7 @@ func (p *Cfg) setPowerPlan(active plan) error {
 func (p *Cfg) Set(planName string) (nextPlan string, err error) {
 	propose, ok := p.plansMap[strings.ToLower(planName)]
 	if !ok {
-		err = errors.New("Cannot find target power plan")
+		err = errors.New("cannot find target power plan")
 		return
 	}
 
@@ -88,7 +84,7 @@ func (p *Cfg) Set(planName string) (nextPlan string, err error) {
 
 	err = p.setPowerPlan(propose)
 	if err != nil {
-		err = errors.New("Cannot set power plan")
+		err = errors.New("cannot set power plan")
 		return
 	}
 

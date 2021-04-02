@@ -17,8 +17,6 @@ struct Window
 private:
     int getScreenCenterX() const;
     int getScreenCenterY() const;
-    void makeTransparent();
-    void makeRounded();
     void repaint();
     void paint(HWND);
 

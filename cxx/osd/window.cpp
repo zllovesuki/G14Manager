@@ -8,8 +8,6 @@
 #include <memory>
 #include <iostream>
 
-#include "winutil.h"
-
 namespace
 {
 
@@ -32,8 +30,8 @@ namespace
 
     void registerWindowClass(HINSTANCE instanceHandle)
     {
-        WNDCLASSEXA wc;
-        wc.cbSize = sizeof(WNDCLASSEXA);
+        WNDCLASSEX wc;
+        wc.cbSize = sizeof(WNDCLASSEX);
         wc.style = 0;
         wc.lpfnWndProc = processWinApiMessage;
         wc.cbClsExtra = 0;
@@ -47,7 +45,7 @@ namespace
         wc.lpszClassName = className;
         wc.hIconSm = LoadIcon(NULL, IDI_APPLICATION);
 
-        if (!RegisterClassExA(&wc))
+        if (!RegisterClassEx(&wc))
         {
             throw std::runtime_error("osd: Window registration failed");
         }
@@ -60,13 +58,13 @@ void Window::paint(HWND hwnd)
     PAINTSTRUCT ps{};
     HDC hdc{BeginPaint(hwnd, &ps)};
 
-    HFONT font{CreateFontA(fontSize, 0, 0, 0, FW_REGULAR, 0, 0, 0, 0, 0, 0, CLEARTYPE_QUALITY, 0, "Segoe UI")};
+    HFONT font{CreateFont(fontSize, 0, 0, 0, FW_REGULAR, 0, 0, 0, 0, 0, 0, CLEARTYPE_QUALITY, 0, "Segoe UI")};
     SelectObject(hdc, font);
 
     SetTextAlign(hdc, TA_CENTER | TA_BASELINE);
     SetBkMode(hdc, TRANSPARENT);
     SetTextColor(hdc, RGB(255, 255, 255));
-    TextOutA(hdc, windowWidth / 2, windowHeight / 2 + fontSize / 4, text.c_str(), text.size());
+    TextOut(hdc, windowWidth / 2, windowHeight / 2 + fontSize / 4, text.c_str(), text.size());
 
     DeleteObject(font);
     EndPaint(hwnd, &ps);
@@ -107,7 +105,7 @@ void Window::repaint()
 Window::Window(int width, int height) : windowWidth{width},
                                         windowHeight{height}, text{}
 {
-    instanceHandle = GetModuleHandleA("");
+    instanceHandle = GetModuleHandle("");
 
     registerWindowClass(instanceHandle);
 
@@ -120,38 +118,33 @@ Window::Window(int width, int height) : windowWidth{width},
     // WS_OVEERLAPPEDWINDOW - with border
     // WS_POPUP - borderless
     // WS_CHILD -
-    windowHandle = CreateWindowExA(WS_EX_TOPMOST | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW | WS_EX_LAYERED, className, windowTitle, WS_POPUP,
-                                   getScreenCenterX(), getScreenCenterY(), width, height, NULL, NULL, instanceHandle, NULL);
+    windowHandle = CreateWindowEx(WS_EX_TOPMOST | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW | WS_EX_LAYERED, className, windowTitle, WS_POPUP,
+                                  getScreenCenterX(), getScreenCenterY(), width, height, NULL, NULL, instanceHandle, NULL);
     if (!windowHandle)
     {
         throw std::runtime_error("osd: Failed to create window");
     }
     handleWindowMap[windowHandle] = std::shared_ptr<Window>{this};
 
-    makeRounded();
-    makeTransparent();
-}
+    // rounded corners
+    SetWindowRgn(windowHandle, CreateRoundRectRgn(0, 0, windowWidth, windowHeight, 50, 50), false);
+    // transparent background
+    SetLayeredWindowAttributes(windowHandle, RGB(255, 255, 255), 255 * 85 / 100, LWA_ALPHA);
 
-void Window::makeTransparent()
-{
-    winutil::setWindowTransparancy(windowHandle, 255 * 80 / 100);
-}
-
-void Window::makeRounded()
-{
-    SetWindowRgn(windowHandle, CreateRoundRectRgn(0, 0, windowWidth, windowHeight, 50, 50), true);
+    // preload font so it will load faster when we actually show text
+    HFONT preload{CreateFont(5, 0, 0, 0, FW_REGULAR, 0, 0, 0, 0, 0, 0, CLEARTYPE_QUALITY, 0, "Segoe UI")};
+    DeleteObject(preload);
 }
 
 void Window::show()
 {
-    ShowWindow(windowHandle, SW_SHOWDEFAULT);
+    ShowWindow(windowHandle, SW_NORMAL);
     UpdateWindow(windowHandle);
 }
 
 void Window::hide()
 {
-    // ShowWindow(windowHandle, SW_HIDE);
-    AnimateWindow(windowHandle, 250, AW_BLEND | AW_HIDE);
+    ShowWindow(windowHandle, SW_HIDE);
     UpdateWindow(windowHandle);
 }
 
@@ -162,5 +155,5 @@ int Window::getScreenCenterX() const
 
 int Window::getScreenCenterY() const
 {
-    return (GetSystemMetrics(SM_CYSCREEN) - windowHeight) * 7 / 8;
+    return (GetSystemMetrics(SM_CYSCREEN) - windowHeight) * 1 / 8;
 }

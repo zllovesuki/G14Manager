@@ -8,8 +8,8 @@ import "rpc/protocol/thermal.proto";
 import "google/protobuf/empty.proto";
 
 service ConfigList {
-  rpc GetCurrentConfigs(google.protobuf.Empty) returns(SetConfigsResponse) {}
-  rpc Set(SetConfigsRequest) returns(SetConfigsResponse) {}
+  rpc GetCurrentConfigs(google.protobuf.Empty) returns (SetConfigsResponse) {}
+  rpc Set(SetConfigsRequest) returns (SetConfigsResponse) {}
 }
 
 message AutoThermal {

@@ -19,7 +19,8 @@ jobs:
       - name: Install Protoc
         uses: arduino/setup-protoc@v1
       - name: Generate protobuf
-        run: make proto_windows
+        shell: powershell
+        run: .\scripts\proto.ps1
       - name: test packages
         run: go test .\...
       - name: Build MatrixControl DLL (Debug)
@@ -40,7 +41,8 @@ jobs:
       - name: Install Protoc
         uses: arduino/setup-protoc@v1
       - name: Generate protobuf
-        run: make proto_windows
+        shell: powershell
+        run: .\scripts\proto.ps1
       - name: Build Artifacts
         shell: powershell
         run: .\.github\build.ps1

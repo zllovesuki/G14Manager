@@ -12,6 +12,7 @@ import (
 	"github.com/zllovesuki/G14Manager/rpc/server"
 	"github.com/zllovesuki/G14Manager/system/shared"
 
+	"github.com/improbable-eng/grpc-web/go/grpcweb"
 	"google.golang.org/grpc"
 )
 
@@ -27,6 +28,11 @@ type Server struct {
 	server  *grpc.Server
 	servers servers
 	dep     *controller.Dependencies
+	grpcWeb *grpcweb.WrappedGrpcServer
+}
+
+func (s *Server) GetWebHandler() *grpcweb.WrappedGrpcServer {
+	return s.grpcWeb
 }
 
 type GRPCRunConfig struct {
@@ -58,6 +64,8 @@ func NewGRPCServer(conf GRPCRunConfig) (*Server, error) {
 
 	conf.Dependencies.ConfigRegistry.Register(server.servers.Configs)
 	conf.Dependencies.ConfigRegistry.Register(server.servers.Manager)
+
+	server.grpcWeb = grpcweb.WrapServer(s)
 
 	return server, nil
 }

@@ -2,11 +2,7 @@ package main
 
 import (
 	"context"
-	"fmt"
-	"io"
 	"log"
-	"net/http"
-	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"syscall"
@@ -16,7 +12,6 @@ import (
 	"github.com/zllovesuki/G14Manager/rpc/server"
 	"github.com/zllovesuki/G14Manager/supervisor"
 	"github.com/zllovesuki/G14Manager/supervisor/background"
-	"github.com/zllovesuki/G14Manager/system/shared"
 	"github.com/zllovesuki/G14Manager/util"
 
 	suture "github.com/thejerf/suture/v4"
@@ -92,7 +87,7 @@ func main() {
 			osdNotifier:		supervisor/background/notifier.go
 			controller:			controller
 
-								rootSupervisor  +----+  pprof
+								rootSupervisor  +----+  externalWeb
 									+    +
 									|    |
 									|    |
@@ -131,9 +126,7 @@ func main() {
 	})
 	rootSupervisor.Add(grpcSupervisor)
 	rootSupervisor.Add(backgroundSupervisor)
-	rootSupervisor.Add(&webDebugger{
-		Srv: &http.Server{Addr: shared.DebuggerAddress},
-	})
+	rootSupervisor.Add(NewWeb(grpcServer.GetWebHandler()))
 
 	sigc := make(chan os.Signal, 1)
 
@@ -164,44 +157,4 @@ func main() {
 	cancel()
 	dep.ConfigRegistry.Close()
 	time.Sleep(time.Second) // 1 second for grace period
-}
-
-type webDebugger struct {
-	Srv *http.Server
-}
-
-func (w *webDebugger) Serve(haltCtx context.Context) error {
-
-	http.HandleFunc("/debug/logs", func(w http.ResponseWriter, r *http.Request) {
-		if IsDebug != "no" {
-			fmt.Fprintf(w, "Logging is not enabled on debug build")
-			return
-		}
-		osFile, err := os.Open(logLocation)
-		if err != nil {
-			fmt.Fprintf(w, "Unable to open log file: %+v", err)
-			return
-		}
-		defer osFile.Close()
-		io.Copy(w, osFile)
-	})
-
-	errCh := make(chan error)
-	go func() {
-		log.Printf("[pprof] debugging server available at %s\n", w.Srv.Addr)
-		errCh <- w.Srv.ListenAndServe()
-	}()
-	for {
-		select {
-		case <-haltCtx.Done():
-			log.Println("[pprof] exiting pprof server")
-			w.Srv.Shutdown(context.Background())
-			return nil
-		case err := <-errCh:
-			if err == nil || err == http.ErrServerClosed {
-				return nil
-			}
-			return suture.ErrTerminateSupervisorTree
-		}
-	}
 }

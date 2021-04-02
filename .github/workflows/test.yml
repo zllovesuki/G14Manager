@@ -20,7 +20,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
       - name: Generate protobuf
-        run: make proto_windows
+        shell: powershell
+        run: .\scripts\proto.ps1
       - name: Test G14Manager
         run: go test ./...
       - name: Build Main G14Manager Binary

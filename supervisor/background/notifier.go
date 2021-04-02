@@ -13,6 +13,7 @@ import (
 const (
 	defaultDelay = time.Millisecond * 2500
 	minimumDelay = time.Millisecond * 500
+	qSize        = 10
 )
 
 type Notifier struct {
@@ -23,8 +24,8 @@ type Notifier struct {
 
 func NewNotifier() *Notifier {
 	return &Notifier{
-		C:    make(chan util.Notification, 10),
-		show: make(chan string, 10),
+		C:    make(chan util.Notification, qSize),
+		show: make(chan string, qSize),
 		hide: make(chan struct{}),
 	}
 }
@@ -49,12 +50,12 @@ func (n *Notifier) Serve(haltCtx context.Context) error {
 	}
 
 	go func() {
-		// there must be a simpler way to do this
-		var timer <-chan time.Time
-		inflight := false
-		s := make(chan util.Notification, 10)
-		q := make(chan util.Notification, 10)
+		var hideTimer <-chan time.Time
 		qChecker := time.NewTicker(minimumDelay)
+		s := make(chan util.Notification, qSize)
+		q := make(chan util.Notification, qSize)
+		inflight := false
+
 		for {
 			select {
 			case msg := <-n.C:
@@ -75,13 +76,14 @@ func (n *Notifier) Serve(haltCtx context.Context) error {
 				}
 			case msg := <-s:
 				n.show <- msg.Message
-				timer = time.After(msg.Delay)
+				hideTimer = time.After(msg.Delay)
 				inflight = true
-			case <-timer:
+			case <-hideTimer:
 				n.hide <- struct{}{}
-				timer = nil
+				hideTimer = nil
 				inflight = false
 			case <-haltCtx.Done():
+				qChecker.Stop()
 				return
 			}
 		}

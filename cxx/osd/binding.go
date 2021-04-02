@@ -11,7 +11,6 @@ import (
 
 type OSD struct {
 	fontSize int
-	queue    chan string
 	cache    map[string]*C.char
 }
 
@@ -23,8 +22,7 @@ func NewOSD(height int, width int, fSize int) (*OSD, error) {
 	}
 	return &OSD{
 		fontSize: fSize,
-		queue:    make(chan string, 5),
-		cache: make(map[string]*C.char),
+		cache:    make(map[string]*C.char),
 	}, nil
 }
 

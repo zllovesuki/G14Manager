@@ -61,7 +61,7 @@ jobs:
             const release = await github.repos.createRelease({
               owner, repo,
               tag_name: tag_name,
-              draft: false,
+              draft: true,
               prerelease: false,
               body: "Automated Release by GitHub Action CI. Please see tag annotation for changelog.",
               name: "Release " + tag_name,

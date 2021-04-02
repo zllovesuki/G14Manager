@@ -10,13 +10,22 @@ import (
 	"github.com/zllovesuki/G14Manager/util"
 )
 
+const (
+	defaultDelay = time.Millisecond * 2500
+	minimumDelay = time.Millisecond * 500
+)
+
 type Notifier struct {
-	C chan util.Notification
+	C    chan util.Notification
+	show chan string
+	hide chan struct{}
 }
 
 func NewNotifier() *Notifier {
 	return &Notifier{
-		C: make(chan util.Notification, 10),
+		C:    make(chan util.Notification, 10),
+		show: make(chan string, 10),
+		hide: make(chan struct{}),
 	}
 }
 
@@ -29,20 +38,64 @@ func (n *Notifier) Serve(haltCtx context.Context) error {
 	if err != nil {
 		log.Printf("[notifier] OSD not available: %s\n", err)
 		display = nil
+		// empty loop to consume channel to avoid blocking
+		for {
+			select {
+			case <-n.C:
+			case <-haltCtx.Done():
+				return nil
+			}
+		}
 	}
+
+	go func() {
+		// there must be a simpler way to do this
+		var timer <-chan time.Time
+		inflight := false
+		s := make(chan util.Notification, 10)
+		q := make(chan util.Notification, 10)
+		qChecker := time.NewTicker(minimumDelay)
+		for {
+			select {
+			case msg := <-n.C:
+				if msg.Delay == time.Duration(0) {
+					msg.Delay = defaultDelay
+				} else if msg.Delay < minimumDelay {
+					msg.Delay = minimumDelay
+				}
+				if msg.Immediate || !inflight {
+					s <- msg
+				} else {
+					q <- msg
+				}
+			case <-qChecker.C:
+				if len(q) > 0 && !inflight {
+					msg := <-q
+					s <- msg
+				}
+			case msg := <-s:
+				n.show <- msg.Message
+				timer = time.After(msg.Delay)
+				inflight = true
+			case <-timer:
+				n.hide <- struct{}{}
+				timer = nil
+				inflight = false
+			case <-haltCtx.Done():
+				return
+			}
+		}
+	}()
 
 	for {
 		select {
-		case msg := <-n.C:
-			if msg.Delay == time.Duration(0) {
-				msg.Delay = time.Millisecond * 2500
-			}
-			if display == nil {
-				continue
-			}
-			display.Show(msg.Message, msg.Delay)
+		case msg := <-n.show:
+			display.Show(msg)
+		case <-n.hide:
+			display.Hide()
 		case <-haltCtx.Done():
 			log.Println("[notifier] existing notify loop")
+			display.Release()
 			return nil
 		}
 	}

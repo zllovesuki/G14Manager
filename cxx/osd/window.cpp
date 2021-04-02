@@ -150,7 +150,8 @@ void Window::show()
 
 void Window::hide()
 {
-    ShowWindow(windowHandle, SW_HIDE);
+    // ShowWindow(windowHandle, SW_HIDE);
+    AnimateWindow(windowHandle, 250, AW_BLEND | AW_HIDE);
     UpdateWindow(windowHandle);
 }
 

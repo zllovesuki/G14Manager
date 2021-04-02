@@ -195,7 +195,7 @@ func (c *Control) loop(haltCtx context.Context, cb chan<- plugin.Callback) {
 						Event: plugin.CbNotifyToast,
 						Value: util.Notification{
 							Message: "Toggle Disable/Enable Touchpad",
-							Delay:   time.Millisecond * 500,
+							Delay:   time.Second,
 						},
 					}
 					c.errChan <- c.ToggleTouchPad()
@@ -203,8 +203,9 @@ func (c *Control) loop(haltCtx context.Context, cb chan<- plugin.Callback) {
 					cb <- plugin.Callback{
 						Event: plugin.CbNotifyToast,
 						Value: util.Notification{
-							Message: "Brightness Down",
-							Delay:   time.Millisecond * 250,
+							Message:   "Keyboard Brightness Down",
+							Delay:     time.Millisecond * 500,
+							Immediate: true,
 						},
 					}
 					c.errChan <- c.BrightnessDown()
@@ -215,8 +216,9 @@ func (c *Control) loop(haltCtx context.Context, cb chan<- plugin.Callback) {
 					cb <- plugin.Callback{
 						Event: plugin.CbNotifyToast,
 						Value: util.Notification{
-							Message: "Brightness Up",
-							Delay:   time.Millisecond * 250,
+							Message:   "Keyboard Brightness Up",
+							Delay:     time.Millisecond * 500,
+							Immediate: true,
 						},
 					}
 					c.errChan <- c.BrightnessUp()

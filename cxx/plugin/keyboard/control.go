@@ -1,3 +1,4 @@
+//go:generate stringer -type=Level -linecomment
 package keyboard
 
 /*
@@ -89,10 +90,10 @@ type Level byte
 
 // Brightness level
 const (
-	OFF    Level = 0x00
-	LOW          = 0x01
-	MEDIUM       = 0x02
-	HIGH         = 0x03
+	OFF    Level = 0x00 // Off
+	LOW    Level = 0x01 // Low
+	MEDIUM Level = 0x02 // Medium
+	HIGH   Level = 0x03 // High
 )
 
 // Control allows you to set the hid related functionalities directly.
@@ -191,39 +192,48 @@ func (c *Control) loop(haltCtx context.Context, cb chan<- plugin.Callback) {
 				}
 				switch keycode {
 				case keyboard.KeyTpadToggle:
-					cb <- plugin.Callback{
-						Event: plugin.CbNotifyToast,
-						Value: util.Notification{
-							Message: "Toggle Disable/Enable Touchpad",
-							Delay:   time.Second,
-						},
+					if err := c.ToggleTouchPad(); err != nil {
+						c.errChan <- err
+					} else {
+						cb <- plugin.Callback{
+							Event: plugin.CbNotifyToast,
+							Value: util.Notification{
+								Message: "Toggle Disable/Enable Touchpad",
+								Delay:   time.Second,
+							},
+						}
 					}
-					c.errChan <- c.ToggleTouchPad()
 				case keyboard.KeyFnDown:
-					cb <- plugin.Callback{
-						Event: plugin.CbNotifyToast,
-						Value: util.Notification{
-							Message:   "Keyboard Brightness Down",
-							Delay:     time.Millisecond * 500,
-							Immediate: true,
-						},
-					}
-					c.errChan <- c.BrightnessDown()
-					cb <- plugin.Callback{
-						Event: plugin.CbPersistConfig,
+					if err := c.BrightnessDown(); err != nil {
+						c.errChan <- err
+					} else {
+						cb <- plugin.Callback{
+							Event: plugin.CbNotifyToast,
+							Value: util.Notification{
+								Message:   fmt.Sprintf("Keyboard Brightness Down: %s", c.CurrentBrightness()),
+								Delay:     time.Millisecond * 500,
+								Immediate: true,
+							},
+						}
+						cb <- plugin.Callback{
+							Event: plugin.CbPersistConfig,
+						}
 					}
 				case keyboard.KeyFnUp:
-					cb <- plugin.Callback{
-						Event: plugin.CbNotifyToast,
-						Value: util.Notification{
-							Message:   "Keyboard Brightness Up",
-							Delay:     time.Millisecond * 500,
-							Immediate: true,
-						},
-					}
-					c.errChan <- c.BrightnessUp()
-					cb <- plugin.Callback{
-						Event: plugin.CbPersistConfig,
+					if err := c.BrightnessUp(); err != nil {
+						c.errChan <- err
+					} else {
+						cb <- plugin.Callback{
+							Event: plugin.CbNotifyToast,
+							Value: util.Notification{
+								Message:   fmt.Sprintf("Keyboard Brightness Up: %s", c.CurrentBrightness()),
+								Delay:     time.Millisecond * 500,
+								Immediate: true,
+							},
+						}
+						cb <- plugin.Callback{
+							Event: plugin.CbPersistConfig,
+						}
 					}
 				case keyboard.KeyFnLeft, keyboard.KeyFnRight:
 					if remap, ok := c.Config.Remap[keycode]; ok {

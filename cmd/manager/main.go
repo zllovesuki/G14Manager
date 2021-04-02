@@ -16,6 +16,7 @@ import (
 	"github.com/zllovesuki/G14Manager/rpc/server"
 	"github.com/zllovesuki/G14Manager/supervisor"
 	"github.com/zllovesuki/G14Manager/supervisor/background"
+	"github.com/zllovesuki/G14Manager/system/shared"
 
 	suture "github.com/thejerf/suture/v4"
 	"gopkg.in/natefinch/lumberjack.v2"
@@ -130,7 +131,7 @@ func main() {
 	rootSupervisor.Add(grpcSupervisor)
 	rootSupervisor.Add(backgroundSupervisor)
 	rootSupervisor.Add(&webDebugger{
-		Srv: &http.Server{Addr: "127.0.0.1:9969"},
+		Srv: &http.Server{Addr: shared.DebuggerAddress},
 	})
 
 	sigc := make(chan os.Signal, 1)

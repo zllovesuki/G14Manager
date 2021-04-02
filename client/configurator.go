@@ -10,6 +10,7 @@ import (
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/rivo/tview"
 	"github.com/zllovesuki/G14Manager/rpc/protocol"
+	"github.com/zllovesuki/G14Manager/system/shared"
 	"google.golang.org/grpc"
 )
 
@@ -88,7 +89,7 @@ func NewInterface() *Configurator {
 func (i *Configurator) connect(haltCtx context.Context) error {
 	ctx, cancel := context.WithTimeout(haltCtx, time.Second*1)
 	defer cancel()
-	c, err := grpc.DialContext(ctx, "127.0.0.1:9963", grpc.WithInsecure(), grpc.WithBlock())
+	c, err := grpc.DialContext(ctx, shared.GRPCAddress, grpc.WithInsecure(), grpc.WithBlock())
 	if err != nil {
 		return err
 	}

@@ -10,6 +10,7 @@ import (
 	"github.com/thejerf/suture/v4"
 	"github.com/zllovesuki/G14Manager/controller"
 	"github.com/zllovesuki/G14Manager/rpc/server"
+	"github.com/zllovesuki/G14Manager/system/shared"
 
 	"google.golang.org/grpc"
 )
@@ -62,7 +63,7 @@ func NewGRPCServer(conf GRPCRunConfig) (*Server, error) {
 }
 
 func (s *Server) Serve(haltCtx context.Context) error {
-	lis, err := net.Listen("tcp", "127.0.0.1:9963")
+	lis, err := net.Listen("tcp", shared.GRPCAddress)
 	if err != nil {
 		log.Printf("[gRPCServer] Failed to listen for connections: %+v\n", err)
 		return errors.Wrap(suture.ErrTerminateSupervisorTree, "[gRPCServer] failed to listen for connectios") // If we cannot start gRPC Server, kill the entire tree
@@ -74,7 +75,7 @@ func (s *Server) Serve(haltCtx context.Context) error {
 		s.server.GracefulStop()
 		log.Printf("[gRPCServer] server stopped\n")
 	}()
-	log.Printf("[gRPCServer] grpc server available at 127.0.0.1:9963\n")
+	log.Printf("[gRPCServer] grpc server available at %s\n", shared.GRPCAddress)
 
 	s.dep.ConfigRegistry.Load()
 

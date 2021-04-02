@@ -168,16 +168,17 @@ func (m *ManagerServer) Load(v []byte) error {
 	defer m.mu.Unlock()
 
 	if len(v) == 0 {
-		return nil
+		// mainly for new installs
+		m.autoStart = true
+		log.Println("[gRPCServer] set autoStart to true on new install")
+	} else {
+		var autoStart bool
+		buf := bytes.NewReader(v)
+		if err := binary.Read(buf, binary.BigEndian, &autoStart); err != nil {
+			return err
+		}
+		m.autoStart = autoStart
 	}
-
-	var autoStart bool
-	buf := bytes.NewReader(v)
-	if err := binary.Read(buf, binary.BigEndian, &autoStart); err != nil {
-		return err
-	}
-
-	m.autoStart = autoStart
 
 	go managerOnce.Do(func() {
 		if !m.autoStart {

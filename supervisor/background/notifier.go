@@ -25,7 +25,7 @@ type Notifier struct {
 func NewNotifier() *Notifier {
 	return &Notifier{
 		C:    make(chan util.Notification, qSize),
-		show: make(chan string, qSize),
+		show: make(chan string, 1),
 		hide: make(chan struct{}),
 	}
 }
@@ -51,8 +51,7 @@ func (n *Notifier) Serve(haltCtx context.Context) error {
 
 	go func() {
 		var hideTimer <-chan time.Time
-		qChecker := time.NewTicker(minimumDelay)
-		s := make(chan util.Notification, qSize)
+		s := make(chan util.Notification, 1)
 		q := make(chan util.Notification, qSize)
 		inflight := false
 
@@ -69,11 +68,6 @@ func (n *Notifier) Serve(haltCtx context.Context) error {
 				} else {
 					q <- msg
 				}
-			case <-qChecker.C:
-				if len(q) > 0 && !inflight {
-					msg := <-q
-					s <- msg
-				}
 			case msg := <-s:
 				n.show <- msg.Message
 				hideTimer = time.After(msg.Delay)
@@ -82,8 +76,11 @@ func (n *Notifier) Serve(haltCtx context.Context) error {
 				n.hide <- struct{}{}
 				hideTimer = nil
 				inflight = false
+				if len(q) > 0 {
+					// amazing (/s) syntax btw
+					s <- <-q
+				}
 			case <-haltCtx.Done():
-				qChecker.Stop()
 				return
 			}
 		}

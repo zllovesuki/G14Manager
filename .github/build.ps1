@@ -27,7 +27,7 @@ Invoke-Expression $RSRC
 $MOD = "go mod download"
 Invoke-Expression $MOD 2>&1
 
-Write-Hose "Installing tools"
+Write-Host "Installing tools"
 
 $STRINGER = "go get golang.org/x/tools/cmd/stringer"
 Invoke-Expression $STRINGER

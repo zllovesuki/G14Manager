@@ -17,6 +17,7 @@ import (
 	"github.com/zllovesuki/G14Manager/supervisor"
 	"github.com/zllovesuki/G14Manager/supervisor/background"
 	"github.com/zllovesuki/G14Manager/system/shared"
+	"github.com/zllovesuki/G14Manager/util"
 
 	suture "github.com/thejerf/suture/v4"
 	"gopkg.in/natefinch/lumberjack.v2"
@@ -137,6 +138,11 @@ func main() {
 	sigc := make(chan os.Signal, 1)
 
 	go func() {
+		notifier.C <- util.Notification{
+			Message:   "Starting up G14Manager Supervisor",
+			Immediate: true,
+			Delay:     time.Second * 2,
+		}
 		supervisorErr := rootSupervisor.Serve(ctx)
 		if supervisorErr != nil {
 			log.Printf("[supervisor] rootSupervisor returns error: %+v\n", supervisorErr)

@@ -126,10 +126,10 @@ Window::Window(int width, int height) : windowWidth{width},
     }
     handleWindowMap[windowHandle] = std::shared_ptr<Window>{this};
 
-    // rounded corners
-    SetWindowRgn(windowHandle, CreateRoundRectRgn(0, 0, windowWidth, windowHeight, 50, 50), false);
-    // transparent background
-    SetLayeredWindowAttributes(windowHandle, RGB(255, 255, 255), 255 * 85 / 100, LWA_ALPHA);
+    // // rounded corners
+    // SetWindowRgn(windowHandle, CreateRoundRectRgn(0, 0, windowWidth, windowHeight, 50, 50), false);
+    // // transparent background
+    SetLayeredWindowAttributes(windowHandle, RGB(255, 255, 255), 255, LWA_ALPHA);
 
     // preload font so it will load faster when we actually show text
     HFONT preload{CreateFont(5, 0, 0, 0, FW_REGULAR, 0, 0, 0, 0, 0, 0, CLEARTYPE_QUALITY, 0, DISPLAY_FONT)};

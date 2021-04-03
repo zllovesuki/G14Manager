@@ -5,12 +5,13 @@ option go_package = "github.com/zllovesuki/G14Manager/rpc/protocol";
 
 import "google/protobuf/empty.proto";
 
-service ManagerControl {
-  rpc GetCurrentState(google.protobuf.Empty) returns(ManagerControlResponse) {}
+service Manager {
+  rpc GetCurrentState(google.protobuf.Empty) returns (ManagerControlResponse) {}
   rpc GetCurrentAutoStart(google.protobuf.Empty)
-      returns(ManagerAutoStartResponse) {}
-  rpc Control(ManagerControlRequest) returns(ManagerControlResponse) {}
-  rpc SetAutoStart(ManagerAutoStartRequest) returns(ManagerAutoStartResponse) {}
+      returns (ManagerAutoStartResponse) {}
+  rpc Control(ManagerControlRequest) returns (ManagerControlResponse) {}
+  rpc SetAutoStart(ManagerAutoStartRequest) returns (ManagerAutoStartResponse) {
+  }
 }
 
 message ManagerAutoStartRequest { bool AutoStart = 1; }
@@ -23,13 +24,20 @@ message ManagerAutoStartResponse {
 }
 
 message ManagerControlRequest {
-  enum RequestState { STOP = 0; START = 1; }
+  enum RequestState {
+    STOP = 0;
+    START = 1;
+  }
 
   RequestState State = 1;
 }
 
 message ManagerControlResponse {
-  enum CurrentState { UNKNOWN = 0; STOPPED = 1; RUNNING = 2; }
+  enum CurrentState {
+    UNKNOWN = 0;
+    STOPPED = 1;
+    RUNNING = 2;
+  }
   bool Success = 1;
   CurrentState State = 2;
 

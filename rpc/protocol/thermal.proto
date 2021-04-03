@@ -6,12 +6,18 @@ option go_package = "github.com/zllovesuki/G14Manager/rpc/protocol";
 import "google/protobuf/empty.proto";
 
 service Thermal {
-  rpc GetCurrentProfile(google.protobuf.Empty) returns(SetProfileResponse) {}
-  rpc Set(SetProfileRequest) returns(SetProfileResponse) {}
+  rpc GetCurrentProfile(google.protobuf.Empty) returns (ThermalResponse) {}
+  rpc ListProfiles(google.protobuf.Empty) returns (ThermalResponse) {}
+  rpc UpdateProfiles(UpdateProfileRequest) returns (ThermalResponse) {}
+  rpc SetProfile(SetProfileRequest) returns (ThermalResponse) {}
 }
 
 message Profile {
-  enum ThrottleValue { PERFORMANCE = 0; TURBO = 1; SILENT = 2; }
+  enum ThrottleValue {
+    PERFORMANCE = 0;
+    TURBO = 1;
+    SILENT = 2;
+  }
 
   string WindowsPowerPlan = 1;
   ThrottleValue ThrottlePlan = 2;
@@ -21,11 +27,13 @@ message Profile {
   string Name = 10;
 }
 
+message UpdateProfileRequest { repeated Profile Profiles = 1; }
+
 message SetProfileRequest { string ProfileName = 1; }
 
-message SetProfileResponse {
+message ThermalResponse {
   bool Success = 1;
-  Profile Profile = 2;
+  repeated Profile Profiles = 2;
 
   string Message = 10;
 }

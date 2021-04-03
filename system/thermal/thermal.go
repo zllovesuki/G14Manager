@@ -14,20 +14,16 @@ device 0x25 in profile 0x2 has fan curve [20 50 55 60 65 70 75 98 25 28 34 40 44
 */
 
 import (
-	"bytes"
 	"context"
 	"encoding/binary"
-	"encoding/gob"
 	"errors"
 	"fmt"
 	"log"
-	"runtime"
 	"sync"
 	"time"
 
 	"github.com/zllovesuki/G14Manager/rpc/announcement"
 	"github.com/zllovesuki/G14Manager/system/atkacpi"
-	"github.com/zllovesuki/G14Manager/system/persist"
 	"github.com/zllovesuki/G14Manager/system/plugin"
 	"github.com/zllovesuki/G14Manager/system/power"
 	"github.com/zllovesuki/G14Manager/system/shared"
@@ -35,7 +31,7 @@ import (
 )
 
 const (
-	thermalPersistKey = "ThermalProfile"
+	persistKey = "ThermalProfile"
 )
 
 // TODO: validate these constants are actually what they say they are
@@ -109,6 +105,9 @@ func NewControl(conf Config) (*Control, error) {
 
 // CurrentProfile will return the currently active Profile
 func (c *Control) CurrentProfile() Profile {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
 	return c.Config.Profiles[c.currentProfileIndex]
 }
 
@@ -122,12 +121,6 @@ func (c *Control) findProfileIndexWithName(name string) int {
 }
 
 func (c *Control) setProfile(index int) (string, error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
-
 	nextProfile := c.Config.Profiles[index]
 
 	// note: always set thermal throttle plan first, then override with user fan curve
@@ -150,6 +143,9 @@ func (c *Control) setProfile(index int) (string, error) {
 
 // SwitchToProfile will switch the profile with the given name
 func (c *Control) SwitchToProfile(name string) (string, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	nextIndex := c.findProfileIndexWithName(name)
 	if nextIndex < 0 {
 		return "", errors.New("Cannot find profile with name: " + name)
@@ -160,6 +156,9 @@ func (c *Control) SwitchToProfile(name string) (string, error) {
 
 // NextProfile will cycle to the next profile
 func (c *Control) NextProfile(howMany int) (string, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	nextIndex := (c.currentProfileIndex + howMany) % len(c.Config.Profiles)
 
 	return c.setProfile(nextIndex)
@@ -308,66 +307,11 @@ func (c *Control) Notify(t plugin.Notification) {
 	c.queue <- t
 }
 
-var _ persist.Registry = &Control{}
-
-// Name satisfies persist.Registry
-func (c *Control) Name() string {
-	return thermalPersistKey
-}
-
-// Value satisfies persist.Registry
-func (c *Control) Value() []byte {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-
-	var buf bytes.Buffer
-	name := c.CurrentProfile().Name
-	enc := gob.NewEncoder(&buf)
-	if err := enc.Encode(name); err != nil {
-		return nil
-	}
-	return buf.Bytes()
-}
-
-// Load staisfies persist.Registry
-func (c *Control) Load(v []byte) error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	if len(v) == 0 {
-		return nil
-	}
-	var name string
-	buf := bytes.NewBuffer(v)
-	dec := gob.NewDecoder(buf)
-	if err := dec.Decode(&name); err != nil {
-		return err
-	}
-	for i, profile := range c.Profiles {
-		if profile.Name == name {
-			c.currentProfileIndex = i
-			return nil
-		}
-	}
-	return nil
-}
-
-// Apply satisfies persist.Registry
-func (c *Control) Apply() error {
-	c.currentProfileIndex-- // drcrement the index so we reapply the current one
-	_, err := c.NextProfile(1)
-	return err
-}
-
-// Close satisfied persist.Registry
-func (c *Control) Close() error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	return c.wmi.Close()
-}
-
 var _ announcement.Updatable = &Control{}
+
+func (c *Control) Name() string {
+	return persistKey
+}
 
 func (c *Control) ConfigUpdate(u announcement.Update) {
 	c.mu.Lock()
@@ -380,6 +324,7 @@ func (c *Control) ConfigUpdate(u announcement.Update) {
 			return
 		}
 
+		// TODO: validate input
 		c.AutoThermal = feats.AutoThermal.Enabled
 		c.AutoThermalConfig.PluggedIn = feats.AutoThermal.PluggedIn
 		c.AutoThermalConfig.Unplugged = feats.AutoThermal.Unplugged
@@ -388,6 +333,8 @@ func (c *Control) ConfigUpdate(u announcement.Update) {
 		if !ok {
 			return
 		}
+
+		// TODO: disable autothermal if profiles mismatch
 
 		c.Profiles = profiles
 	}

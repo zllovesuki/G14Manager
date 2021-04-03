@@ -98,7 +98,6 @@ func GetDependencies(conf RunConfig) (*Dependencies, error) {
 	}
 
 	config.Register(battery)
-	config.Register(thermal)
 	config.Register(kbCtrl)
 
 	updatable := []announcement.Updatable{

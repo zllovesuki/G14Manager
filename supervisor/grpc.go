@@ -21,7 +21,7 @@ type servers struct {
 	Battery  *server.BatteryServer
 	Thermal  *server.ThermalServer
 	Manager  *server.ManagerServer
-	Configs  *server.ConfigListServer
+	Features *server.FeaturesServer
 }
 
 type Server struct {
@@ -55,14 +55,15 @@ func NewGRPCServer(conf GRPCRunConfig) (*Server, error) {
 		servers: servers{
 			Keyboard: server.RegisterKeyboardServer(s, conf.Dependencies.Keyboard),
 			Battery:  server.RegisterBatteryChargeLimitServer(s, conf.Dependencies.Battery),
-			Thermal:  server.RegisterThermalServer(s, conf.Dependencies.Thermal),
-			Configs:  server.RegisterConfigListServer(s, conf.Dependencies.Updatable),
+			Thermal:  server.RegisterThermalServer(s, conf.Dependencies.Thermal, conf.Dependencies.Updatable),
+			Features: server.RegisterFeaturesServer(s, conf.Dependencies.Updatable),
 			Manager:  server.RegisterManagerServer(s, conf.ManagerReqCh),
 		},
 		dep: conf.Dependencies,
 	}
 
-	conf.Dependencies.ConfigRegistry.Register(server.servers.Configs)
+	conf.Dependencies.ConfigRegistry.Register(server.servers.Features)
+	conf.Dependencies.ConfigRegistry.Register(server.servers.Thermal)
 	conf.Dependencies.ConfigRegistry.Register(server.servers.Manager)
 
 	server.grpcWeb = grpcweb.WrapServer(s)
@@ -92,13 +93,4 @@ func (s *Server) Serve(haltCtx context.Context) error {
 
 func (s *Server) String() string {
 	return "gRPCServer"
-}
-
-func (s *Server) hotReload(dep *controller.Dependencies) {
-	s.servers.Battery.HotReload(dep.Battery)
-	s.servers.Keyboard.HotReload(dep.Keyboard)
-	s.servers.Thermal.HotReload(dep.Thermal)
-	s.servers.Configs.HotReload(dep.Updatable)
-	dep.ConfigRegistry.Register(s.servers.Configs)
-	dep.ConfigRegistry.Register(s.servers.Manager)
 }

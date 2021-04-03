@@ -7,8 +7,9 @@ import "google/protobuf/empty.proto";
 
 service BatteryChargeLimit {
   rpc GetCurrentLimit(google.protobuf.Empty)
-      returns(BatteryChargeLimitResponse) {}
-  rpc Set(SetBatteryLimitRequest) returns(BatteryChargeLimitResponse) {}
+      returns (BatteryChargeLimitResponse) {}
+  rpc SetChargeLimit(SetBatteryLimitRequest)
+      returns (BatteryChargeLimitResponse) {}
 }
 
 message SetBatteryLimitRequest { fixed32 Percentage = 1; }

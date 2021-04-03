@@ -8,7 +8,10 @@ Set-Location ..
 Get-ChildItem .\client\node_modules\.bin
 
 Write-Host "Generating proto definitions for Go"
+Remove-Item .\rpc\protocol\*.pb.go
 protoc.exe --go_opt=paths=source_relative --go_out=. --go-grpc_out=. --go-grpc_opt=paths=source_relative rpc/protocol/*.proto
 
 Write-Host "Generating proto definitions for TypeScript"
+Remove-Item .\client\src\rpc\protocol\*.js
+Remove-Item .\client\src\rpc\protocol\*.d.ts
 protoc.exe --plugin=protoc-gen-ts=.\client\node_modules\.bin\protoc-gen-ts.cmd --proto_path=. --js_out=import_style="commonjs,binary:./client/src" --ts_out=service=grpc-web:client/src rpc/protocol/*.proto

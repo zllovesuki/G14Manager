@@ -35,7 +35,7 @@ func (n *Notifier) Serve(haltCtx context.Context) error {
 	defer runtime.UnlockOSThread()
 
 	log.Println("[notifier] starting notify loop")
-	display, err := osd.NewOSD(450, 50, 22)
+	display, err := osd.NewOSD(480, 45, 24)
 	if err != nil {
 		log.Printf("[notifier] OSD not available: %s\n", err)
 		display = nil

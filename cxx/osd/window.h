@@ -1,6 +1,8 @@
 #ifndef WINDOW_H_
 #define WINDOW_H_
 
+#define DISPLAY_FONT "Segoe UI"
+
 #include <windows.h>
 #include <map>
 #include <string>

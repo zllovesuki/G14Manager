@@ -58,7 +58,7 @@ void Window::paint(HWND hwnd)
     PAINTSTRUCT ps{};
     HDC hdc{BeginPaint(hwnd, &ps)};
 
-    HFONT font{CreateFont(fontSize, 0, 0, 0, FW_REGULAR, 0, 0, 0, 0, 0, 0, CLEARTYPE_QUALITY, 0, "Segoe UI")};
+    HFONT font{CreateFont(fontSize, 0, 0, 0, FW_REGULAR, 0, 0, 0, 0, 0, 0, CLEARTYPE_QUALITY, 0, DISPLAY_FONT)};
     SelectObject(hdc, font);
 
     SetTextAlign(hdc, TA_CENTER | TA_BASELINE);
@@ -132,7 +132,7 @@ Window::Window(int width, int height) : windowWidth{width},
     SetLayeredWindowAttributes(windowHandle, RGB(255, 255, 255), 255 * 85 / 100, LWA_ALPHA);
 
     // preload font so it will load faster when we actually show text
-    HFONT preload{CreateFont(5, 0, 0, 0, FW_REGULAR, 0, 0, 0, 0, 0, 0, CLEARTYPE_QUALITY, 0, "Segoe UI")};
+    HFONT preload{CreateFont(5, 0, 0, 0, FW_REGULAR, 0, 0, 0, 0, 0, 0, CLEARTYPE_QUALITY, 0, DISPLAY_FONT)};
     DeleteObject(preload);
 }
 

@@ -155,5 +155,5 @@ int Window::getScreenCenterX() const
 
 int Window::getScreenCenterY() const
 {
-    return (GetSystemMetrics(SM_CYSCREEN) - windowHeight) * 1 / 8;
+    return (GetSystemMetrics(SM_CYSCREEN) - windowHeight) * 1 / 10;
 }

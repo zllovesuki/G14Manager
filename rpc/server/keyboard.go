@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"fmt"
-	"log"
 	"sync"
 
 	"github.com/zllovesuki/G14Manager/cxx/plugin/keyboard"
@@ -46,7 +45,7 @@ func (k *KeyboardServer) GetCurrentBrightness(ctx context.Context, _ *empty.Empt
 	return resp, nil
 }
 
-func (k *KeyboardServer) Set(ctx context.Context, req *protocol.SetKeyboardBrightnessRequest) (*protocol.KeyboardBrightnessResponse, error) {
+func (k *KeyboardServer) SetBrightness(ctx context.Context, req *protocol.SetKeyboardBrightnessRequest) (*protocol.KeyboardBrightnessResponse, error) {
 	if req == nil {
 		return nil, fmt.Errorf("nil request is invalid")
 	}
@@ -71,7 +70,7 @@ func (k *KeyboardServer) Set(ctx context.Context, req *protocol.SetKeyboardBrigh
 	return resp, nil
 }
 
-func (k *KeyboardServer) Change(ctx context.Context, req *protocol.ChangeKeyboardBrightnessRequest) (*protocol.KeyboardBrightnessResponse, error) {
+func (k *KeyboardServer) AdjustBrightness(ctx context.Context, req *protocol.AdjustKeyboardBrightnessRequest) (*protocol.KeyboardBrightnessResponse, error) {
 	if req == nil {
 		return nil, fmt.Errorf("nil request is invalid")
 	}
@@ -84,9 +83,9 @@ func (k *KeyboardServer) Change(ctx context.Context, req *protocol.ChangeKeyboar
 
 	var changeErr error
 	switch req.GetDirection() {
-	case protocol.ChangeKeyboardBrightnessRequest_DECREMENT:
+	case protocol.AdjustKeyboardBrightnessRequest_DECREMENT:
 		changeErr = k.control.BrightnessDown()
-	case protocol.ChangeKeyboardBrightnessRequest_INCREMENT:
+	case protocol.AdjustKeyboardBrightnessRequest_INCREMENT:
 		changeErr = k.control.BrightnessUp()
 	}
 	resp := &protocol.KeyboardBrightnessResponse{}
@@ -99,15 +98,6 @@ func (k *KeyboardServer) Change(ctx context.Context, req *protocol.ChangeKeyboar
 		resp.Brightness = toProtoLevel(k.control.CurrentBrightness())
 	}
 	return resp, nil
-}
-
-func (k *KeyboardServer) HotReload(ctrl *keyboard.Control) {
-	k.mu.Lock()
-	defer k.mu.Unlock()
-
-	log.Println("[gRPCServer] hot reloading keyboard server")
-
-	k.control = ctrl
 }
 
 func toProtoLevel(k keyboard.Level) protocol.Level {

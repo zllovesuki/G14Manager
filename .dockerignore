@@ -3,3 +3,4 @@ cxx/
 images/
 s/
 .git/
+client/node_modules

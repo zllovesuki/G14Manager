@@ -6,6 +6,10 @@ rnd/
 .vscode
 box/blob.go
 s/
+client/node_modules
+rpc/protocol/*.pb.go
+client/src/rpc/protocol/*.js
+client/src/rpc/protocol/*.d.ts
 
 *.rsuser
 *.suo

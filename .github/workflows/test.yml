@@ -20,13 +20,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
       - name: Generate protobuf
-        run: make proto_windows
+        shell: powershell
+        run: .\scripts\proto.ps1
       - name: Test G14Manager
         run: go test ./...
       - name: Build Main G14Manager Binary
         run: go build -o build\G14Manager.exe .\cmd\manager
-      - name: Build Main G14Manager Configurator
-        run: go build -o build\G14Manager.config.exe .\cmd\client
       - name: Build MatrixControl DLL (Release)
         run: MSBuild.exe .\cxx\MatrixController.sln /property:Configuration=Release /property:Platform=x64
       - name: Build MatrixControl DLL (Debug)

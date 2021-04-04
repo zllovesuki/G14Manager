@@ -7,16 +7,25 @@ import "google/protobuf/empty.proto";
 
 service KeyboardBrightness {
   rpc GetCurrentBrightness(google.protobuf.Empty)
-      returns(KeyboardBrightnessResponse) {}
-  rpc Set(SetKeyboardBrightnessRequest) returns(KeyboardBrightnessResponse) {}
-  rpc Change(ChangeKeyboardBrightnessRequest)
-      returns(KeyboardBrightnessResponse) {}
+      returns (KeyboardBrightnessResponse) {}
+  rpc SetBrightness(SetKeyboardBrightnessRequest)
+      returns (KeyboardBrightnessResponse) {}
+  rpc AdjustBrightness(AdjustKeyboardBrightnessRequest)
+      returns (KeyboardBrightnessResponse) {}
 }
 
-enum Level { OFF = 0; LOW = 1; MEDIUM = 2; HIGH = 3; }
+enum Level {
+  OFF = 0;
+  LOW = 1;
+  MEDIUM = 2;
+  HIGH = 3;
+}
 
-message ChangeKeyboardBrightnessRequest {
-  enum Step { INCREMENT = 0; DECREMENT = 1; }
+message AdjustKeyboardBrightnessRequest {
+  enum Step {
+    INCREMENT = 0;
+    DECREMENT = 1;
+  }
 
   Step Direction = 1;
 }

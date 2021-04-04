@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"fmt"
-	"log"
 	"sync"
 
 	"github.com/zllovesuki/G14Manager/rpc/protocol"
@@ -46,7 +45,7 @@ func (b *BatteryServer) GetCurrentLimit(ctx context.Context, _ *empty.Empty) (*p
 	return resp, nil
 }
 
-func (b *BatteryServer) Set(ctx context.Context, req *protocol.SetBatteryLimitRequest) (*protocol.BatteryChargeLimitResponse, error) {
+func (b *BatteryServer) SetChargeLimit(ctx context.Context, req *protocol.SetBatteryLimitRequest) (*protocol.BatteryChargeLimitResponse, error) {
 	if req == nil {
 		return nil, fmt.Errorf("nil request is invalid")
 	}
@@ -68,13 +67,4 @@ func (b *BatteryServer) Set(ctx context.Context, req *protocol.SetBatteryLimitRe
 		resp.Percentage = uint32(b.control.CurrentLimit())
 	}
 	return resp, nil
-}
-
-func (b *BatteryServer) HotReload(ctrl *battery.ChargeLimit) {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-
-	log.Println("[gRPCServer] hot reloading battery server")
-
-	b.control = ctrl
 }

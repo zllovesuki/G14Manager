@@ -42,7 +42,7 @@ type ManagerSupervisorResponse struct {
 }
 
 type ManagerServer struct {
-	protocol.UnimplementedManagerControlServer
+	protocol.UnimplementedManagerServer
 
 	control chan ManagerSupervisorRequest
 
@@ -50,13 +50,13 @@ type ManagerServer struct {
 	autoStart bool
 }
 
-var _ protocol.ManagerControlServer = &ManagerServer{}
+var _ protocol.ManagerServer = &ManagerServer{}
 
 func RegisterManagerServer(s *grpc.Server, ctrl chan ManagerSupervisorRequest) *ManagerServer {
 	server := &ManagerServer{
 		control: ctrl,
 	}
-	protocol.RegisterManagerControlServer(s, server)
+	protocol.RegisterManagerServer(s, server)
 	return server
 }
 

@@ -26,8 +26,6 @@ const (
 
 // NewEventListener will listen for PowerSuspendResumeNotification and send events to the channel
 func NewEventListener(haltCtx context.Context, eventCh chan uint32) error {
-	r := make(chan error)
-
 	go func() {
 		runtime.LockOSThread()
 		defer runtime.UnlockOSThread()
@@ -51,28 +49,19 @@ func NewEventListener(haltCtx context.Context, eventCh chan uint32) error {
 		handle := uintptr(0)
 
 		log.Println("power: registering suspend/resume notification")
-		ret, _, err := powerRegisterSuspendResumeNotification.Call(
+		powerRegisterSuspendResumeNotification.Call(
 			_DEVICE_NOTIFY_CALLBACK,
 			uintptr(unsafe.Pointer(&params)),
 			uintptr(unsafe.Pointer(&handle)),
 		)
-		if ret != 0 {
-			r <- err
-			return
-		}
-
-		r <- nil
 
 		<-haltCtx.Done()
 		log.Println("power: unregistering suspend/resume notification")
-		ret, _, err = powerUnregisterSuspendResumeNotification.Call(
+		powerUnregisterSuspendResumeNotification.Call(
 			uintptr(unsafe.Pointer(&handle)),
 		)
-		if ret != 87 { // despite non-zero ret, err is "The operation completed successfully."
-			log.Printf("power: unable to unregister: %+v\n", err)
-		}
 
 	}()
 
-	return <-r
+	return nil
 }
